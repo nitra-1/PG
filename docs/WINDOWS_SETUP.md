@@ -191,6 +191,28 @@ If you prefer Docker:
    - The installation may take 2-5 minutes depending on your internet connection
    - You should see "added XXX packages" message when complete
 
+### Step 3: Verify Setup (Optional but Recommended)
+
+Run the verification script to check if all prerequisites are installed correctly:
+
+**Using PowerShell (Recommended):**
+```powershell
+.\verify-setup.ps1
+```
+
+**Using Command Prompt:**
+```cmd
+verify-setup.bat
+```
+
+The script will check:
+- ✅ Node.js installation
+- ✅ npm installation
+- ✅ PostgreSQL installation
+- ✅ Redis/Memurai installation
+- ✅ Configuration file (.env)
+- ✅ Dependencies (node_modules)
+
 ---
 
 ## ⚙️ Configuration
@@ -579,6 +601,65 @@ Before deploying to production:
 - **Postman** - API testing
 - **Docker Desktop** - Containerization
 - **DBeaver** - Database management (alternative to pgAdmin)
+
+---
+
+## 📋 Quick Command Reference
+
+### Common npm Commands
+```cmd
+npm install          # Install all dependencies
+npm run dev          # Start development server
+npm start            # Start production server
+npm test             # Run tests
+npm run lint         # Run linter
+```
+
+### Database Commands
+```cmd
+# Connect to PostgreSQL
+psql -U postgres -d payment_gateway
+
+# Create database (if needed)
+createdb -U postgres payment_gateway
+
+# Check PostgreSQL service status
+sc query postgresql-x64-14
+```
+
+### Redis/Memurai Commands
+```cmd
+# Test Redis/Memurai connection
+memurai-cli ping
+# or
+redis-cli ping
+
+# Check service status
+sc query Memurai
+```
+
+### Git Commands
+```cmd
+git status           # Check repository status
+git pull             # Update to latest code
+git log              # View commit history
+```
+
+### Verification
+```cmd
+# Check versions
+node --version
+npm --version
+psql --version
+git --version
+
+# Check if port is in use
+netstat -ano | findstr :3000
+
+# Run setup verification
+.\verify-setup.ps1   # PowerShell
+verify-setup.bat     # Command Prompt
+```
 
 ---
 
