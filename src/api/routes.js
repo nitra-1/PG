@@ -1,0 +1,442 @@
+/**
+ * Payment Gateway API Routes
+ * RESTful API endpoints for payment processing
+ */
+
+const express = require('express');
+const router = express.Router();
+
+// Import services
+const PaymentGateway = require('../core/payment-gateway');
+const UPIService = require('../upi/upi-service');
+const PayInService = require('../payin/payin-service');
+const PayoutService = require('../payout/payout-service');
+const PAPGService = require('../papg/papg-service');
+const QRService = require('../qr/qr-service');
+const WalletService = require('../wallet/wallet-service');
+const BNPLService = require('../bnpl/bnpl-service');
+const EMIService = require('../emi/emi-service');
+const BiometricService = require('../biometric/biometric-service');
+const SecurityService = require('../security/security-service');
+
+// Initialize services
+const config = require('../config/config');
+const paymentGateway = new PaymentGateway(config);
+const upiService = new UPIService(config);
+const payInService = new PayInService({ ...config, paymentGateway });
+const payoutService = new PayoutService(config);
+const papgService = new PAPGService(config);
+const qrService = new QRService(config);
+const walletService = new WalletService(config);
+const bnplService = new BNPLService(config);
+const emiService = new EMIService(config);
+const biometricService = new BiometricService(config);
+const securityService = new SecurityService(config);
+
+// Middleware for authentication
+const authenticate = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const decoded = securityService.verifyJWT(token);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// ===== Payment Gateway Routes =====
+
+/**
+ * POST /api/payments/process
+ * Process payment through gateway
+ */
+router.post('/payments/process', authenticate, async (req, res) => {
+  try {
+    const result = await paymentGateway.processPayment(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/payments/:transactionId
+ * Get payment status
+ */
+router.get('/payments/:transactionId', authenticate, async (req, res) => {
+  try {
+    const result = await paymentGateway.getTransactionStatus(req.params.transactionId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/payments/:transactionId/refund
+ * Refund a transaction
+ */
+router.post('/payments/:transactionId/refund', authenticate, async (req, res) => {
+  try {
+    const result = await paymentGateway.refundTransaction(
+      req.params.transactionId,
+      req.body.amount
+    );
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== UPI Routes =====
+
+/**
+ * POST /api/upi/validate-vpa
+ * Validate UPI VPA
+ */
+router.post('/upi/validate-vpa', authenticate, async (req, res) => {
+  try {
+    const result = await upiService.validateVPA(req.body.vpa);
+    res.json({ valid: result });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/upi/collect
+ * Create UPI collect request
+ */
+router.post('/upi/collect', authenticate, async (req, res) => {
+  try {
+    const result = await upiService.createCollectRequest(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/upi/qr/generate
+ * Generate UPI QR code
+ */
+router.post('/upi/qr/generate', authenticate, async (req, res) => {
+  try {
+    const result = await upiService.generateQRCode(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/upi/intent
+ * Process UPI intent
+ */
+router.post('/upi/intent', authenticate, async (req, res) => {
+  try {
+    const result = await upiService.processIntent(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Pay-in Routes =====
+
+/**
+ * POST /api/payin/orders
+ * Create payment order
+ */
+router.post('/payin/orders', authenticate, async (req, res) => {
+  try {
+    const result = await payInService.createPaymentOrder(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/payin/orders/:orderId/pay
+ * Process payment for order
+ */
+router.post('/payin/orders/:orderId/pay', authenticate, async (req, res) => {
+  try {
+    const result = await payInService.processPayment({
+      orderId: req.params.orderId,
+      ...req.body
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/payin/orders/:orderId/status
+ * Get payment status
+ */
+router.get('/payin/orders/:orderId/status', authenticate, async (req, res) => {
+  try {
+    const result = await payInService.getPaymentStatus(req.params.orderId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Payout Routes =====
+
+/**
+ * POST /api/payout/beneficiaries
+ * Create beneficiary
+ */
+router.post('/payout/beneficiaries', authenticate, async (req, res) => {
+  try {
+    const result = await payoutService.createBeneficiary(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/payout/payouts
+ * Create payout
+ */
+router.post('/payout/payouts', authenticate, async (req, res) => {
+  try {
+    const result = await payoutService.createPayout(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/payout/payouts/bulk
+ * Create bulk payout
+ */
+router.post('/payout/payouts/bulk', authenticate, async (req, res) => {
+  try {
+    const result = await payoutService.createBulkPayout(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/payout/payouts/:payoutId
+ * Get payout status
+ */
+router.get('/payout/payouts/:payoutId', authenticate, async (req, res) => {
+  try {
+    const result = await payoutService.getPayoutStatus(req.params.payoutId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== QR Code Routes =====
+
+/**
+ * POST /api/qr/static
+ * Generate static QR code
+ */
+router.post('/qr/static', authenticate, async (req, res) => {
+  try {
+    const result = await qrService.generateStaticQR(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/qr/dynamic
+ * Generate dynamic QR code
+ */
+router.post('/qr/dynamic', authenticate, async (req, res) => {
+  try {
+    const result = await qrService.generateDynamicQR(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Wallet Routes =====
+
+/**
+ * POST /api/wallet/payment/initiate
+ * Initiate wallet payment
+ */
+router.post('/wallet/payment/initiate', authenticate, async (req, res) => {
+  try {
+    const result = await walletService.initiateWalletPayment(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/wallet/balance
+ * Check wallet balance
+ */
+router.get('/wallet/balance', authenticate, async (req, res) => {
+  try {
+    const result = await walletService.checkWalletBalance(req.query);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== BNPL Routes =====
+
+/**
+ * POST /api/bnpl/eligibility
+ * Check BNPL eligibility
+ */
+router.post('/bnpl/eligibility', authenticate, async (req, res) => {
+  try {
+    const result = await bnplService.checkEligibility(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/bnpl/orders
+ * Create BNPL order
+ */
+router.post('/bnpl/orders', authenticate, async (req, res) => {
+  try {
+    const result = await bnplService.createBNPLOrder(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== EMI Routes =====
+
+/**
+ * POST /api/emi/calculate
+ * Calculate EMI
+ */
+router.post('/emi/calculate', authenticate, async (req, res) => {
+  try {
+    const result = emiService.calculateEMI(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/emi/plans
+ * Get available EMI plans
+ */
+router.get('/emi/plans', authenticate, async (req, res) => {
+  try {
+    const result = await emiService.getAvailableEMIPlans(req.query);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/emi/transactions
+ * Create EMI transaction
+ */
+router.post('/emi/transactions', authenticate, async (req, res) => {
+  try {
+    const result = await emiService.createEMITransaction(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Biometric Routes =====
+
+/**
+ * POST /api/biometric/register
+ * Register biometric
+ */
+router.post('/biometric/register', authenticate, async (req, res) => {
+  try {
+    const result = await biometricService.registerBiometric(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/biometric/authenticate
+ * Authenticate with biometric
+ */
+router.post('/biometric/authenticate', async (req, res) => {
+  try {
+    const result = await biometricService.authenticateWithBiometric(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/biometric/payment
+ * Process biometric payment
+ */
+router.post('/biometric/payment', async (req, res) => {
+  try {
+    const result = await biometricService.processBiometricPayment(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Security Routes =====
+
+/**
+ * POST /api/security/kyc
+ * Perform KYC verification
+ */
+router.post('/security/kyc', authenticate, async (req, res) => {
+  try {
+    const result = await securityService.performKYC(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/security/aml-check
+ * Perform AML check
+ */
+router.post('/security/aml-check', authenticate, async (req, res) => {
+  try {
+    const result = await securityService.performAMLCheck(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+module.exports = router;
