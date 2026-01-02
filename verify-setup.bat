@@ -8,7 +8,7 @@ echo ========================================
 echo.
 
 REM Check Node.js
-echo [1/4] Checking Node.js installation...
+echo [1/5] Checking Node.js installation...
 where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [FAIL] Node.js is not installed or not in PATH
@@ -20,7 +20,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 
 REM Check npm
-echo [2/4] Checking npm installation...
+echo [2/5] Checking npm installation...
 where npm >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [FAIL] npm is not installed or not in PATH
@@ -31,7 +31,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 
 REM Check PostgreSQL
-echo [3/4] Checking PostgreSQL installation...
+echo [3/5] Checking PostgreSQL installation...
 where psql >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [WARN] PostgreSQL psql command not found in PATH
@@ -45,7 +45,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 
 REM Check Redis/Memurai
-echo [4/4] Checking Redis/Memurai installation...
+echo [4/5] Checking Redis/Memurai installation...
 where memurai-cli >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     where redis-cli >nul 2>&1
@@ -54,12 +54,16 @@ if %ERRORLEVEL% NEQ 0 (
         echo        For Redis: Install via WSL2 or Docker
         echo        For Memurai: Download from https://www.memurai.com/
     ) else (
-        redis-cli --version
+        redis-cli --version >nul 2>&1
         echo [OK] Redis CLI is installed
     )
 ) else (
-    memurai-cli --version
-    echo [OK] Memurai CLI is installed
+    memurai-cli ping >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        echo [OK] Memurai is installed and running
+    ) else (
+        echo [WARN] Memurai is installed but may not be running
+    )
 )
 echo.
 

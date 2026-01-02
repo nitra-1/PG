@@ -60,18 +60,24 @@ Write-Host ""
 Write-Host "[4/5] Checking Redis/Memurai installation..." -ForegroundColor Cyan
 $redisFound = $false
 try {
-    $memuraiVersion = memurai-cli --version 2>$null
-    if ($memuraiVersion) {
-        Write-Host "  [OK] Memurai is installed: $memuraiVersion" -ForegroundColor Green
+    $memuraiPing = memurai-cli ping 2>$null
+    if ($memuraiPing -eq "PONG") {
+        Write-Host "  [OK] Memurai is installed and running" -ForegroundColor Green
+        $redisFound = $true
+    } elseif ($LASTEXITCODE -eq 0 -or $memuraiPing) {
+        Write-Host "  [WARN] Memurai is installed but may not be running" -ForegroundColor Yellow
         $redisFound = $true
     }
 } catch {}
 
 if (-not $redisFound) {
     try {
-        $redisVersion = redis-cli --version 2>$null
-        if ($redisVersion) {
-            Write-Host "  [OK] Redis CLI is installed: $redisVersion" -ForegroundColor Green
+        $redisPing = redis-cli ping 2>$null
+        if ($redisPing -eq "PONG") {
+            Write-Host "  [OK] Redis is installed and running" -ForegroundColor Green
+            $redisFound = $true
+        } elseif ($LASTEXITCODE -eq 0 -or $redisPing) {
+            Write-Host "  [WARN] Redis is installed but may not be running" -ForegroundColor Yellow
             $redisFound = $true
         }
     } catch {}
