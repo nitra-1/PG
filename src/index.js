@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const path = require('path');
 const config = require('./config/config');
 const routes = require('./api/routes');
 
@@ -12,6 +13,9 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
 // CORS
 app.use((req, res, next) => {

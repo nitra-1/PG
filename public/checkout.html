@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Gateway - Checkout Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            padding: 30px 0;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .payment-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .order-summary {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .payment-method-btn {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .payment-method-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateY(-2px);
+        }
+
+        .payment-method-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .payment-method-btn .icon {
+            font-size: 2em;
+        }
+
+        .payment-method-btn .label {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .payment-form {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .payment-form.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .order-item:last-child {
+            border-bottom: none;
+        }
+
+        .order-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px 0;
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #667eea;
+            border-top: 3px solid #667eea;
+            margin-top: 20px;
+        }
+
+        .wallet-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .wallet-option {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .wallet-option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .wallet-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .qr-code-container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .qr-code-placeholder {
+            width: 250px;
+            height: 250px;
+            margin: 20px auto;
+            background: #f8f9fa;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #999;
+        }
+
+        .qr-code-placeholder img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .emi-plans {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .emi-plan {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .emi-plan:hover {
+            border-color: #667eea;
+        }
+
+        .emi-plan.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .emi-plan-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .emi-plan-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .biometric-option {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .biometric-option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .biometric-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .biometric-icon {
+            font-size: 2.5em;
+        }
+
+        .success-message {
+            display: none;
+            background: #4caf50;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .response-display {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .response-display.show {
+            display: block;
+        }
+
+        .response-display pre {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .order-summary {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 Payment Gateway Checkout</h1>
+            <p>Comprehensive Demo - All Payment Methods</p>
+        </div>
+
+        <div class="main-content">
+            <div class="payment-section">
+                <h2 class="section-title">Select Payment Method</h2>
+
+                <div class="payment-methods">
+                    <div class="payment-method-btn active" data-method="upi">
+                        <div class="icon">📱</div>
+                        <div class="label">UPI</div>
+                    </div>
+                    <div class="payment-method-btn" data-method="card">
+                        <div class="icon">💳</div>
+                        <div class="label">Card</div>
+                    </div>
+                    <div class="payment-method-btn" data-method="netbanking">
+                        <div class="icon">🏦</div>
+                        <div class="label">Net Banking</div>
+                    </div>
+                    <div class="payment-method-btn" data-method="wallet">
+                        <div class="icon">👛</div>
+                        <div class="label">Wallets</div>
+                    </div>
+                    <div class="payment-method-btn" data-method="qr">
+                        <div class="icon">📲</div>
+                        <div class="label">QR Code</div>
+                    </div>
+                    <div class="payment-method-btn" data-method="bnpl">
+                        <div class="icon">🛒</div>
+                        <div class="label">BNPL</div>
+                    </div>
+                    <div class="payment-method-btn" data-method="emi">
+                        <div class="icon">💰</div>
+                        <div class="label">EMI</div>
+                    </div>
+                    <div class="payment-method-btn" data-method="biometric">
+                        <div class="icon">👤</div>
+                        <div class="label">Biometric</div>
+                    </div>
+                </div>
+
+                <!-- UPI Payment Form -->
+                <div id="upi-form" class="payment-form active">
+                    <div class="info-box">
+                        <strong>UPI Payment:</strong> Pay directly from your bank account using UPI apps like Google Pay, PhonePe, Paytm, etc.
+                    </div>
+                    <form id="upi-payment-form">
+                        <div class="form-group">
+                            <label>UPI ID / VPA</label>
+                            <input type="text" id="upi-vpa" placeholder="yourname@bank" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="upi-customer-name" placeholder="Enter your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Mobile Number</label>
+                            <input type="tel" id="upi-mobile" placeholder="10-digit mobile number" required>
+                        </div>
+                        <button type="submit" class="submit-btn">Pay ₹2,499 via UPI</button>
+                    </form>
+                </div>
+
+                <!-- Card Payment Form -->
+                <div id="card-form" class="payment-form">
+                    <div class="info-box">
+                        <strong>Card Payment:</strong> We accept all major credit and debit cards. Your payment is secure and encrypted.
+                    </div>
+                    <form id="card-payment-form">
+                        <div class="form-group">
+                            <label>Card Number</label>
+                            <input type="text" id="card-number" placeholder="1234 5678 9012 3456" maxlength="19" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Cardholder Name</label>
+                            <input type="text" id="card-holder-name" placeholder="Name on card" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="text" id="card-expiry" placeholder="MM/YY" maxlength="5" required>
+                            </div>
+                            <div class="form-group">
+                                <label>CVV</label>
+                                <input type="text" id="card-cvv" placeholder="123" maxlength="4" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Card Type</label>
+                            <select id="card-type">
+                                <option value="credit">Credit Card</option>
+                                <option value="debit">Debit Card</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="submit-btn">Pay ₹2,499 via Card</button>
+                    </form>
+                </div>
+
+                <!-- Net Banking Form -->
+                <div id="netbanking-form" class="payment-form">
+                    <div class="info-box">
+                        <strong>Net Banking:</strong> Pay directly from your bank account. You will be redirected to your bank's website.
+                    </div>
+                    <form id="netbanking-payment-form">
+                        <div class="form-group">
+                            <label>Select Your Bank</label>
+                            <select id="bank-code" required>
+                                <option value="">-- Select Bank --</option>
+                                <option value="SBIN">State Bank of India</option>
+                                <option value="HDFC">HDFC Bank</option>
+                                <option value="ICIC">ICICI Bank</option>
+                                <option value="AXIS">Axis Bank</option>
+                                <option value="PUNB">Punjab National Bank</option>
+                                <option value="BOB">Bank of Baroda</option>
+                                <option value="KKBK">Kotak Mahindra Bank</option>
+                                <option value="INDB">IndusInd Bank</option>
+                                <option value="YESB">Yes Bank</option>
+                                <option value="IDIB">IDBI Bank</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="netbanking-customer-name" placeholder="Enter your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="netbanking-email" placeholder="your@email.com" required>
+                        </div>
+                        <button type="submit" class="submit-btn">Pay ₹2,499 via Net Banking</button>
+                    </form>
+                </div>
+
+                <!-- Wallet Payment Form -->
+                <div id="wallet-form" class="payment-form">
+                    <div class="info-box">
+                        <strong>Digital Wallets:</strong> Pay using your preferred digital wallet.
+                    </div>
+                    <form id="wallet-payment-form">
+                        <div class="form-group">
+                            <label>Select Wallet</label>
+                            <div class="wallet-grid">
+                                <div class="wallet-option" data-wallet="paytm">
+                                    <div style="font-size: 2em;">💙</div>
+                                    <div>Paytm</div>
+                                </div>
+                                <div class="wallet-option" data-wallet="phonepe">
+                                    <div style="font-size: 2em;">💜</div>
+                                    <div>PhonePe</div>
+                                </div>
+                                <div class="wallet-option" data-wallet="googlepay">
+                                    <div style="font-size: 2em;">🔵</div>
+                                    <div>Google Pay</div>
+                                </div>
+                                <div class="wallet-option" data-wallet="amazonpay">
+                                    <div style="font-size: 2em;">🟠</div>
+                                    <div>Amazon Pay</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="selected-wallet" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Mobile Number</label>
+                            <input type="tel" id="wallet-mobile" placeholder="Registered mobile number" required>
+                        </div>
+                        <button type="submit" class="submit-btn">Pay ₹2,499 via Wallet</button>
+                    </form>
+                </div>
+
+                <!-- QR Code Payment Form -->
+                <div id="qr-form" class="payment-form">
+                    <div class="info-box">
+                        <strong>QR Code Payment:</strong> Scan the QR code with any UPI app to make the payment.
+                    </div>
+                    <form id="qr-payment-form">
+                        <div class="qr-code-container">
+                            <div class="qr-code-placeholder" id="qr-display">
+                                <span>Click "Generate QR" to create payment QR code</span>
+                            </div>
+                            <p style="color: #666; margin-top: 15px;">
+                                Scan with any UPI app (Google Pay, PhonePe, Paytm, etc.)
+                            </p>
+                        </div>
+                        <button type="submit" class="submit-btn">Generate QR Code</button>
+                    </form>
+                </div>
+
+                <!-- BNPL Payment Form -->
+                <div id="bnpl-form" class="payment-form">
+                    <div class="info-box">
+                        <strong>Buy Now Pay Later:</strong> Split your payment over time with no additional cost.
+                    </div>
+                    <form id="bnpl-payment-form">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="bnpl-name" placeholder="Enter your full name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="bnpl-email" placeholder="your@email.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Mobile Number</label>
+                            <input type="tel" id="bnpl-mobile" placeholder="10-digit mobile number" required>
+                        </div>
+                        <div class="form-group">
+                            <label>PAN Number</label>
+                            <input type="text" id="bnpl-pan" placeholder="ABCDE1234F" maxlength="10" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Monthly Income</label>
+                            <select id="bnpl-income" required>
+                                <option value="">-- Select Range --</option>
+                                <option value="25000-50000">₹25,000 - ₹50,000</option>
+                                <option value="50000-100000">₹50,000 - ₹1,00,000</option>
+                                <option value="100000+">₹1,00,000+</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="submit-btn">Check Eligibility & Pay</button>
+                    </form>
+                </div>
+
+                <!-- EMI Payment Form -->
+                <div id="emi-form" class="payment-form">
+                    <div class="info-box">
+                        <strong>EMI Payment:</strong> Convert your payment into easy monthly installments.
+                    </div>
+                    <form id="emi-payment-form">
+                        <div class="form-group">
+                            <label>Card Number</label>
+                            <input type="text" id="emi-card-number" placeholder="1234 5678 9012 3456" maxlength="19" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Select EMI Plan</label>
+                            <div class="emi-plans">
+                                <div class="emi-plan" data-tenure="3">
+                                    <div class="emi-plan-header">
+                                        <span>3 Months</span>
+                                        <span>₹850/month</span>
+                                    </div>
+                                    <div class="emi-plan-details">Interest: 5% | Total: ₹2,550</div>
+                                </div>
+                                <div class="emi-plan" data-tenure="6">
+                                    <div class="emi-plan-header">
+                                        <span>6 Months</span>
+                                        <span>₹437/month</span>
+                                    </div>
+                                    <div class="emi-plan-details">Interest: 7% | Total: ₹2,622</div>
+                                </div>
+                                <div class="emi-plan" data-tenure="9">
+                                    <div class="emi-plan-header">
+                                        <span>9 Months</span>
+                                        <span>₹299/month</span>
+                                    </div>
+                                    <div class="emi-plan-details">Interest: 9% | Total: ₹2,691</div>
+                                </div>
+                                <div class="emi-plan" data-tenure="12">
+                                    <div class="emi-plan-header">
+                                        <span>12 Months</span>
+                                        <span>₹230/month</span>
+                                    </div>
+                                    <div class="emi-plan-details">Interest: 11% | Total: ₹2,760</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="selected-emi-tenure" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Cardholder Name</label>
+                            <input type="text" id="emi-card-holder" placeholder="Name on card" required>
+                        </div>
+                        <button type="submit" class="submit-btn">Pay via EMI</button>
+                    </form>
+                </div>
+
+                <!-- Biometric Payment Form -->
+                <div id="biometric-form" class="payment-form">
+                    <div class="info-box">
+                        <strong>Biometric Payment:</strong> Quick and secure payment using biometric authentication.
+                    </div>
+                    <form id="biometric-payment-form">
+                        <div class="form-group">
+                            <label>Select Authentication Method</label>
+                            <div class="biometric-option" data-biometric="fingerprint">
+                                <div class="biometric-icon">👆</div>
+                                <div>
+                                    <div style="font-weight: 600;">Fingerprint</div>
+                                    <div style="font-size: 0.9em; color: #666;">Use your fingerprint sensor</div>
+                                </div>
+                            </div>
+                            <div class="biometric-option" data-biometric="face">
+                                <div class="biometric-icon">😊</div>
+                                <div>
+                                    <div style="font-weight: 600;">Face Recognition</div>
+                                    <div style="font-size: 0.9em; color: #666;">Use facial recognition</div>
+                                </div>
+                            </div>
+                            <div class="biometric-option" data-biometric="aadhaar">
+                                <div class="biometric-icon">🆔</div>
+                                <div>
+                                    <div style="font-weight: 600;">Aadhaar EKYC</div>
+                                    <div style="font-size: 0.9em; color: #666;">Aadhaar-based authentication</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="selected-biometric" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Mobile Number</label>
+                            <input type="tel" id="biometric-mobile" placeholder="Registered mobile number" required>
+                        </div>
+                        <button type="submit" class="submit-btn">Authenticate & Pay ₹2,499</button>
+                    </form>
+                </div>
+
+                <!-- Response Display -->
+                <div id="response-display" class="response-display">
+                    <h3>API Response:</h3>
+                    <pre id="response-content"></pre>
+                </div>
+            </div>
+
+            <div class="order-summary">
+                <h2 class="section-title">Order Summary</h2>
+                <div class="order-item">
+                    <div>
+                        <div style="font-weight: 600;">Premium Subscription</div>
+                        <div style="font-size: 0.9em; color: #666;">1 Year Plan</div>
+                    </div>
+                    <div style="font-weight: 600;">₹1,999</div>
+                </div>
+                <div class="order-item">
+                    <div>
+                        <div style="font-weight: 600;">Service Charge</div>
+                    </div>
+                    <div style="font-weight: 600;">₹300</div>
+                </div>
+                <div class="order-item">
+                    <div>
+                        <div style="font-weight: 600;">GST (18%)</div>
+                    </div>
+                    <div style="font-weight: 600;">₹200</div>
+                </div>
+                <div class="order-total">
+                    <span>Total</span>
+                    <span>₹2,499</span>
+                </div>
+                <div style="margin-top: 20px; padding: 15px; background: #f0f4ff; border-radius: 8px;">
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                        <strong>Secure Payment</strong>
+                    </div>
+                    <div style="font-size: 0.85em; color: #666;">
+                        🔒 Your payment information is encrypted and secure<br>
+                        ✅ PCI-DSS Level 1 Certified<br>
+                        📱 Instant payment confirmation
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE_URL = window.location.origin;
+        let authToken = '';
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Generate demo token
+            await generateDemoToken();
+
+            // Setup event listeners
+            setupPaymentMethodButtons();
+            setupFormSubmissions();
+            setupWalletSelection();
+            setupEMISelection();
+            setupBiometricSelection();
+            setupCardFormatting();
+        });
+
+        // Generate demo authentication token
+        async function generateDemoToken() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/demo/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: 'demo-user',
+                        name: 'Demo Customer'
+                    })
+                });
+
+                const data = await response.json();
+                authToken = data.token;
+                console.log('Demo token generated successfully');
+            } catch (error) {
+                console.error('Failed to generate demo token:', error);
+                alert('Failed to initialize demo. Please refresh the page.');
+            }
+        }
+
+        // Payment method button handling
+        function setupPaymentMethodButtons() {
+            const buttons = document.querySelectorAll('.payment-method-btn');
+            const forms = document.querySelectorAll('.payment-form');
+
+            buttons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const method = button.dataset.method;
+
+                    // Update active button
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    // Show corresponding form
+                    forms.forEach(form => form.classList.remove('active'));
+                    document.getElementById(`${method}-form`).classList.add('active');
+
+                    // Hide response
+                    document.getElementById('response-display').classList.remove('show');
+                });
+            });
+        }
+
+        // Form submissions
+        function setupFormSubmissions() {
+            // UPI Form
+            document.getElementById('upi-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await processPayment('upi', {
+                    paymentMethod: 'upi',
+                    vpa: document.getElementById('upi-vpa').value,
+                    customerName: document.getElementById('upi-customer-name').value,
+                    mobile: document.getElementById('upi-mobile').value,
+                    amount: 2499,
+                    currency: 'INR',
+                    customerId: 'DEMO_CUST_001'
+                });
+            });
+
+            // Card Form
+            document.getElementById('card-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await processPayment('card', {
+                    paymentMethod: 'card',
+                    cardNumber: document.getElementById('card-number').value.replace(/\s/g, ''),
+                    cardHolderName: document.getElementById('card-holder-name').value,
+                    expiryDate: document.getElementById('card-expiry').value,
+                    cvv: document.getElementById('card-cvv').value,
+                    cardType: document.getElementById('card-type').value,
+                    amount: 2499,
+                    currency: 'INR',
+                    customerId: 'DEMO_CUST_001'
+                });
+            });
+
+            // Net Banking Form
+            document.getElementById('netbanking-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await processPayment('netbanking', {
+                    paymentMethod: 'netbanking',
+                    bankCode: document.getElementById('bank-code').value,
+                    customerName: document.getElementById('netbanking-customer-name').value,
+                    email: document.getElementById('netbanking-email').value,
+                    amount: 2499,
+                    currency: 'INR',
+                    customerId: 'DEMO_CUST_001'
+                });
+            });
+
+            // Wallet Form
+            document.getElementById('wallet-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const wallet = document.getElementById('selected-wallet').value;
+                if (!wallet) {
+                    alert('Please select a wallet');
+                    return;
+                }
+                await processPayment('wallet', {
+                    walletProvider: wallet,
+                    mobile: document.getElementById('wallet-mobile').value,
+                    amount: 2499,
+                    currency: 'INR',
+                    customerId: 'DEMO_CUST_001'
+                });
+            });
+
+            // QR Code Form
+            document.getElementById('qr-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await generateQRCode();
+            });
+
+            // BNPL Form
+            document.getElementById('bnpl-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await processPayment('bnpl', {
+                    name: document.getElementById('bnpl-name').value,
+                    email: document.getElementById('bnpl-email').value,
+                    mobile: document.getElementById('bnpl-mobile').value,
+                    pan: document.getElementById('bnpl-pan').value,
+                    monthlyIncome: document.getElementById('bnpl-income').value,
+                    amount: 2499,
+                    currency: 'INR',
+                    customerId: 'DEMO_CUST_001'
+                });
+            });
+
+            // EMI Form
+            document.getElementById('emi-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const tenure = document.getElementById('selected-emi-tenure').value;
+                if (!tenure) {
+                    alert('Please select an EMI plan');
+                    return;
+                }
+                await processPayment('emi', {
+                    cardNumber: document.getElementById('emi-card-number').value.replace(/\s/g, ''),
+                    cardHolderName: document.getElementById('emi-card-holder').value,
+                    emiTenure: parseInt(tenure),
+                    amount: 2499,
+                    currency: 'INR',
+                    customerId: 'DEMO_CUST_001'
+                });
+            });
+
+            // Biometric Form
+            document.getElementById('biometric-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const biometricType = document.getElementById('selected-biometric').value;
+                if (!biometricType) {
+                    alert('Please select an authentication method');
+                    return;
+                }
+                await processPayment('biometric', {
+                    biometricType: biometricType,
+                    mobile: document.getElementById('biometric-mobile').value,
+                    amount: 2499,
+                    currency: 'INR',
+                    customerId: 'DEMO_CUST_001'
+                });
+            });
+        }
+
+        // Process payment
+        async function processPayment(method, data) {
+            try {
+                showLoading(true);
+                
+                const response = await fetch(`${API_BASE_URL}/api/payments/process`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                displayResponse(result);
+                
+                if (result.success || result.status === 'success' || result.transactionId) {
+                    showSuccess();
+                }
+            } catch (error) {
+                displayResponse({ error: error.message, success: false });
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Generate QR Code
+        async function generateQRCode() {
+            try {
+                showLoading(true);
+                
+                const response = await fetch(`${API_BASE_URL}/api/qr/dynamic`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        amount: 2499,
+                        currency: 'INR',
+                        merchantVPA: 'merchant@bank',
+                        merchantName: 'Demo Merchant',
+                        purpose: 'Payment for Premium Subscription'
+                    })
+                });
+
+                const result = await response.json();
+                displayResponse(result);
+
+                if (result.qrCode) {
+                    const qrDisplay = document.getElementById('qr-display');
+                    qrDisplay.innerHTML = `<img src="${result.qrCode}" alt="QR Code">`;
+                }
+            } catch (error) {
+                displayResponse({ error: error.message, success: false });
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Display API response
+        function displayResponse(data) {
+            const responseDisplay = document.getElementById('response-display');
+            const responseContent = document.getElementById('response-content');
+            responseContent.textContent = JSON.stringify(data, null, 2);
+            responseDisplay.classList.add('show');
+        }
+
+        // Show success message
+        function showSuccess() {
+            alert('✅ Payment processed successfully! (Demo mode)');
+        }
+
+        // Show loading state
+        function showLoading(show) {
+            const buttons = document.querySelectorAll('.submit-btn');
+            buttons.forEach(btn => {
+                btn.disabled = show;
+                btn.textContent = show ? 'Processing...' : btn.textContent.replace('Processing...', 'Pay');
+            });
+        }
+
+        // Wallet selection
+        function setupWalletSelection() {
+            const walletOptions = document.querySelectorAll('.wallet-option');
+            walletOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    walletOptions.forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                    document.getElementById('selected-wallet').value = option.dataset.wallet;
+                });
+            });
+        }
+
+        // EMI selection
+        function setupEMISelection() {
+            const emiPlans = document.querySelectorAll('.emi-plan');
+            emiPlans.forEach(plan => {
+                plan.addEventListener('click', () => {
+                    emiPlans.forEach(p => p.classList.remove('selected'));
+                    plan.classList.add('selected');
+                    document.getElementById('selected-emi-tenure').value = plan.dataset.tenure;
+                });
+            });
+        }
+
+        // Biometric selection
+        function setupBiometricSelection() {
+            const biometricOptions = document.querySelectorAll('.biometric-option');
+            biometricOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    biometricOptions.forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                    document.getElementById('selected-biometric').value = option.dataset.biometric;
+                });
+            });
+        }
+
+        // Card number formatting
+        function setupCardFormatting() {
+            const cardInputs = document.querySelectorAll('#card-number, #emi-card-number');
+            cardInputs.forEach(input => {
+                input.addEventListener('input', (e) => {
+                    let value = e.target.value.replace(/\s/g, '');
+                    let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+                    e.target.value = formattedValue;
+                });
+            });
+
+            // Expiry date formatting
+            const expiryInput = document.getElementById('card-expiry');
+            expiryInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length >= 2) {
+                    value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                }
+                e.target.value = value;
+            });
+        }
+    </script>
+</body>
+</html>
