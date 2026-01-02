@@ -13,11 +13,17 @@ class PayUGateway {
    * Process payment through PayU
    * @param {Object} paymentData - Payment details
    * @returns {Promise<Object>} Payment response
+   * @note PLACEHOLDER IMPLEMENTATION - Replace with actual PayU API integration
    */
   async process(paymentData) {
     try {
-      // Simulate payment processing
+      // PLACEHOLDER: This is a mock implementation for development
       // In production, integrate with actual PayU API
+      // TODO: Add proper payment processing logic
+      
+      if (!paymentData) {
+        throw new Error('Payment data is required');
+      }
       
       return {
         success: true,
@@ -35,10 +41,13 @@ class PayUGateway {
    * Verify payment hash
    * @param {Object} data - Payment verification data
    * @returns {boolean} Verification result
+   * @note PLACEHOLDER IMPLEMENTATION - NOT SECURE FOR PRODUCTION
    */
   verifyHash(data) {
-    // Implement PayU hash verification
-    return true;
+    // PLACEHOLDER: This always returns true for development
+    // TODO: Implement actual PayU hash verification using merchant salt
+    // WARNING: This is not secure and should not be used in production
+    throw new Error('Hash verification not implemented - integrate PayU SDK');
   }
 }
 
