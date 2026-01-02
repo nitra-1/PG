@@ -79,9 +79,16 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 
 Create a `.env` file in the root directory. See `src/config/config.js` for all available configuration options.
 
-## 📚 API Documentation
+## 📚 Documentation
 
-For complete API documentation, see [docs/API.md](docs/API.md)
+### For E-commerce Integration
+- **[E-commerce Integration Guide](docs/ECOMMERCE_INTEGRATION.md)** - Complete guide with code examples and step-by-step instructions for integrating payment gateway into your e-commerce platform
+- **[Payment Flow Diagrams](docs/PAYMENT_FLOW_DIAGRAMS.md)** - Visual flow diagrams for all payment scenarios including UPI, Card, Net Banking, and Webhooks
+
+### General Documentation
+- **[API Reference](docs/API.md)** - Complete API documentation with all endpoints
+- **[Security Guidelines](docs/SECURITY.md)** - Security best practices and compliance information
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Instructions for deploying the payment gateway
 
 ### Quick Start - Payment Processing
 
