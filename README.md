@@ -8,6 +8,7 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 ## 🎯 Quick Links
 
 - **[📘 Quick Start Guide](docs/QUICK_START.md)** - Get started in 5 minutes
+- **[🪟 Windows 11 Setup Guide](docs/WINDOWS_SETUP.md)** - Complete Windows setup instructions
 - **[🛒 E-commerce Integration Guide](docs/ECOMMERCE_INTEGRATION.md)** - Complete integration tutorial
 - **[📊 Payment Flow Diagrams](docs/PAYMENT_FLOW_DIAGRAMS.md)** - Visual flow diagrams
 
@@ -55,6 +56,8 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 
 ## 🔧 Installation
 
+### Quick Setup (Linux/macOS)
+
 1. **Clone the repository**
    ```bash
    git clone https://github.com/nitra-1/PG.git
@@ -80,6 +83,10 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
    # Production
    npm start
    ```
+
+### Windows 11 Setup
+
+For detailed Windows 11 setup instructions including prerequisites installation (Node.js, PostgreSQL, Redis), see the **[Windows 11 Setup Guide](docs/WINDOWS_SETUP.md)**.
 
 ## 🔐 Configuration
 

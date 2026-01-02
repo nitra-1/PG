@@ -7,6 +7,7 @@ Welcome to the Payment Gateway documentation! This hub provides an overview of a
 ```
 docs/
 ├── QUICK_START.md              ← Start here! 5-minute guide
+├── WINDOWS_SETUP.md            ← Windows 11 setup guide
 ├── ECOMMERCE_INTEGRATION.md    ← Complete integration guide
 ├── PAYMENT_FLOW_DIAGRAMS.md    ← Visual flow diagrams
 ├── API.md                      ← API reference
@@ -21,6 +22,13 @@ docs/
 - 5-minute setup
 - Essential code snippets
 - Minimal configuration
+
+### I'm using Windows 11
+**→ [Windows 11 Setup Guide](WINDOWS_SETUP.md)**
+- Complete Windows setup instructions
+- Prerequisites installation (Node.js, PostgreSQL, Redis)
+- Step-by-step configuration
+- Windows-specific troubleshooting
 
 ### I'm integrating into an e-commerce platform
 **→ [E-commerce Integration Guide](ECOMMERCE_INTEGRATION.md)**
@@ -189,6 +197,13 @@ Hour 4: Deploy to staging
 ✅ Docker deployment  
 ✅ Kubernetes deployment  
 ✅ Configuration  
+
+### Windows 11 Setup Guide (15KB, 560+ lines)
+✅ Complete Windows installation instructions  
+✅ Prerequisites setup (Node.js, PostgreSQL, Redis)  
+✅ Step-by-step configuration  
+✅ Windows-specific troubleshooting  
+✅ Verification steps  
 
 ## 🔍 Quick Search
 
