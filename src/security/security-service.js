@@ -150,9 +150,9 @@ class SecurityService {
 
       // Verify signature
       const expectedSignature = this.generateHMAC(`${encodedHeader}.${encodedPayload}`);
-      const providedSignature = Buffer.from(encodedSignature, 'base64url').toString('hex');
+      const expectedSignatureEncoded = Buffer.from(expectedSignature).toString('base64url');
 
-      if (expectedSignature !== providedSignature) {
+      if (expectedSignatureEncoded !== encodedSignature) {
         throw new Error('Invalid token signature');
       }
 

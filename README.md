@@ -7,6 +7,7 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 
 ## 🎯 Quick Links
 
+- **[💳 Sample Checkout Page](CHECKOUT_QUICKSTART.md)** - Try the live demo checkout page
 - **[📘 Quick Start Guide](docs/QUICK_START.md)** - Get started in 5 minutes
 - **[🪟 Windows 11 Setup Guide](docs/WINDOWS_SETUP.md)** - Complete Windows setup instructions
 - **[🛒 E-commerce Integration Guide](docs/ECOMMERCE_INTEGRATION.md)** - Complete integration tutorial
@@ -84,9 +85,27 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
    npm start
    ```
 
+5. **Access the sample checkout page**
+   ```
+   Open http://localhost:3000/checkout.html
+   ```
+   See [CHECKOUT_QUICKSTART.md](CHECKOUT_QUICKSTART.md) for testing instructions.
+
 ### Windows 11 Setup
 
 For detailed Windows 11 setup instructions including prerequisites installation (Node.js, PostgreSQL, Redis), see the **[Windows 11 Setup Guide](docs/WINDOWS_SETUP.md)**.
+
+## 💳 Sample Checkout Page
+
+A fully functional checkout demo page is included at `/checkout.html` with:
+- All 8 payment methods (UPI, Card, Net Banking, Wallets, QR, BNPL, EMI, Biometric)
+- Real-time API integration
+- Modern, responsive UI
+- Auto-generated demo tokens for testing
+
+**Quick Access:** `http://localhost:3000/checkout.html`
+
+For more details, see [CHECKOUT_QUICKSTART.md](CHECKOUT_QUICKSTART.md)
 
 ## 🔐 Configuration
 

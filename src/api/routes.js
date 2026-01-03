@@ -439,4 +439,31 @@ router.post('/security/aml-check', authenticate, async (req, res) => {
   }
 });
 
+// ===== Demo/Testing Routes =====
+
+/**
+ * POST /api/demo/token
+ * Generate demo authentication token for testing
+ */
+router.post('/demo/token', async (req, res) => {
+  try {
+    const { userId = 'demo-user', name = 'Demo Customer' } = req.body;
+    
+    const token = securityService.generateJWT({
+      userId: userId,
+      name: name,
+      role: 'customer'
+    }, 3600); // 1 hour expiration
+    
+    res.json({
+      success: true,
+      token: token,
+      expiresIn: 3600,
+      message: 'Demo token generated successfully'
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 module.exports = router;
