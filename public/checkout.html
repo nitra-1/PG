@@ -364,6 +364,8 @@
             background: #f8f9fa;
             border-radius: 8px;
             display: none;
+            max-width: 100%;
+            overflow-wrap: break-word;
         }
 
         .response-display.show {
@@ -377,6 +379,9 @@
             border-radius: 5px;
             overflow-x: auto;
             font-size: 0.9em;
+            word-break: break-all;
+            white-space: pre-wrap;
+            max-width: 100%;
         }
 
         @media (max-width: 968px) {
