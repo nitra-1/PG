@@ -990,11 +990,10 @@
                 const result = await response.json();
                 displayResponse(result);
 
+                const qrDisplay = document.getElementById('qr-display');
                 if (result.qrCodeImage) {
-                    const qrDisplay = document.getElementById('qr-display');
                     qrDisplay.innerHTML = `<img src="${result.qrCodeImage}" alt="QR Code">`;
                 } else if (result.error) {
-                    const qrDisplay = document.getElementById('qr-display');
                     qrDisplay.innerHTML = `<span style="color: red;">Error: ${result.error}</span>`;
                 }
             } catch (error) {
