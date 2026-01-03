@@ -977,20 +977,24 @@
                         'Authorization': `Bearer ${authToken}`
                     },
                     body: JSON.stringify({
-                        amount: 2499,
-                        currency: 'INR',
-                        merchantVPA: 'merchant@bank',
+                        merchantId: 'DEMO_MERCHANT_001',
                         merchantName: 'Demo Merchant',
-                        purpose: 'Payment for Premium Subscription'
+                        merchantVPA: 'merchant@bank',
+                        amount: 2499,
+                        orderId: `ORDER_${Date.now()}`,
+                        description: 'Payment for Premium Subscription',
+                        currency: 'INR'
                     })
                 });
 
                 const result = await response.json();
                 displayResponse(result);
 
-                if (result.qrCode) {
-                    const qrDisplay = document.getElementById('qr-display');
-                    qrDisplay.innerHTML = `<img src="${result.qrCode}" alt="QR Code">`;
+                const qrDisplay = document.getElementById('qr-display');
+                if (result.qrCodeImage) {
+                    qrDisplay.innerHTML = `<img src="${result.qrCodeImage}" alt="QR Code">`;
+                } else if (result.error) {
+                    qrDisplay.innerHTML = `<span style="color: red;">Error: ${result.error}</span>`;
                 }
             } catch (error) {
                 displayResponse({ error: error.message, success: false });
