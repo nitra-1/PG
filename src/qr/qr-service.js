@@ -3,6 +3,8 @@
  * Handles static and dynamic QR code generation for payments
  */
 
+const QRCode = require('qrcode');
+
 class QRService {
   constructor(config) {
     this.config = config;
@@ -182,11 +184,19 @@ class QRService {
    * @returns {Promise<string>} Base64 encoded QR image
    */
   async generateQRImage(data) {
-    // In production, use QR code library like 'qrcode'
-    // This is a placeholder that simulates QR generation
-    
-    // Mock base64 image data
-    return `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==`;
+    try {
+      // Generate QR code as data URL
+      const qrCodeDataUrl = await QRCode.toDataURL(data, {
+        errorCorrectionLevel: 'M',
+        type: 'image/png',
+        width: 300,
+        margin: 2
+      });
+      
+      return qrCodeDataUrl;
+    } catch (error) {
+      throw new Error(`QR code image generation failed: ${error.message}`);
+    }
   }
 
   /**
