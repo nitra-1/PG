@@ -76,7 +76,16 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
    # Edit .env with your configuration
    ```
 
-4. **Start the server**
+4. **Setup database**
+   ```bash
+   # Create the database
+   createdb payment_gateway
+   
+   # Run migrations and seeds
+   npm run db:setup
+   ```
+
+5. **Start the server**
    ```bash
    # Development
    npm run dev
@@ -85,7 +94,7 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
    npm start
    ```
 
-5. **Access the sample checkout page**
+6. **Access the sample checkout page**
    ```
    Open http://localhost:3000/checkout.html
    ```
@@ -115,6 +124,10 @@ Create a `.env` file in the root directory. See `src/config/config.js` for all a
 
 ### Getting Started
 - **[Quick Start Guide](docs/QUICK_START.md)** - Get up and running in 5 minutes with code examples
+
+### Database
+- **[Database Setup Guide](docs/DATABASE_SETUP.md)** - Complete database setup, migrations, and multi-tenancy configuration
+- **[Database Usage Examples](docs/DATABASE_USAGE.md)** - Practical examples for database operations and queries
 
 ### For E-commerce Integration
 - **[E-commerce Integration Guide](docs/ECOMMERCE_INTEGRATION.md)** - Complete guide with code examples and step-by-step instructions for integrating payment gateway into your e-commerce platform

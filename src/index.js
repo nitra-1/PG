@@ -7,8 +7,12 @@ const express = require('express');
 const path = require('path');
 const config = require('./config/config');
 const routes = require('./api/routes');
+const db = require('./database');
 
 const app = express();
+
+// Initialize database connection pool
+db.initializePool();
 
 // Middleware
 app.use(express.json());
@@ -39,11 +43,14 @@ app.use((req, res, next) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+  const dbHealth = await db.healthCheck();
+  
   res.json({
-    status: 'healthy',
+    status: dbHealth.healthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    database: dbHealth
   });
 });
 
@@ -116,15 +123,30 @@ Ready to process payments! 🚀
 // Graceful Shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
+  server.close(async () => {
     console.log('HTTP server closed');
+    try {
+      await db.closePool();
+      console.log('Database pool closed');
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+    }
     process.exit(0);
   });
 });
 
 process.on('SIGINT', () => {
   console.log('SIGINT signal received: closing HTTP server');
-  process.exit(0);
+  server.close(async () => {
+    console.log('HTTP server closed');
+    try {
+      await db.closePool();
+      console.log('Database pool closed');
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+    }
+    process.exit(0);
+  });
 });
 
 module.exports = app;
