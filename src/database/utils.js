@@ -7,9 +7,29 @@ const db = require('./connection');
 const config = require('../config/config');
 
 /**
+ * Validate table name against allowed tables
+ */
+const ALLOWED_TABLES = [
+  'transactions',
+  'payment_orders',
+  'audit_logs',
+  'merchants',
+  'beneficiaries'
+];
+
+function validateTableName(tableName) {
+  if (!ALLOWED_TABLES.includes(tableName)) {
+    throw new Error(`Invalid table name: ${tableName}`);
+  }
+  return tableName;
+}
+
+/**
  * Insert a record with tenant_id
  */
 async function insertWithTenant(tableName, data, tenantId) {
+  validateTableName(tableName);
+  
   if (config.database.multiTenancy.enabled && !tenantId) {
     throw new Error('Tenant ID is required for insert operation');
   }
@@ -18,21 +38,51 @@ async function insertWithTenant(tableName, data, tenantId) {
     ? { ...data, tenant_id: tenantId }
     : data;
 
+  const columns = Object.keys(insertData);
+  const values = Object.values(insertData);
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+
   const query = `
     INSERT INTO ${tableName} 
-    (${Object.keys(insertData).join(', ')}) 
-    VALUES (${Object.keys(insertData).map((_, i) => `$${i + 1}`).join(', ')})
+    (${columns.join(', ')}) 
+    VALUES (${placeholders})
     RETURNING *
   `;
 
-  const result = await db.query(query, Object.values(insertData));
+  const result = await db.query(query, values);
   return result.rows[0];
+}
+
+/**
+ * Get schema for a table - returns allowed columns
+ */
+const TABLE_SCHEMAS = {
+  transactions: ['id', 'tenant_id', 'order_id', 'transaction_ref', 'payment_method', 'gateway', 'amount', 'currency', 'status', 'customer_email', 'customer_phone', 'customer_name', 'metadata', 'gateway_transaction_id', 'gateway_response_code', 'gateway_response_message', 'initiated_at', 'completed_at', 'created_at', 'updated_at'],
+  payment_orders: ['id', 'tenant_id', 'order_id', 'amount', 'currency', 'status', 'customer_id', 'customer_email', 'customer_phone', 'customer_details', 'billing_address', 'shipping_address', 'line_items', 'payment_method', 'gateway', 'gateway_order_id', 'callback_url', 'webhook_url', 'metadata', 'expires_at', 'created_at', 'updated_at'],
+  audit_logs: ['id', 'tenant_id', 'entity_type', 'entity_id', 'action', 'user_id', 'user_email', 'ip_address', 'user_agent', 'changes_before', 'changes_after', 'metadata', 'created_at'],
+  merchants: ['id', 'merchant_code', 'merchant_name', 'business_type', 'email', 'phone', 'address', 'status', 'settings', 'api_credentials', 'balance', 'created_at', 'updated_at'],
+  beneficiaries: ['id', 'tenant_id', 'beneficiary_name', 'account_number', 'ifsc_code', 'bank_name', 'branch_name', 'email', 'phone', 'status', 'metadata', 'created_at', 'updated_at']
+};
+
+function validateColumns(tableName, columns) {
+  const allowedColumns = TABLE_SCHEMAS[tableName];
+  if (!allowedColumns) {
+    throw new Error(`Unknown table: ${tableName}`);
+  }
+  
+  for (const column of columns) {
+    if (!allowedColumns.includes(column)) {
+      throw new Error(`Invalid column '${column}' for table '${tableName}'`);
+    }
+  }
 }
 
 /**
  * Find records by tenant
  */
 async function findByTenant(tableName, tenantId, conditions = {}) {
+  validateTableName(tableName);
+  
   if (config.database.multiTenancy.enabled && !tenantId) {
     throw new Error('Tenant ID is required for query operation');
   }
@@ -41,12 +91,15 @@ async function findByTenant(tableName, tenantId, conditions = {}) {
     ? { tenant_id: tenantId, ...conditions }
     : conditions;
 
-  const whereClause = Object.keys(whereConditions)
-    .map((key, i) => `${key} = $${i + 1}`)
-    .join(' AND ');
+  // Validate column names
+  validateColumns(tableName, Object.keys(whereConditions));
+
+  const columns = Object.keys(whereConditions);
+  const values = Object.values(whereConditions);
+  const whereClause = columns.map((key, i) => `${key} = $${i + 1}`).join(' AND ');
 
   const query = `SELECT * FROM ${tableName} ${whereClause ? `WHERE ${whereClause}` : ''}`;
-  const result = await db.query(query, Object.values(whereConditions));
+  const result = await db.query(query, values);
   return result.rows;
 }
 
@@ -54,26 +107,31 @@ async function findByTenant(tableName, tenantId, conditions = {}) {
  * Update records by tenant
  */
 async function updateByTenant(tableName, id, updates, tenantId) {
+  validateTableName(tableName);
+  
   if (config.database.multiTenancy.enabled && !tenantId) {
     throw new Error('Tenant ID is required for update operation');
   }
 
-  const setClause = Object.keys(updates)
-    .map((key, i) => `${key} = $${i + 1}`)
-    .join(', ');
+  // Validate column names
+  validateColumns(tableName, Object.keys(updates));
 
-  const values = [...Object.values(updates), id];
+  const columns = Object.keys(updates);
+  const values = Object.values(updates);
+  const setClause = columns.map((key, i) => `${key} = $${i + 1}`).join(', ');
+
+  const allValues = [...values, id];
   
-  let query = `UPDATE ${tableName} SET ${setClause} WHERE id = $${values.length}`;
+  let query = `UPDATE ${tableName} SET ${setClause} WHERE id = $${allValues.length}`;
   
   if (config.database.multiTenancy.enabled) {
-    values.push(tenantId);
-    query += ` AND tenant_id = $${values.length}`;
+    allValues.push(tenantId);
+    query += ` AND tenant_id = $${allValues.length}`;
   }
   
   query += ' RETURNING *';
 
-  const result = await db.query(query, values);
+  const result = await db.query(query, allValues);
   return result.rows[0];
 }
 
@@ -81,6 +139,8 @@ async function updateByTenant(tableName, id, updates, tenantId) {
  * Delete records by tenant
  */
 async function deleteByTenant(tableName, id, tenantId) {
+  validateTableName(tableName);
+  
   if (config.database.multiTenancy.enabled && !tenantId) {
     throw new Error('Tenant ID is required for delete operation');
   }
@@ -180,8 +240,8 @@ async function getMerchantByCode(merchantCode) {
 function paginate(query, page = 1, pageSize = 20) {
   const offset = (page - 1) * pageSize;
   return {
-    query: `${query} LIMIT $limit OFFSET $offset`,
-    params: { limit: pageSize, offset }
+    query: `${query} LIMIT $1 OFFSET $2`,
+    params: [pageSize, offset]
   };
 }
 

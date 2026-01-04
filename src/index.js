@@ -121,20 +121,28 @@ Ready to process payments! 🚀
 });
 
 // Graceful Shutdown
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   server.close(async () => {
     console.log('HTTP server closed');
-    await db.closePool();
-    console.log('Database pool closed');
+    try {
+      await db.closePool();
+      console.log('Database pool closed');
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+    }
     process.exit(0);
   });
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT signal received: closing HTTP server');
-  await db.closePool();
-  console.log('Database pool closed');
+  try {
+    await db.closePool();
+    console.log('Database pool closed');
+  } catch (error) {
+    console.error('Error closing database pool:', error);
+  }
   process.exit(0);
 });
 

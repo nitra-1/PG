@@ -107,17 +107,24 @@ async function transaction(callback) {
 /**
  * Get tenant-specific query with tenant_id filter
  * Supports multi-tenancy
+ * Note: This function is for raw SQL queries. For Knex queries, use tenant-middleware.js
  */
-function getTenantQuery(baseQuery, tenantId) {
+function getTenantQuery(baseQuery, tenantId, paramIndex = 1) {
   if (!tenantId) {
-    return baseQuery;
+    return { query: baseQuery, paramIndex };
   }
   
   // Add tenant_id to WHERE clause
   if (baseQuery.toLowerCase().includes('where')) {
-    return `${baseQuery} AND tenant_id = $tenantId`;
+    return { 
+      query: `${baseQuery} AND tenant_id = $${paramIndex}`,
+      paramIndex: paramIndex + 1
+    };
   } else {
-    return `${baseQuery} WHERE tenant_id = $tenantId`;
+    return { 
+      query: `${baseQuery} WHERE tenant_id = $${paramIndex}`,
+      paramIndex: paramIndex + 1
+    };
   }
 }
 

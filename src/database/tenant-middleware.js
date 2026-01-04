@@ -63,13 +63,21 @@ function optionalTenant(req, res, next) {
 
 /**
  * Get tenant-aware query builder
+ * For use with Knex.js query builders
  */
 function getTenantQuery(baseQuery, tenantId) {
   if (!config.database.multiTenancy.enabled || !tenantId) {
     return baseQuery;
   }
   
-  return baseQuery.where('tenant_id', tenantId);
+  // For Knex query builder objects
+  if (typeof baseQuery === 'object' && typeof baseQuery.where === 'function') {
+    return baseQuery.where('tenant_id', tenantId);
+  }
+  
+  // For raw SQL strings - not recommended, use connection.getTenantQuery instead
+  console.warn('Using getTenantQuery with raw SQL string. Consider using connection.getTenantQuery for raw SQL.');
+  return baseQuery;
 }
 
 module.exports = {
