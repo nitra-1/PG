@@ -21,7 +21,7 @@ function initializePool() {
     port: config.database.port,
     database: config.database.name,
     user: config.database.user,
-    password: config.database.password,
+    ...(config.database.password && { password: config.database.password }),
     ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
     max: config.database.poolSize || 10, // Maximum pool size
     min: 2, // Minimum pool size
