@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Dashboard - Payment Gateway</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            background: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table th,
+        table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 10px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .copy-button {
+            float: right;
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .merchant-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .merchant-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        .merchant-info strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏪 Merchant Dashboard</h1>
+            <p>Manage your payment gateway configuration and settings</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('overview')">📊 Overview</button>
+            <button class="tab-button" onclick="showTab('settings')">⚙️ Settings</button>
+            <button class="tab-button" onclick="showTab('api-keys')">🔑 API Keys</button>
+            <button class="tab-button" onclick="showTab('webhooks')">🔔 Webhooks</button>
+            <button class="tab-button" onclick="showTab('rate-limits')">⏱️ Rate Limits</button>
+            <button class="tab-button" onclick="showTab('ip-whitelist')">🛡️ IP Whitelist</button>
+            <button class="tab-button" onclick="showTab('usage')">📈 Usage</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Requests</h3>
+                    <div class="value" id="stat-requests">0</div>
+                    <div class="subtitle">Last 30 days</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Transactions</h3>
+                    <div class="value" id="stat-transactions">0</div>
+                    <div class="subtitle">Last 30 days</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Amount</h3>
+                    <div class="value" id="stat-amount">₹0</div>
+                    <div class="subtitle">Last 30 days</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Success Rate</h3>
+                    <div class="value" id="stat-success-rate">0%</div>
+                    <div class="subtitle">Last 30 days</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Merchant Information</h2>
+                <div class="merchant-info" id="merchant-info">
+                    <p><strong>Merchant ID:</strong> <span id="merchant-id">-</span></p>
+                    <p><strong>Merchant Code:</strong> <span id="merchant-code">-</span></p>
+                    <p><strong>Merchant Name:</strong> <span id="merchant-name">-</span></p>
+                    <p><strong>Email:</strong> <span id="merchant-email">-</span></p>
+                    <p><strong>Status:</strong> <span id="merchant-status">-</span></p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Quick Actions</h2>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="showTab('api-keys')">Generate API Key</button>
+                    <button class="btn btn-primary" onclick="showTab('webhooks')">Configure Webhook</button>
+                    <button class="btn btn-primary" onclick="showTab('rate-limits')">Set Rate Limit</button>
+                    <button class="btn btn-primary" onclick="showTab('usage')">View Usage</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content">
+            <div class="card">
+                <h2>Merchant Settings</h2>
+                <form id="settings-form" onsubmit="updateSettings(event)">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Merchant Name</label>
+                            <input type="text" id="setting-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="setting-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="tel" id="setting-phone">
+                        </div>
+                        <div class="form-group">
+                            <label>Business Type</label>
+                            <input type="text" id="setting-business-type">
+                        </div>
+                        <div class="form-group">
+                            <label>Website URL</label>
+                            <input type="url" id="setting-website">
+                        </div>
+                        <div class="form-group">
+                            <label>Callback URL</label>
+                            <input type="url" id="setting-callback">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- API Keys Tab -->
+        <div id="api-keys" class="tab-content">
+            <div class="card">
+                <h2>API Keys</h2>
+                <button class="btn btn-primary" onclick="showGenerateAPIKeyForm()">+ Generate New API Key</button>
+                
+                <div id="generate-api-key-form" class="hidden" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                    <h3>Generate New API Key</h3>
+                    <form onsubmit="generateAPIKey(event)">
+                        <div class="form-group">
+                            <label>Key Name</label>
+                            <input type="text" id="api-key-name" placeholder="e.g., Production Key" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Generate</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideGenerateAPIKeyForm()">Cancel</button>
+                    </form>
+                </div>
+
+                <div class="table-container">
+                    <table id="api-keys-table">
+                        <thead>
+                            <tr>
+                                <th>Key Name</th>
+                                <th>API Key</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Expires</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="api-keys-list">
+                            <tr><td colspan="6" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Webhooks Tab -->
+        <div id="webhooks" class="tab-content">
+            <div class="card">
+                <h2>Webhooks</h2>
+                <button class="btn btn-primary" onclick="showConfigureWebhookForm()">+ Configure Webhook</button>
+                
+                <div id="configure-webhook-form" class="hidden" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                    <h3>Configure Webhook</h3>
+                    <form onsubmit="configureWebhook(event)">
+                        <div class="form-group">
+                            <label>Webhook URL</label>
+                            <input type="url" id="webhook-url" placeholder="https://your-domain.com/webhook" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Events (one per line)</label>
+                            <textarea id="webhook-events" rows="4" placeholder="payment.success&#10;payment.failed&#10;refund.processed"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Configure</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideConfigureWebhookForm()">Cancel</button>
+                    </form>
+                </div>
+
+                <div class="table-container">
+                    <table id="webhooks-table">
+                        <thead>
+                            <tr>
+                                <th>Webhook URL</th>
+                                <th>Events</th>
+                                <th>Status</th>
+                                <th>Success/Failure</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="webhooks-list">
+                            <tr><td colspan="6" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rate Limits Tab -->
+        <div id="rate-limits" class="tab-content">
+            <div class="card">
+                <h2>Rate Limits</h2>
+                <button class="btn btn-primary" onclick="showConfigureRateLimitForm()">+ Configure Rate Limit</button>
+                
+                <div id="configure-rate-limit-form" class="hidden" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                    <h3>Configure Rate Limit</h3>
+                    <form onsubmit="configureRateLimit(event)">
+                        <div class="form-group">
+                            <label>Endpoint Pattern</label>
+                            <input type="text" id="rate-limit-endpoint" placeholder="/api/*" required>
+                            <small>Use * for wildcards, e.g., /api/payments/*</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Requests</label>
+                            <input type="number" id="rate-limit-max" placeholder="100" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Time Window (milliseconds)</label>
+                            <input type="number" id="rate-limit-window" placeholder="60000" min="1000" required>
+                            <small>60000ms = 1 minute</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Configure</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideConfigureRateLimitForm()">Cancel</button>
+                    </form>
+                </div>
+
+                <div class="table-container">
+                    <table id="rate-limits-table">
+                        <thead>
+                            <tr>
+                                <th>Endpoint Pattern</th>
+                                <th>Max Requests</th>
+                                <th>Window</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rate-limits-list">
+                            <tr><td colspan="5" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- IP Whitelist Tab -->
+        <div id="ip-whitelist" class="tab-content">
+            <div class="card">
+                <h2>IP Whitelist</h2>
+                <button class="btn btn-primary" onclick="showAddIPForm()">+ Add IP Address</button>
+                
+                <div id="add-ip-form" class="hidden" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                    <h3>Add IP to Whitelist</h3>
+                    <form onsubmit="addIPToWhitelist(event)">
+                        <div class="form-group">
+                            <label>IP Address</label>
+                            <input type="text" id="ip-address" placeholder="192.168.1.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <input type="text" id="ip-description" placeholder="Office network">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add IP</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideAddIPForm()">Cancel</button>
+                    </form>
+                </div>
+
+                <div class="table-container">
+                    <table id="ip-whitelist-table">
+                        <thead>
+                            <tr>
+                                <th>IP Address</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Last Used</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ip-whitelist-list">
+                            <tr><td colspan="6" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Tab -->
+        <div id="usage" class="tab-content">
+            <div class="card">
+                <h2>Usage Statistics</h2>
+                <div class="form-group">
+                    <label>Date Range</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="usage-start-date">
+                        <input type="date" id="usage-end-date">
+                        <button class="btn btn-primary" onclick="loadUsageStats()">Load</button>
+                    </div>
+                </div>
+
+                <div id="usage-summary" class="stats-grid" style="margin-top: 20px;">
+                    <!-- Summary stats will be loaded here -->
+                </div>
+
+                <div class="table-container">
+                    <table id="usage-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Endpoint</th>
+                                <th>Requests</th>
+                                <th>Success</th>
+                                <th>Errors</th>
+                                <th>Transactions</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usage-list">
+                            <tr><td colspan="7" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = '/api';
+        let currentMerchantId = null;
+
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            // Load data for the tab
+            loadTabData(tabName);
+        }
+
+        function loadTabData(tabName) {
+            if (!currentMerchantId) return;
+
+            switch(tabName) {
+                case 'overview':
+                    loadOverview();
+                    break;
+                case 'settings':
+                    loadSettings();
+                    break;
+                case 'api-keys':
+                    loadAPIKeys();
+                    break;
+                case 'webhooks':
+                    loadWebhooks();
+                    break;
+                case 'rate-limits':
+                    loadRateLimits();
+                    break;
+                case 'ip-whitelist':
+                    loadIPWhitelist();
+                    break;
+                case 'usage':
+                    loadUsageStats();
+                    break;
+            }
+        }
+
+        // Alert management
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            
+            const container = document.getElementById('alert-container');
+            container.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+
+        // Initialize merchant ID from URL or prompt
+        function initializeMerchant() {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentMerchantId = urlParams.get('merchantId');
+            
+            if (!currentMerchantId) {
+                currentMerchantId = prompt('Enter your Merchant ID:');
+                if (currentMerchantId) {
+                    window.history.pushState({}, '', `?merchantId=${currentMerchantId}`);
+                }
+            }
+            
+            if (currentMerchantId) {
+                loadOverview();
+            } else {
+                showAlert('Merchant ID is required', 'error');
+            }
+        }
+
+        // Load overview
+        async function loadOverview() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const merchant = data.data;
+                    document.getElementById('merchant-id').textContent = merchant.id;
+                    document.getElementById('merchant-code').textContent = merchant.merchant_code;
+                    document.getElementById('merchant-name').textContent = merchant.merchant_name;
+                    document.getElementById('merchant-email').textContent = merchant.email;
+                    document.getElementById('merchant-status').textContent = merchant.status;
+                }
+
+                // Load usage stats
+                const usageResponse = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/usage`);
+                const usageData = await usageResponse.json();
+                
+                if (usageData.success) {
+                    const summary = usageData.data.summary;
+                    document.getElementById('stat-requests').textContent = summary.totalRequests;
+                    document.getElementById('stat-transactions').textContent = summary.totalTransactions;
+                    document.getElementById('stat-amount').textContent = '₹' + summary.totalAmount.toLocaleString();
+                    
+                    const successRate = summary.totalRequests > 0 
+                        ? ((summary.successfulRequests / summary.totalRequests) * 100).toFixed(1)
+                        : 0;
+                    document.getElementById('stat-success-rate').textContent = successRate + '%';
+                }
+            } catch (error) {
+                console.error('Error loading overview:', error);
+                showAlert('Failed to load overview', 'error');
+            }
+        }
+
+        // Load settings
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const merchant = data.data;
+                    document.getElementById('setting-name').value = merchant.merchant_name || '';
+                    document.getElementById('setting-email').value = merchant.email || '';
+                    document.getElementById('setting-phone').value = merchant.phone || '';
+                    document.getElementById('setting-business-type').value = merchant.business_type || '';
+                    document.getElementById('setting-website').value = merchant.website_url || '';
+                    document.getElementById('setting-callback').value = merchant.callback_url || '';
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        // Update settings
+        async function updateSettings(event) {
+            event.preventDefault();
+            
+            const settings = {
+                merchant_name: document.getElementById('setting-name').value,
+                email: document.getElementById('setting-email').value,
+                phone: document.getElementById('setting-phone').value,
+                business_type: document.getElementById('setting-business-type').value,
+                website_url: document.getElementById('setting-website').value,
+                callback_url: document.getElementById('setting-callback').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Settings updated successfully', 'success');
+                } else {
+                    showAlert(data.message || 'Failed to update settings', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating settings:', error);
+                showAlert('Failed to update settings', 'error');
+            }
+        }
+
+        // API Keys functions
+        function showGenerateAPIKeyForm() {
+            document.getElementById('generate-api-key-form').classList.remove('hidden');
+        }
+
+        function hideGenerateAPIKeyForm() {
+            document.getElementById('generate-api-key-form').classList.add('hidden');
+            document.getElementById('api-key-name').value = '';
+        }
+
+        async function loadAPIKeys() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.apiKeys) {
+                    const tbody = document.getElementById('api-keys-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.apiKeys.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No API keys found</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.apiKeys.forEach(key => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${key.key_name}</td>
+                            <td><code>${key.api_key}</code></td>
+                            <td><span class="badge badge-${key.status === 'active' ? 'success' : 'danger'}">${key.status}</span></td>
+                            <td>${new Date(key.created_at).toLocaleDateString()}</td>
+                            <td>${key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}</td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="revokeAPIKey('${key.id}')">Revoke</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading API keys:', error);
+            }
+        }
+
+        async function generateAPIKey(event) {
+            event.preventDefault();
+            
+            const keyName = document.getElementById('api-key-name').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/api-keys`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyName, permissions: ['all'] })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert(`API Key generated! Secret: ${data.data.apiSecret}`, 'success');
+                    hideGenerateAPIKeyForm();
+                    loadAPIKeys();
+                } else {
+                    showAlert(data.message || 'Failed to generate API key', 'error');
+                }
+            } catch (error) {
+                console.error('Error generating API key:', error);
+                showAlert('Failed to generate API key', 'error');
+            }
+        }
+
+        async function revokeAPIKey(keyId) {
+            if (!confirm('Are you sure you want to revoke this API key?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/api-keys/${keyId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('API key revoked successfully', 'success');
+                    loadAPIKeys();
+                } else {
+                    showAlert(data.message || 'Failed to revoke API key', 'error');
+                }
+            } catch (error) {
+                console.error('Error revoking API key:', error);
+                showAlert('Failed to revoke API key', 'error');
+            }
+        }
+
+        // Webhook functions
+        function showConfigureWebhookForm() {
+            document.getElementById('configure-webhook-form').classList.remove('hidden');
+        }
+
+        function hideConfigureWebhookForm() {
+            document.getElementById('configure-webhook-form').classList.add('hidden');
+            document.getElementById('webhook-url').value = '';
+            document.getElementById('webhook-events').value = '';
+        }
+
+        async function loadWebhooks() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.webhooks) {
+                    const tbody = document.getElementById('webhooks-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.webhooks.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No webhooks configured</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.webhooks.forEach(webhook => {
+                        const events = JSON.parse(webhook.events || '[]').join(', ');
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${webhook.webhook_url}</td>
+                            <td>${events}</td>
+                            <td><span class="badge badge-${webhook.status === 'active' ? 'success' : 'danger'}">${webhook.status}</span></td>
+                            <td>${webhook.success_count}/${webhook.failure_count}</td>
+                            <td>${new Date(webhook.created_at).toLocaleDateString()}</td>
+                            <td>
+                                <button class="btn btn-secondary btn-small" onclick="toggleWebhook('${webhook.id}', '${webhook.status}')">
+                                    ${webhook.status === 'active' ? 'Disable' : 'Enable'}
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading webhooks:', error);
+            }
+        }
+
+        async function configureWebhook(event) {
+            event.preventDefault();
+            
+            const webhookUrl = document.getElementById('webhook-url').value;
+            const eventsText = document.getElementById('webhook-events').value;
+            const events = eventsText.split('\n').map(e => e.trim()).filter(e => e);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/webhooks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ webhookUrl, events })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert(`Webhook configured! Secret: ${data.data.webhookSecret}`, 'success');
+                    hideConfigureWebhookForm();
+                    loadWebhooks();
+                } else {
+                    showAlert(data.message || 'Failed to configure webhook', 'error');
+                }
+            } catch (error) {
+                console.error('Error configuring webhook:', error);
+                showAlert('Failed to configure webhook', 'error');
+            }
+        }
+
+        async function toggleWebhook(webhookId, currentStatus) {
+            const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/webhooks/${webhookId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Webhook status updated', 'success');
+                    loadWebhooks();
+                } else {
+                    showAlert(data.message || 'Failed to update webhook', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating webhook:', error);
+                showAlert('Failed to update webhook', 'error');
+            }
+        }
+
+        // Rate Limit functions
+        function showConfigureRateLimitForm() {
+            document.getElementById('configure-rate-limit-form').classList.remove('hidden');
+        }
+
+        function hideConfigureRateLimitForm() {
+            document.getElementById('configure-rate-limit-form').classList.add('hidden');
+            document.getElementById('rate-limit-endpoint').value = '';
+            document.getElementById('rate-limit-max').value = '';
+            document.getElementById('rate-limit-window').value = '';
+        }
+
+        async function loadRateLimits() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.rateLimits) {
+                    const tbody = document.getElementById('rate-limits-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.rateLimits.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No rate limits configured</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.rateLimits.forEach(limit => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${limit.endpoint_pattern}</td>
+                            <td>${limit.max_requests}</td>
+                            <td>${limit.window_ms}ms (${(limit.window_ms/1000)}s)</td>
+                            <td><span class="badge badge-${limit.status === 'active' ? 'success' : 'danger'}">${limit.status}</span></td>
+                            <td>${new Date(limit.created_at).toLocaleDateString()}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading rate limits:', error);
+            }
+        }
+
+        async function configureRateLimit(event) {
+            event.preventDefault();
+            
+            const endpointPattern = document.getElementById('rate-limit-endpoint').value;
+            const maxRequests = parseInt(document.getElementById('rate-limit-max').value);
+            const windowMs = parseInt(document.getElementById('rate-limit-window').value);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/rate-limits`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endpointPattern, maxRequests, windowMs })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Rate limit configured successfully', 'success');
+                    hideConfigureRateLimitForm();
+                    loadRateLimits();
+                } else {
+                    showAlert(data.message || 'Failed to configure rate limit', 'error');
+                }
+            } catch (error) {
+                console.error('Error configuring rate limit:', error);
+                showAlert('Failed to configure rate limit', 'error');
+            }
+        }
+
+        // IP Whitelist functions
+        function showAddIPForm() {
+            document.getElementById('add-ip-form').classList.remove('hidden');
+        }
+
+        function hideAddIPForm() {
+            document.getElementById('add-ip-form').classList.add('hidden');
+            document.getElementById('ip-address').value = '';
+            document.getElementById('ip-description').value = '';
+        }
+
+        async function loadIPWhitelist() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.ipWhitelist) {
+                    const tbody = document.getElementById('ip-whitelist-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.ipWhitelist.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No IP addresses whitelisted</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.ipWhitelist.forEach(ip => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><code>${ip.ip_address}</code></td>
+                            <td>${ip.description || '-'}</td>
+                            <td><span class="badge badge-${ip.status === 'active' ? 'success' : 'danger'}">${ip.status}</span></td>
+                            <td>${ip.last_used_at ? new Date(ip.last_used_at).toLocaleString() : 'Never'}</td>
+                            <td>${new Date(ip.created_at).toLocaleDateString()}</td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="removeIPFromWhitelist('${ip.id}')">Remove</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading IP whitelist:', error);
+            }
+        }
+
+        async function addIPToWhitelist(event) {
+            event.preventDefault();
+            
+            const ipAddress = document.getElementById('ip-address').value;
+            const description = document.getElementById('ip-description').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/ip-whitelist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ipAddress, description })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('IP added to whitelist successfully', 'success');
+                    hideAddIPForm();
+                    loadIPWhitelist();
+                } else {
+                    showAlert(data.message || 'Failed to add IP', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding IP:', error);
+                showAlert('Failed to add IP', 'error');
+            }
+        }
+
+        async function removeIPFromWhitelist(ipId) {
+            if (!confirm('Are you sure you want to remove this IP from whitelist?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/ip-whitelist/${ipId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('IP removed from whitelist', 'success');
+                    loadIPWhitelist();
+                } else {
+                    showAlert(data.message || 'Failed to remove IP', 'error');
+                }
+            } catch (error) {
+                console.error('Error removing IP:', error);
+                showAlert('Failed to remove IP', 'error');
+            }
+        }
+
+        // Usage Stats functions
+        async function loadUsageStats() {
+            const startDate = document.getElementById('usage-start-date').value;
+            const endDate = document.getElementById('usage-end-date').value;
+            
+            try {
+                let url = `${API_BASE_URL}/merchants/${currentMerchantId}/usage`;
+                const params = new URLSearchParams();
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+                if (params.toString()) url += '?' + params.toString();
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update summary
+                    const summary = data.data.summary;
+                    const summaryDiv = document.getElementById('usage-summary');
+                    summaryDiv.innerHTML = `
+                        <div class="stat-card">
+                            <h3>Total Requests</h3>
+                            <div class="value">${summary.totalRequests}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Successful</h3>
+                            <div class="value">${summary.successfulRequests}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Failed</h3>
+                            <div class="value">${summary.failedRequests}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Amount</h3>
+                            <div class="value">₹${summary.totalAmount.toLocaleString()}</div>
+                        </div>
+                    `;
+                    
+                    // Update table
+                    const tbody = document.getElementById('usage-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.statistics.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No usage data found</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.statistics.forEach(stat => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${stat.date}</td>
+                            <td>${stat.endpoint}</td>
+                            <td>${stat.total_requests}</td>
+                            <td>${stat.successful_requests}</td>
+                            <td>${stat.failed_requests}</td>
+                            <td>${stat.total_transactions}</td>
+                            <td>₹${parseFloat(stat.total_amount).toLocaleString()}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading usage stats:', error);
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            initializeMerchant();
+            
+            // Set default date range for usage stats
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+            document.getElementById('usage-start-date').value = thirtyDaysAgo.toISOString().split('T')[0];
+            document.getElementById('usage-end-date').value = today.toISOString().split('T')[0];
+        });
+    </script>
+</body>
+</html>

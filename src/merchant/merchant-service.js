@@ -1,0 +1,803 @@
+/**
+ * Merchant Service
+ * Handles merchant onboarding, configuration, and management
+ */
+
+const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
+const db = require('../database');
+
+class MerchantService {
+  constructor(config) {
+    this.config = config;
+    this.SecurityService = require('../security/security-service');
+    this.securityService = new this.SecurityService(config);
+  }
+
+  /**
+   * Register a new merchant
+   * @param {Object} merchantData - Merchant registration data
+   * @returns {Promise<Object>} Created merchant
+   */
+  async registerMerchant(merchantData) {
+    try {
+      const {
+        merchantName,
+        merchantCode,
+        email,
+        phone,
+        businessType,
+        address,
+        websiteUrl,
+        callbackUrl,
+        businessDetails
+      } = merchantData;
+
+      // Validate required fields
+      if (!merchantName || !email || !merchantCode) {
+        throw new Error('Merchant name, email, and code are required');
+      }
+
+      // Check if merchant code already exists
+      const existingMerchant = await db.query(
+        'SELECT id FROM merchants WHERE merchant_code = $1',
+        [merchantCode]
+      );
+
+      if (existingMerchant.rows.length > 0) {
+        throw new Error('Merchant code already exists');
+      }
+
+      // Create merchant
+      const merchantId = uuidv4();
+      const result = await db.query(
+        `INSERT INTO merchants (
+          id, merchant_code, merchant_name, business_type, email, phone, 
+          address, website_url, callback_url, business_details, status, 
+          daily_limit, monthly_limit, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+        RETURNING *`,
+        [
+          merchantId,
+          merchantCode,
+          merchantName,
+          businessType || null,
+          email,
+          phone || null,
+          JSON.stringify(address || {}),
+          websiteUrl || null,
+          callbackUrl || null,
+          JSON.stringify(businessDetails || {}),
+          'active',
+          merchantData.dailyLimit || this.config.limits.dailyLimit,
+          merchantData.monthlyLimit || this.config.limits.monthlyLimit
+        ]
+      );
+
+      // Generate initial API key
+      const apiKeyData = await this.generateAPIKey(merchantId, 'Primary Key', ['all']);
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'merchant',
+        entityId: merchantId,
+        action: 'create',
+        userId: merchantData.createdBy || 'system',
+        metadata: { merchantCode, email }
+      });
+
+      return {
+        merchant: result.rows[0],
+        apiKey: apiKeyData
+      };
+    } catch (error) {
+      throw new Error(`Failed to register merchant: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get merchant by ID
+   * @param {string} merchantId - Merchant ID
+   * @returns {Promise<Object>} Merchant details
+   */
+  async getMerchant(merchantId) {
+    try {
+      const result = await db.query(
+        'SELECT * FROM merchants WHERE id = $1',
+        [merchantId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('Merchant not found');
+      }
+
+      const merchant = result.rows[0];
+
+      // Get API keys (excluding secrets)
+      const apiKeysResult = await db.query(
+        `SELECT id, key_name, api_key, status, last_used_at, expires_at, permissions, created_at
+         FROM merchant_api_keys WHERE merchant_id = $1 ORDER BY created_at DESC`,
+        [merchantId]
+      );
+
+      // Get webhooks
+      const webhooksResult = await db.query(
+        `SELECT * FROM merchant_webhooks WHERE merchant_id = $1 ORDER BY created_at DESC`,
+        [merchantId]
+      );
+
+      // Get rate limits
+      const rateLimitsResult = await db.query(
+        `SELECT * FROM merchant_rate_limits WHERE merchant_id = $1 ORDER BY created_at DESC`,
+        [merchantId]
+      );
+
+      // Get IP whitelist
+      const ipWhitelistResult = await db.query(
+        `SELECT * FROM merchant_ip_whitelist WHERE merchant_id = $1 ORDER BY created_at DESC`,
+        [merchantId]
+      );
+
+      return {
+        ...merchant,
+        apiKeys: apiKeysResult.rows,
+        webhooks: webhooksResult.rows,
+        rateLimits: rateLimitsResult.rows,
+        ipWhitelist: ipWhitelistResult.rows
+      };
+    } catch (error) {
+      throw new Error(`Failed to get merchant: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update merchant settings
+   * @param {string} merchantId - Merchant ID
+   * @param {Object} updates - Fields to update
+   * @returns {Promise<Object>} Updated merchant
+   */
+  async updateMerchant(merchantId, updates) {
+    try {
+      const allowedFields = [
+        'merchant_name', 'business_type', 'email', 'phone', 'address',
+        'website_url', 'callback_url', 'business_details', 'status',
+        'daily_limit', 'monthly_limit', 'logo_url'
+      ];
+
+      const updateFields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      Object.keys(updates).forEach(key => {
+        if (allowedFields.includes(key)) {
+          updateFields.push(`${key} = $${paramIndex}`);
+          
+          // Handle JSON fields
+          if (['address', 'business_details'].includes(key)) {
+            values.push(JSON.stringify(updates[key]));
+          } else {
+            values.push(updates[key]);
+          }
+          paramIndex++;
+        }
+      });
+
+      if (updateFields.length === 0) {
+        throw new Error('No valid fields to update');
+      }
+
+      values.push(merchantId);
+      const query = `
+        UPDATE merchants 
+        SET ${updateFields.join(', ')}, updated_at = NOW()
+        WHERE id = $${paramIndex}
+        RETURNING *
+      `;
+
+      const result = await db.query(query, values);
+
+      if (result.rows.length === 0) {
+        throw new Error('Merchant not found');
+      }
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'merchant',
+        entityId: merchantId,
+        action: 'update',
+        changesAfter: updates
+      });
+
+      return result.rows[0];
+    } catch (error) {
+      throw new Error(`Failed to update merchant: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete merchant
+   * @param {string} merchantId - Merchant ID
+   * @returns {Promise<Object>} Deletion result
+   */
+  async deleteMerchant(merchantId) {
+    try {
+      // Check if merchant exists
+      const merchant = await this.getMerchant(merchantId);
+
+      // Soft delete - update status to inactive
+      await db.query(
+        'UPDATE merchants SET status = $1, updated_at = NOW() WHERE id = $2',
+        ['inactive', merchantId]
+      );
+
+      // Revoke all API keys
+      await db.query(
+        'UPDATE merchant_api_keys SET status = $1, updated_at = NOW() WHERE merchant_id = $2',
+        ['revoked', merchantId]
+      );
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'merchant',
+        entityId: merchantId,
+        action: 'delete'
+      });
+
+      return {
+        success: true,
+        message: 'Merchant deleted successfully'
+      };
+    } catch (error) {
+      throw new Error(`Failed to delete merchant: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate API key for merchant
+   * @param {string} merchantId - Merchant ID
+   * @param {string} keyName - Name for the API key
+   * @param {Array} permissions - API permissions
+   * @returns {Promise<Object>} API key details
+   */
+  async generateAPIKey(merchantId, keyName = 'API Key', permissions = ['all']) {
+    try {
+      const apiKey = `pk_${crypto.randomBytes(32).toString('hex')}`;
+      const apiSecret = `sk_${crypto.randomBytes(32).toString('hex')}`;
+      
+      // Hash the secret for verification
+      const apiSecretHash = this.securityService.hashData(apiSecret);
+      
+      // Encrypt the secret for storage
+      const encryptedSecret = this.securityService.encryptData(apiSecret);
+
+      const keyId = uuidv4();
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1 year expiration
+
+      await db.query(
+        `INSERT INTO merchant_api_keys (
+          id, merchant_id, key_name, api_key, api_secret_encrypted, 
+          api_secret_iv, api_secret_auth_tag, api_secret_hash, 
+          status, expires_at, permissions, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
+        [
+          keyId,
+          merchantId,
+          keyName,
+          apiKey,
+          encryptedSecret.encrypted,
+          encryptedSecret.iv,
+          encryptedSecret.authTag,
+          apiSecretHash,
+          'active',
+          expiresAt,
+          JSON.stringify(permissions)
+        ]
+      );
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'api_key',
+        entityId: keyId,
+        action: 'create',
+        metadata: { keyName }
+      });
+
+      return {
+        keyId,
+        apiKey,
+        apiSecret, // Only returned on creation
+        keyName,
+        expiresAt: expiresAt.toISOString(),
+        message: 'Store the API secret securely. It will not be shown again.'
+      };
+    } catch (error) {
+      throw new Error(`Failed to generate API key: ${error.message}`);
+    }
+  }
+
+  /**
+   * Revoke API key
+   * @param {string} merchantId - Merchant ID
+   * @param {string} keyId - API key ID
+   * @returns {Promise<Object>} Revocation result
+   */
+  async revokeAPIKey(merchantId, keyId) {
+    try {
+      const result = await db.query(
+        `UPDATE merchant_api_keys 
+         SET status = $1, updated_at = NOW()
+         WHERE id = $2 AND merchant_id = $3
+         RETURNING *`,
+        ['revoked', keyId, merchantId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('API key not found');
+      }
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'api_key',
+        entityId: keyId,
+        action: 'update',
+        metadata: { status: 'revoked' }
+      });
+
+      return {
+        success: true,
+        message: 'API key revoked successfully'
+      };
+    } catch (error) {
+      throw new Error(`Failed to revoke API key: ${error.message}`);
+    }
+  }
+
+  /**
+   * Configure webhook for merchant
+   * @param {string} merchantId - Merchant ID
+   * @param {Object} webhookData - Webhook configuration
+   * @returns {Promise<Object>} Webhook details
+   */
+  async configureWebhook(merchantId, webhookData) {
+    try {
+      const {
+        webhookUrl,
+        events = ['payment.success', 'payment.failed', 'refund.processed'],
+        retryAttempts = 3,
+        retryDelay = 5000,
+        timeout = 30000
+      } = webhookData;
+
+      if (!webhookUrl) {
+        throw new Error('Webhook URL is required');
+      }
+
+      // Generate webhook secret
+      const webhookSecret = crypto.randomBytes(32).toString('hex');
+
+      const webhookId = uuidv4();
+      await db.query(
+        `INSERT INTO merchant_webhooks (
+          id, merchant_id, webhook_url, webhook_secret, status, events,
+          retry_attempts, retry_delay, timeout, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        RETURNING *`,
+        [
+          webhookId,
+          merchantId,
+          webhookUrl,
+          webhookSecret,
+          'active',
+          JSON.stringify(events),
+          retryAttempts,
+          retryDelay,
+          timeout
+        ]
+      );
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'webhook',
+        entityId: webhookId,
+        action: 'create',
+        metadata: { webhookUrl, events }
+      });
+
+      return {
+        webhookId,
+        webhookUrl,
+        webhookSecret,
+        events,
+        message: 'Webhook configured successfully. Store the secret securely.'
+      };
+    } catch (error) {
+      throw new Error(`Failed to configure webhook: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update webhook configuration
+   * @param {string} merchantId - Merchant ID
+   * @param {string} webhookId - Webhook ID
+   * @param {Object} updates - Webhook updates
+   * @returns {Promise<Object>} Updated webhook
+   */
+  async updateWebhook(merchantId, webhookId, updates) {
+    try {
+      const allowedFields = ['webhook_url', 'status', 'events', 'retry_attempts', 'retry_delay', 'timeout'];
+      
+      const updateFields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      Object.keys(updates).forEach(key => {
+        if (allowedFields.includes(key)) {
+          updateFields.push(`${key} = $${paramIndex}`);
+          
+          if (key === 'events') {
+            values.push(JSON.stringify(updates[key]));
+          } else {
+            values.push(updates[key]);
+          }
+          paramIndex++;
+        }
+      });
+
+      if (updateFields.length === 0) {
+        throw new Error('No valid fields to update');
+      }
+
+      values.push(webhookId);
+      values.push(merchantId);
+      
+      const query = `
+        UPDATE merchant_webhooks 
+        SET ${updateFields.join(', ')}, updated_at = NOW()
+        WHERE id = $${paramIndex} AND merchant_id = $${paramIndex + 1}
+        RETURNING *
+      `;
+
+      const result = await db.query(query, values);
+
+      if (result.rows.length === 0) {
+        throw new Error('Webhook not found');
+      }
+
+      return result.rows[0];
+    } catch (error) {
+      throw new Error(`Failed to update webhook: ${error.message}`);
+    }
+  }
+
+  /**
+   * Configure rate limit for merchant
+   * @param {string} merchantId - Merchant ID
+   * @param {Object} rateLimitData - Rate limit configuration
+   * @returns {Promise<Object>} Rate limit details
+   */
+  async configureRateLimit(merchantId, rateLimitData) {
+    try {
+      const {
+        endpointPattern = '/api/*',
+        maxRequests = 100,
+        windowMs = 60000 // 1 minute
+      } = rateLimitData;
+
+      // Check if rate limit already exists for this endpoint
+      const existing = await db.query(
+        'SELECT id FROM merchant_rate_limits WHERE merchant_id = $1 AND endpoint_pattern = $2',
+        [merchantId, endpointPattern]
+      );
+
+      if (existing.rows.length > 0) {
+        // Update existing
+        const result = await db.query(
+          `UPDATE merchant_rate_limits 
+           SET max_requests = $1, window_ms = $2, updated_at = NOW()
+           WHERE merchant_id = $3 AND endpoint_pattern = $4
+           RETURNING *`,
+          [maxRequests, windowMs, merchantId, endpointPattern]
+        );
+        
+        return result.rows[0];
+      } else {
+        // Create new
+        const rateLimitId = uuidv4();
+        const result = await db.query(
+          `INSERT INTO merchant_rate_limits (
+            id, merchant_id, endpoint_pattern, max_requests, window_ms, status, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+          RETURNING *`,
+          [rateLimitId, merchantId, endpointPattern, maxRequests, windowMs, 'active']
+        );
+
+        // Log audit
+        await db.logAudit({
+          tenantId: merchantId,
+          entityType: 'rate_limit',
+          entityId: rateLimitId,
+          action: 'create',
+          metadata: { endpointPattern, maxRequests, windowMs }
+        });
+
+        return result.rows[0];
+      }
+    } catch (error) {
+      throw new Error(`Failed to configure rate limit: ${error.message}`);
+    }
+  }
+
+  /**
+   * Add IP to whitelist
+   * @param {string} merchantId - Merchant ID
+   * @param {Object} ipData - IP whitelist data
+   * @returns {Promise<Object>} IP whitelist entry
+   */
+  async addIPToWhitelist(merchantId, ipData) {
+    try {
+      const { ipAddress, description } = ipData;
+
+      if (!ipAddress) {
+        throw new Error('IP address is required');
+      }
+
+      // Validate IP format (basic validation)
+      const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      const ipv6Regex = /^([0-9a-fA-F]{0,4}:){7}[0-9a-fA-F]{0,4}$/;
+      
+      if (!ipv4Regex.test(ipAddress) && !ipv6Regex.test(ipAddress)) {
+        throw new Error('Invalid IP address format');
+      }
+
+      // Check if IP already exists
+      const existing = await db.query(
+        'SELECT id FROM merchant_ip_whitelist WHERE merchant_id = $1 AND ip_address = $2',
+        [merchantId, ipAddress]
+      );
+
+      if (existing.rows.length > 0) {
+        throw new Error('IP address already in whitelist');
+      }
+
+      const ipId = uuidv4();
+      const result = await db.query(
+        `INSERT INTO merchant_ip_whitelist (
+          id, merchant_id, ip_address, description, status, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        RETURNING *`,
+        [ipId, merchantId, ipAddress, description || null, 'active']
+      );
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'ip_whitelist',
+        entityId: ipId,
+        action: 'create',
+        metadata: { ipAddress, description }
+      });
+
+      return result.rows[0];
+    } catch (error) {
+      throw new Error(`Failed to add IP to whitelist: ${error.message}`);
+    }
+  }
+
+  /**
+   * Remove IP from whitelist
+   * @param {string} merchantId - Merchant ID
+   * @param {string} ipId - IP whitelist entry ID
+   * @returns {Promise<Object>} Deletion result
+   */
+  async removeIPFromWhitelist(merchantId, ipId) {
+    try {
+      const result = await db.query(
+        'DELETE FROM merchant_ip_whitelist WHERE id = $1 AND merchant_id = $2 RETURNING *',
+        [ipId, merchantId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('IP whitelist entry not found');
+      }
+
+      // Log audit
+      await db.logAudit({
+        tenantId: merchantId,
+        entityType: 'ip_whitelist',
+        entityId: ipId,
+        action: 'delete'
+      });
+
+      return {
+        success: true,
+        message: 'IP removed from whitelist'
+      };
+    } catch (error) {
+      throw new Error(`Failed to remove IP from whitelist: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get merchant usage statistics
+   * @param {string} merchantId - Merchant ID
+   * @param {Object} filters - Date filters
+   * @returns {Promise<Object>} Usage statistics
+   */
+  async getUsageStatistics(merchantId, filters = {}) {
+    try {
+      const { startDate, endDate } = filters;
+      
+      let query = `
+        SELECT 
+          date,
+          endpoint,
+          SUM(request_count) as total_requests,
+          SUM(success_count) as successful_requests,
+          SUM(error_count) as failed_requests,
+          SUM(total_amount) as total_amount,
+          SUM(transaction_count) as total_transactions
+        FROM merchant_usage_stats
+        WHERE merchant_id = $1
+      `;
+      
+      const values = [merchantId];
+      let paramIndex = 2;
+
+      if (startDate) {
+        query += ` AND date >= $${paramIndex}`;
+        values.push(startDate);
+        paramIndex++;
+      }
+
+      if (endDate) {
+        query += ` AND date <= $${paramIndex}`;
+        values.push(endDate);
+        paramIndex++;
+      }
+
+      query += ' GROUP BY date, endpoint ORDER BY date DESC, endpoint';
+
+      const result = await db.query(query, values);
+
+      // Calculate totals
+      const totals = {
+        totalRequests: 0,
+        successfulRequests: 0,
+        failedRequests: 0,
+        totalAmount: 0,
+        totalTransactions: 0
+      };
+
+      result.rows.forEach(row => {
+        totals.totalRequests += parseInt(row.total_requests);
+        totals.successfulRequests += parseInt(row.successful_requests);
+        totals.failedRequests += parseInt(row.failed_requests);
+        totals.totalAmount += parseFloat(row.total_amount);
+        totals.totalTransactions += parseInt(row.total_transactions);
+      });
+
+      return {
+        statistics: result.rows,
+        summary: totals
+      };
+    } catch (error) {
+      throw new Error(`Failed to get usage statistics: ${error.message}`);
+    }
+  }
+
+  /**
+   * Track API usage
+   * @param {string} merchantId - Merchant ID
+   * @param {Object} usageData - Usage data
+   * @returns {Promise<void>}
+   */
+  async trackUsage(merchantId, usageData) {
+    try {
+      const {
+        endpoint,
+        success = true,
+        amount = 0,
+        transactionCount = 0
+      } = usageData;
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // Upsert usage statistics
+      await db.query(
+        `INSERT INTO merchant_usage_stats (
+          id, merchant_id, date, endpoint, request_count, success_count, 
+          error_count, total_amount, transaction_count, created_at, updated_at
+        ) VALUES (
+          gen_random_uuid(), $1, $2, $3, 1, $4, $5, $6, $7, NOW(), NOW()
+        )
+        ON CONFLICT (merchant_id, date, endpoint)
+        DO UPDATE SET
+          request_count = merchant_usage_stats.request_count + 1,
+          success_count = merchant_usage_stats.success_count + $4,
+          error_count = merchant_usage_stats.error_count + $5,
+          total_amount = merchant_usage_stats.total_amount + $6,
+          transaction_count = merchant_usage_stats.transaction_count + $7,
+          updated_at = NOW()`,
+        [
+          merchantId,
+          today,
+          endpoint,
+          success ? 1 : 0,
+          success ? 0 : 1,
+          amount,
+          transactionCount
+        ]
+      );
+
+      // Update merchant's last_active_at
+      await db.query(
+        'UPDATE merchants SET last_active_at = NOW() WHERE id = $1',
+        [merchantId]
+      );
+    } catch (error) {
+      console.error('Failed to track usage:', error);
+      // Don't throw error to avoid disrupting the main request
+    }
+  }
+
+  /**
+   * Verify API key
+   * @param {string} apiKey - API key to verify
+   * @returns {Promise<Object>} Merchant and key details
+   */
+  async verifyAPIKey(apiKey) {
+    try {
+      const result = await db.query(
+        `SELECT 
+          k.*, 
+          m.id as merchant_id, 
+          m.merchant_code, 
+          m.merchant_name, 
+          m.status as merchant_status,
+          m.daily_limit,
+          m.monthly_limit
+         FROM merchant_api_keys k
+         JOIN merchants m ON k.merchant_id = m.id
+         WHERE k.api_key = $1 AND k.status = 'active' AND m.status = 'active'`,
+        [apiKey]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('Invalid or inactive API key');
+      }
+
+      const keyData = result.rows[0];
+
+      // Check expiration
+      if (keyData.expires_at && new Date(keyData.expires_at) < new Date()) {
+        throw new Error('API key has expired');
+      }
+
+      // Update last used
+      await db.query(
+        'UPDATE merchant_api_keys SET last_used_at = NOW() WHERE id = $1',
+        [keyData.id]
+      );
+
+      return {
+        merchantId: keyData.merchant_id,
+        merchantCode: keyData.merchant_code,
+        merchantName: keyData.merchant_name,
+        permissions: keyData.permissions,
+        dailyLimit: keyData.daily_limit,
+        monthlyLimit: keyData.monthly_limit
+      };
+    } catch (error) {
+      throw new Error(`API key verification failed: ${error.message}`);
+    }
+  }
+}
+
+module.exports = MerchantService;
