@@ -33,6 +33,9 @@ const emiService = new EMIService(config);
 const biometricService = new BiometricService(config);
 const securityService = new SecurityService(config);
 
+// Import merchant routes
+const merchantRoutes = require('../merchant/merchant-routes')(config, securityService);
+
 // Middleware for authentication
 const authenticate = (req, res, next) => {
   try {
@@ -465,5 +468,8 @@ router.post('/demo/token', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
+// ===== Merchant Routes =====
+router.use('/merchants', merchantRoutes);
 
 module.exports = router;
