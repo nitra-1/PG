@@ -96,7 +96,7 @@ exports.up = function(knex) {
       table.string('email', 255).notNullable();
       table.string('phone', 20);
       table.jsonb('address');
-      table.enum('status', ['active', 'inactive', 'suspended']).defaultTo('active').index();
+      table.enum('status', ['active', 'inactive', 'suspended']).defaultTo('active');
       table.jsonb('settings');
       table.jsonb('api_credentials');
       table.decimal('balance', 15, 2).defaultTo(0);

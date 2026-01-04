@@ -12,7 +12,7 @@ module.exports = {
       port: process.env.DB_PORT || 5432,
       database: process.env.DB_NAME || 'payment_gateway',
       user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || '',
+      ...(process.env.DB_PASSWORD && { password: process.env.DB_PASSWORD }),
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
     },
     pool: {
@@ -35,7 +35,7 @@ module.exports = {
       port: process.env.DB_PORT || 5432,
       database: process.env.DB_NAME || 'payment_gateway',
       user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || '',
+      ...(process.env.DB_PASSWORD && { password: process.env.DB_PASSWORD }),
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
     },
     pool: {
@@ -58,7 +58,7 @@ module.exports = {
       port: process.env.DB_PORT || 5432,
       database: process.env.DB_NAME || 'payment_gateway',
       user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || '',
+      ...(process.env.DB_PASSWORD && { password: process.env.DB_PASSWORD }),
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : true
     },
     pool: {
