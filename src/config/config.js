@@ -19,7 +19,15 @@ module.exports = {
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || '',
     ssl: process.env.DB_SSL === 'true',
-    poolSize: parseInt(process.env.DB_POOL_SIZE) || 10
+    poolSize: parseInt(process.env.DB_POOL_SIZE) || 10,
+    // Failover configuration - add replica hosts for high availability
+    replicas: process.env.DB_REPLICAS ? JSON.parse(process.env.DB_REPLICAS) : [],
+    // Multi-tenancy configuration
+    multiTenancy: {
+      enabled: process.env.MULTI_TENANCY_ENABLED !== 'false',
+      strategy: process.env.TENANT_STRATEGY || 'column', // 'column' or 'schema'
+      tenantHeader: 'X-Tenant-ID'
+    }
   },
 
   // Redis Configuration
