@@ -29,8 +29,8 @@ class MerchantService {
     // Normalize: trim and convert to lowercase
     const normalized = uuid.toString().trim().toLowerCase();
     
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // Validate UUID format (no need for case-insensitive flag since we already lowercased)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     if (!uuidRegex.test(normalized)) {
       throw new Error(`Invalid ${fieldName} format: ${uuid}`);
     }
@@ -776,6 +776,15 @@ class MerchantService {
    */
   async trackUsage(merchantId, usageData) {
     try {
+      // Validate usageData parameter
+      if (!usageData || typeof usageData !== 'object') {
+        console.warn('[trackUsage] Invalid usageData parameter, skipping usage tracking:', {
+          merchantId,
+          usageData
+        });
+        return;
+      }
+      
       // Normalize and validate UUID - but don't fail if invalid (just log)
       // NOTE: trackUsage is called from tracking middleware and should not disrupt the main request flow
       // If UUID validation fails, we log a warning and return early rather than throwing an error
@@ -783,10 +792,10 @@ class MerchantService {
       try {
         normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
       } catch (error) {
-        console.warn(`[trackUsage] Invalid merchant ID, skipping usage tracking:`, {
+        console.warn('[trackUsage] Invalid merchant ID, skipping usage tracking:', {
           merchantId,
           error: error.message,
-          endpoint: usageData?.endpoint
+          endpoint: usageData.endpoint
         });
         return; // Silent return to avoid disrupting main request
       }
@@ -799,7 +808,7 @@ class MerchantService {
       } = usageData;
 
       const today = new Date().toISOString().split('T')[0];
-      const usageId = require('uuid').v4();
+      const usageId = uuidv4();
 
       // Upsert usage statistics
       await db.query(

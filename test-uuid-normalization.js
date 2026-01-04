@@ -3,7 +3,12 @@
 /**
  * Test UUID normalization functionality
  * This tests the fix for the "Merchant not found" issue
- * Tests UUID validation directly since we don't have a database connection
+ * 
+ * NOTE: This test directly accesses the _normalizeUUID private method because:
+ * 1. This is a critical bug fix that requires direct validation of the normalization logic
+ * 2. The bug specifically relates to UUID handling, not the full getMerchant flow
+ * 3. Testing via public APIs would require database setup and would test more than just the fix
+ * 4. This is a focused unit test for the bug fix validation
  */
 
 const config = require('./src/config/config');
@@ -15,7 +20,6 @@ async function testUUIDNormalization() {
   const merchantService = new MerchantService(config);
   
   // Test the internal UUID normalization logic directly
-  // This is acceptable for this specific test since we're testing a critical bug fix
   const testCases = [
     {
       description: 'Valid UUID with lowercase',
