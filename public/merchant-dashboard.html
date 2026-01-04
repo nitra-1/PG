@@ -725,8 +725,31 @@
         async function loadOverview() {
             try {
                 const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
-                const data = await response.json();
                 
+                // Check for error responses
+                if (!response.ok) {
+                    let errorMessage = 'Failed to load merchant data';
+                    try {
+                        const data = await response.json();
+                        errorMessage = data.message || data.error || errorMessage;
+                    } catch (e) {
+                        // If JSON parsing fails, use default message
+                    }
+                    
+                    if (response.status === 400) {
+                        // Validation error - invalid merchant ID format
+                        showAlert(`Invalid merchant ID format: ${currentMerchantId}. Please provide a valid UUID.`, 'error');
+                    } else if (response.status === 404) {
+                        // Merchant not found
+                        showAlert(`Merchant not found: ${currentMerchantId}`, 'error');
+                    } else {
+                        // Other errors
+                        showAlert(errorMessage, 'error');
+                    }
+                    return;
+                }
+                
+                const data = await response.json();
                 if (data.success) {
                     const merchant = data.data;
                     document.getElementById('merchant-id').textContent = merchant.id;
@@ -734,26 +757,28 @@
                     document.getElementById('merchant-name').textContent = merchant.merchant_name;
                     document.getElementById('merchant-email').textContent = merchant.email;
                     document.getElementById('merchant-status').textContent = merchant.status;
-                }
 
-                // Load usage stats
-                const usageResponse = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/usage`);
-                const usageData = await usageResponse.json();
-                
-                if (usageData.success) {
-                    const summary = usageData.data.summary;
-                    document.getElementById('stat-requests').textContent = summary.totalRequests;
-                    document.getElementById('stat-transactions').textContent = summary.totalTransactions;
-                    document.getElementById('stat-amount').textContent = '₹' + summary.totalAmount.toLocaleString();
+                    // Load usage stats
+                    const usageResponse = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}/usage`);
                     
-                    const successRate = summary.totalRequests > 0 
-                        ? ((summary.successfulRequests / summary.totalRequests) * 100).toFixed(1)
-                        : 0;
-                    document.getElementById('stat-success-rate').textContent = successRate + '%';
+                    if (usageResponse.ok) {
+                        const usageData = await usageResponse.json();
+                        if (usageData.success) {
+                            const summary = usageData.data.summary;
+                            document.getElementById('stat-requests').textContent = summary.totalRequests;
+                            document.getElementById('stat-transactions').textContent = summary.totalTransactions;
+                            document.getElementById('stat-amount').textContent = '₹' + summary.totalAmount.toLocaleString();
+                            
+                            const successRate = summary.totalRequests > 0 
+                                ? ((summary.successfulRequests / summary.totalRequests) * 100).toFixed(1)
+                                : 0;
+                            document.getElementById('stat-success-rate').textContent = successRate + '%';
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error loading overview:', error);
-                showAlert('Failed to load overview', 'error');
+                showAlert('Failed to load overview. Please check your network connection.', 'error');
             }
         }
 
@@ -761,8 +786,27 @@
         async function loadSettings() {
             try {
                 const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
-                const data = await response.json();
                 
+                if (!response.ok) {
+                    let errorMessage = 'Failed to load settings';
+                    try {
+                        const data = await response.json();
+                        errorMessage = data.message || data.error || errorMessage;
+                    } catch (e) {
+                        // If JSON parsing fails, use default message
+                    }
+                    
+                    if (response.status === 400) {
+                        showAlert(`Invalid merchant ID format: ${currentMerchantId}`, 'error');
+                    } else if (response.status === 404) {
+                        showAlert(`Merchant not found: ${currentMerchantId}`, 'error');
+                    } else {
+                        showAlert(errorMessage, 'error');
+                    }
+                    return;
+                }
+                
+                const data = await response.json();
                 if (data.success) {
                     const merchant = data.data;
                     document.getElementById('setting-name').value = merchant.merchant_name || '';
@@ -774,6 +818,7 @@
                 }
             } catch (error) {
                 console.error('Error loading settings:', error);
+                showAlert('Failed to load settings. Please check your network connection.', 'error');
             }
         }
 
@@ -825,6 +870,14 @@
                 const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
                 const data = await response.json();
                 
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 404) {
+                        const tbody = document.getElementById('api-keys-list');
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Error: Invalid or non-existent merchant ID</td></tr>';
+                    }
+                    return;
+                }
+                
                 if (data.success && data.data.apiKeys) {
                     const tbody = document.getElementById('api-keys-list');
                     tbody.innerHTML = '';
@@ -851,6 +904,8 @@
                 }
             } catch (error) {
                 console.error('Error loading API keys:', error);
+                const tbody = document.getElementById('api-keys-list');
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Error loading API keys</td></tr>';
             }
         }
 
@@ -919,6 +974,14 @@
                 const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
                 const data = await response.json();
                 
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 404) {
+                        const tbody = document.getElementById('webhooks-list');
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Error: Invalid or non-existent merchant ID</td></tr>';
+                    }
+                    return;
+                }
+                
                 if (data.success && data.data.webhooks) {
                     const tbody = document.getElementById('webhooks-list');
                     tbody.innerHTML = '';
@@ -948,6 +1011,8 @@
                 }
             } catch (error) {
                 console.error('Error loading webhooks:', error);
+                const tbody = document.getElementById('webhooks-list');
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Error loading webhooks</td></tr>';
             }
         }
 
@@ -1021,6 +1086,14 @@
                 const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
                 const data = await response.json();
                 
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 404) {
+                        const tbody = document.getElementById('rate-limits-list');
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Error: Invalid or non-existent merchant ID</td></tr>';
+                    }
+                    return;
+                }
+                
                 if (data.success && data.data.rateLimits) {
                     const tbody = document.getElementById('rate-limits-list');
                     tbody.innerHTML = '';
@@ -1044,6 +1117,8 @@
                 }
             } catch (error) {
                 console.error('Error loading rate limits:', error);
+                const tbody = document.getElementById('rate-limits-list');
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Error loading rate limits</td></tr>';
             }
         }
 
@@ -1092,6 +1167,14 @@
                 const response = await fetch(`${API_BASE_URL}/merchants/${currentMerchantId}`);
                 const data = await response.json();
                 
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 404) {
+                        const tbody = document.getElementById('ip-whitelist-list');
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Error: Invalid or non-existent merchant ID</td></tr>';
+                    }
+                    return;
+                }
+                
                 if (data.success && data.data.ipWhitelist) {
                     const tbody = document.getElementById('ip-whitelist-list');
                     tbody.innerHTML = '';
@@ -1118,6 +1201,8 @@
                 }
             } catch (error) {
                 console.error('Error loading IP whitelist:', error);
+                const tbody = document.getElementById('ip-whitelist-list');
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: red;">Error loading IP whitelist</td></tr>';
             }
         }
 
@@ -1186,6 +1271,14 @@
                 const response = await fetch(url);
                 const data = await response.json();
                 
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 404) {
+                        const tbody = document.getElementById('usage-list');
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Error: Invalid or non-existent merchant ID</td></tr>';
+                    }
+                    return;
+                }
+                
                 if (data.success) {
                     // Update summary
                     const summary = data.data.summary;
@@ -1234,6 +1327,8 @@
                 }
             } catch (error) {
                 console.error('Error loading usage stats:', error);
+                const tbody = document.getElementById('usage-list');
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Error loading usage stats</td></tr>';
             }
         }
 
