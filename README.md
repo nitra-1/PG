@@ -8,7 +8,9 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 ## 🎯 Quick Links
 
 - **[💳 Sample Checkout Page](CHECKOUT_QUICKSTART.md)** - Try the live demo checkout page
+- **[🏪 Merchant Dashboard](public/merchant-dashboard.html)** - Merchant self-service portal
 - **[📘 Quick Start Guide](docs/QUICK_START.md)** - Get started in 5 minutes
+- **[🔑 Merchant API Guide](docs/MERCHANT_API.md)** - Complete merchant onboarding API documentation
 - **[🪟 Windows 11 Setup Guide](docs/WINDOWS_SETUP.md)** - Complete Windows setup instructions
 - **[🛒 E-commerce Integration Guide](docs/ECOMMERCE_INTEGRATION.md)** - Complete integration tutorial
 - **[📊 Payment Flow Diagrams](docs/PAYMENT_FLOW_DIAGRAMS.md)** - Visual flow diagrams
@@ -30,6 +32,15 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 - **PAPG (Payment Aggregator Payment Gateway)**: Smart routing with automatic failover
 - **BNPL (Buy Now Pay Later)**: Credit assessment and installment management
 - **EMI Processing**: Flexible installment plans with bank integration
+
+### Merchant Management
+- **Merchant Onboarding**: Self-service merchant registration with automated API key generation
+- **API Key Management**: Secure generation, rotation, and revocation of API credentials
+- **Webhook Configuration**: Event-driven notifications with automatic retry mechanism
+- **Rate Limiting**: Per-merchant configurable rate limits and quotas
+- **IP Whitelisting**: Network-level security with IP address restrictions
+- **Usage Analytics**: Real-time tracking and reporting of API usage and transactions
+- **Merchant Dashboard**: Self-service portal for configuration and monitoring
 
 ### Security & Compliance
 - **End-to-End Encryption**: AES-256 encryption for sensitive data
