@@ -56,10 +56,19 @@ const checkIPWhitelist = async (req, res, next) => {
 
     const merchantId = req.merchant.merchantId;
     
-    // Get client IP
-    const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
-                     || req.connection.remoteAddress 
-                     || req.socket.remoteAddress;
+    // Get client IP - use req.ip which respects proxy trust settings
+    // Fallback to x-forwarded-for only if properly configured
+    let clientIP = req.ip;
+    
+    // If behind a proxy and trust proxy is configured, use the first IP from x-forwarded-for
+    if (!clientIP && req.headers['x-forwarded-for']) {
+      clientIP = req.headers['x-forwarded-for'].split(',')[0].trim();
+    }
+    
+    // Final fallback to connection IP
+    if (!clientIP) {
+      clientIP = req.connection.remoteAddress || req.socket.remoteAddress;
+    }
 
     // Check if merchant has IP whitelist configured
     const whitelistResult = await db.query(
@@ -235,7 +244,11 @@ const trackMerchantUsage = (config) => {
       if (req.merchant) {
         const success = res.statusCode >= 200 && res.statusCode < 300;
         const amount = req.body?.amount || 0;
-        const transactionCount = success && req.path.includes('/payment') ? 1 : 0;
+        
+        // Determine if it's a payment transaction based on explicit payment endpoints
+        const paymentEndpoints = ['/api/payments/process', '/api/payin/orders', '/api/upi/collect'];
+        const isPaymentTransaction = success && paymentEndpoints.some(endpoint => req.path.startsWith(endpoint));
+        const transactionCount = isPaymentTransaction ? 1 : 0;
 
         merchantService.trackUsage(req.merchant.merchantId, {
           endpoint: req.path,

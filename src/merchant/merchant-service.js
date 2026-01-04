@@ -548,12 +548,28 @@ class MerchantService {
         throw new Error('IP address is required');
       }
 
-      // Validate IP format (basic validation)
-      const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-      const ipv6Regex = /^([0-9a-fA-F]{0,4}:){7}[0-9a-fA-F]{0,4}$/;
+      // Validate IPv4 format
+      const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+      const ipv4Match = ipAddress.match(ipv4Regex);
       
-      if (!ipv4Regex.test(ipAddress) && !ipv6Regex.test(ipAddress)) {
-        throw new Error('Invalid IP address format');
+      if (ipv4Match) {
+        // Validate each octet is between 0-255
+        const octets = ipv4Match.slice(1);
+        const validOctets = octets.every(octet => {
+          const num = parseInt(octet, 10);
+          return num >= 0 && num <= 255;
+        });
+        
+        if (!validOctets) {
+          throw new Error('Invalid IPv4 address: octets must be between 0-255');
+        }
+      } else {
+        // Validate IPv6 format (basic validation)
+        const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+        
+        if (!ipv6Regex.test(ipAddress)) {
+          throw new Error('Invalid IP address format');
+        }
       }
 
       // Check if IP already exists
@@ -708,6 +724,7 @@ class MerchantService {
       } = usageData;
 
       const today = new Date().toISOString().split('T')[0];
+      const usageId = require('uuid').v4();
 
       // Upsert usage statistics
       await db.query(
@@ -715,17 +732,18 @@ class MerchantService {
           id, merchant_id, date, endpoint, request_count, success_count, 
           error_count, total_amount, transaction_count, created_at, updated_at
         ) VALUES (
-          gen_random_uuid(), $1, $2, $3, 1, $4, $5, $6, $7, NOW(), NOW()
+          $1, $2, $3, $4, 1, $5, $6, $7, $8, NOW(), NOW()
         )
         ON CONFLICT (merchant_id, date, endpoint)
         DO UPDATE SET
           request_count = merchant_usage_stats.request_count + 1,
-          success_count = merchant_usage_stats.success_count + $4,
-          error_count = merchant_usage_stats.error_count + $5,
-          total_amount = merchant_usage_stats.total_amount + $6,
-          transaction_count = merchant_usage_stats.transaction_count + $7,
+          success_count = merchant_usage_stats.success_count + $5,
+          error_count = merchant_usage_stats.error_count + $6,
+          total_amount = merchant_usage_stats.total_amount + $7,
+          transaction_count = merchant_usage_stats.transaction_count + $8,
           updated_at = NOW()`,
         [
+          usageId,
           merchantId,
           today,
           endpoint,
@@ -742,7 +760,7 @@ class MerchantService {
         [merchantId]
       );
     } catch (error) {
-      console.error('Failed to track usage:', error);
+      console.error(`Failed to track usage for merchant ${merchantId} on endpoint ${usageData.endpoint}:`, error.message);
       // Don't throw error to avoid disrupting the main request
     }
   }

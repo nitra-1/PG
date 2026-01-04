@@ -11,6 +11,10 @@ const db = require('./database');
 
 const app = express();
 
+// Trust proxy for IP whitelisting (important for production behind load balancers)
+// Set to true if behind a reverse proxy, or specify the number of proxy hops
+app.set('trust proxy', config.server.trustProxy || false);
+
 // Initialize database connection pool
 db.initializePool();
 
