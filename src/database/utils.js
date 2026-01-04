@@ -8,6 +8,8 @@ const config = require('../config/config');
 
 /**
  * Validate table name against allowed tables
+ * This whitelist approach prevents SQL injection by ensuring only
+ * known, safe table names can be used in dynamic queries.
  */
 const ALLOWED_TABLES = [
   'transactions',
@@ -19,7 +21,7 @@ const ALLOWED_TABLES = [
 
 function validateTableName(tableName) {
   if (!ALLOWED_TABLES.includes(tableName)) {
-    throw new Error(`Invalid table name: ${tableName}`);
+    throw new Error(`Invalid table name: ${tableName}. Only whitelisted tables are allowed.`);
   }
   return tableName;
 }
@@ -55,6 +57,8 @@ async function insertWithTenant(tableName, data, tenantId) {
 
 /**
  * Get schema for a table - returns allowed columns
+ * This whitelist approach prevents SQL injection by ensuring only
+ * known, safe column names can be used in dynamic queries.
  */
 const TABLE_SCHEMAS = {
   transactions: ['id', 'tenant_id', 'order_id', 'transaction_ref', 'payment_method', 'gateway', 'amount', 'currency', 'status', 'customer_email', 'customer_phone', 'customer_name', 'metadata', 'gateway_transaction_id', 'gateway_response_code', 'gateway_response_message', 'initiated_at', 'completed_at', 'created_at', 'updated_at'],

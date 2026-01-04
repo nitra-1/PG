@@ -135,15 +135,18 @@ process.on('SIGTERM', () => {
   });
 });
 
-process.on('SIGINT', async () => {
+process.on('SIGINT', () => {
   console.log('SIGINT signal received: closing HTTP server');
-  try {
-    await db.closePool();
-    console.log('Database pool closed');
-  } catch (error) {
-    console.error('Error closing database pool:', error);
-  }
-  process.exit(0);
+  server.close(async () => {
+    console.log('HTTP server closed');
+    try {
+      await db.closePool();
+      console.log('Database pool closed');
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+    }
+    process.exit(0);
+  });
 });
 
 module.exports = app;

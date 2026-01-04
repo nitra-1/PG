@@ -75,8 +75,8 @@ function getTenantQuery(baseQuery, tenantId) {
     return baseQuery.where('tenant_id', tenantId);
   }
   
-  // For raw SQL strings - not recommended, use connection.getTenantQuery instead
-  console.warn('Using getTenantQuery with raw SQL string. Consider using connection.getTenantQuery for raw SQL.');
+  // For raw SQL strings - use db.getTenantQuery from connection.js module
+  console.warn('Using getTenantQuery with raw SQL string. Use the connection module\'s getTenantQuery for raw SQL queries.');
   return baseQuery;
 }
 
