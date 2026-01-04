@@ -163,7 +163,7 @@ class MerchantService {
       // Get IP whitelist
       const ipWhitelistResult = await db.query(
         `SELECT * FROM merchant_ip_whitelist WHERE merchant_id::text = $1 ORDER BY created_at DESC`,
-        [merchantId]
+        [normalizedId]
       );
 
       return {
@@ -777,11 +777,17 @@ class MerchantService {
   async trackUsage(merchantId, usageData) {
     try {
       // Normalize and validate UUID - but don't fail if invalid (just log)
+      // NOTE: trackUsage is called from tracking middleware and should not disrupt the main request flow
+      // If UUID validation fails, we log a warning and return early rather than throwing an error
       let normalizedId;
       try {
         normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
       } catch (error) {
-        console.error(`Invalid merchant ID in trackUsage: ${merchantId}`, error.message);
+        console.warn(`[trackUsage] Invalid merchant ID, skipping usage tracking:`, {
+          merchantId,
+          error: error.message,
+          endpoint: usageData?.endpoint
+        });
         return; // Silent return to avoid disrupting main request
       }
       
