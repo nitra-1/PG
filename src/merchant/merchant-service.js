@@ -15,6 +15,30 @@ class MerchantService {
   }
 
   /**
+   * Normalize and validate UUID
+   * @param {string} uuid - UUID to validate and normalize
+   * @param {string} fieldName - Name of the field for error messages
+   * @returns {string} Normalized UUID
+   * @private
+   */
+  _normalizeUUID(uuid, fieldName = 'ID') {
+    if (!uuid) {
+      throw new Error(`${fieldName} is required`);
+    }
+    
+    // Normalize: trim and convert to lowercase
+    const normalized = uuid.toString().trim().toLowerCase();
+    
+    // Validate UUID format (no need for case-insensitive flag since we already lowercased)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    if (!uuidRegex.test(normalized)) {
+      throw new Error(`Invalid ${fieldName} format: ${uuid}`);
+    }
+    
+    return normalized;
+  }
+
+  /**
    * Register a new merchant
    * @param {Object} merchantData - Merchant registration data
    * @returns {Promise<Object>} Created merchant
@@ -103,9 +127,12 @@ class MerchantService {
    */
   async getMerchant(merchantId) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       const result = await db.query(
-        'SELECT * FROM merchants WHERE id = $1',
-        [merchantId]
+        'SELECT * FROM merchants WHERE id::text = $1',
+        [normalizedId]
       );
 
       if (result.rows.length === 0) {
@@ -117,26 +144,26 @@ class MerchantService {
       // Get API keys (excluding secrets)
       const apiKeysResult = await db.query(
         `SELECT id, key_name, api_key, status, last_used_at, expires_at, permissions, created_at
-         FROM merchant_api_keys WHERE merchant_id = $1 ORDER BY created_at DESC`,
-        [merchantId]
+         FROM merchant_api_keys WHERE merchant_id::text = $1 ORDER BY created_at DESC`,
+        [normalizedId]
       );
 
       // Get webhooks
       const webhooksResult = await db.query(
-        `SELECT * FROM merchant_webhooks WHERE merchant_id = $1 ORDER BY created_at DESC`,
-        [merchantId]
+        `SELECT * FROM merchant_webhooks WHERE merchant_id::text = $1 ORDER BY created_at DESC`,
+        [normalizedId]
       );
 
       // Get rate limits
       const rateLimitsResult = await db.query(
-        `SELECT * FROM merchant_rate_limits WHERE merchant_id = $1 ORDER BY created_at DESC`,
-        [merchantId]
+        `SELECT * FROM merchant_rate_limits WHERE merchant_id::text = $1 ORDER BY created_at DESC`,
+        [normalizedId]
       );
 
       // Get IP whitelist
       const ipWhitelistResult = await db.query(
-        `SELECT * FROM merchant_ip_whitelist WHERE merchant_id = $1 ORDER BY created_at DESC`,
-        [merchantId]
+        `SELECT * FROM merchant_ip_whitelist WHERE merchant_id::text = $1 ORDER BY created_at DESC`,
+        [normalizedId]
       );
 
       return {
@@ -159,6 +186,9 @@ class MerchantService {
    */
   async updateMerchant(merchantId, updates) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       const allowedFields = [
         'merchant_name', 'business_type', 'email', 'phone', 'address',
         'website_url', 'callback_url', 'business_details', 'status',
@@ -187,11 +217,11 @@ class MerchantService {
         throw new Error('No valid fields to update');
       }
 
-      values.push(merchantId);
+      values.push(normalizedId);
       const query = `
         UPDATE merchants 
         SET ${updateFields.join(', ')}, updated_at = NOW()
-        WHERE id = $${paramIndex}
+        WHERE id::text = $${paramIndex}
         RETURNING *
       `;
 
@@ -223,26 +253,29 @@ class MerchantService {
    */
   async deleteMerchant(merchantId) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       // Check if merchant exists
-      const merchant = await this.getMerchant(merchantId);
+      const merchant = await this.getMerchant(normalizedId);
 
       // Soft delete - update status to inactive
       await db.query(
-        'UPDATE merchants SET status = $1, updated_at = NOW() WHERE id = $2',
-        ['inactive', merchantId]
+        'UPDATE merchants SET status = $1, updated_at = NOW() WHERE id::text = $2',
+        ['inactive', normalizedId]
       );
 
       // Revoke all API keys
       await db.query(
-        'UPDATE merchant_api_keys SET status = $1, updated_at = NOW() WHERE merchant_id = $2',
-        ['revoked', merchantId]
+        'UPDATE merchant_api_keys SET status = $1, updated_at = NOW() WHERE merchant_id::text = $2',
+        ['revoked', normalizedId]
       );
 
       // Log audit
       await db.logAudit({
-        tenantId: merchantId,
+        tenantId: normalizedId,
         entityType: 'merchant',
-        entityId: merchantId,
+        entityId: normalizedId,
         action: 'delete'
       });
 
@@ -264,6 +297,9 @@ class MerchantService {
    */
   async generateAPIKey(merchantId, keyName = 'API Key', permissions = ['all']) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       const apiKey = `pk_${crypto.randomBytes(32).toString('hex')}`;
       const apiSecret = `sk_${crypto.randomBytes(32).toString('hex')}`;
       
@@ -282,10 +318,10 @@ class MerchantService {
           id, merchant_id, key_name, api_key, api_secret_encrypted, 
           api_secret_iv, api_secret_auth_tag, api_secret_hash, 
           status, expires_at, permissions, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
+        ) VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
         [
           keyId,
-          merchantId,
+          normalizedId,
           keyName,
           apiKey,
           encryptedSecret.encrypted,
@@ -328,12 +364,16 @@ class MerchantService {
    */
   async revokeAPIKey(merchantId, keyId) {
     try {
+      // Normalize and validate UUIDs
+      const normalizedMerchantId = this._normalizeUUID(merchantId, 'Merchant ID');
+      const normalizedKeyId = this._normalizeUUID(keyId, 'Key ID');
+      
       const result = await db.query(
         `UPDATE merchant_api_keys 
          SET status = $1, updated_at = NOW()
-         WHERE id = $2 AND merchant_id = $3
+         WHERE id::text = $2 AND merchant_id::text = $3
          RETURNING *`,
-        ['revoked', keyId, merchantId]
+        ['revoked', normalizedKeyId, normalizedMerchantId]
       );
 
       if (result.rows.length === 0) {
@@ -342,9 +382,9 @@ class MerchantService {
 
       // Log audit
       await db.logAudit({
-        tenantId: merchantId,
+        tenantId: normalizedMerchantId,
         entityType: 'api_key',
-        entityId: keyId,
+        entityId: normalizedKeyId,
         action: 'update',
         metadata: { status: 'revoked' }
       });
@@ -366,6 +406,9 @@ class MerchantService {
    */
   async configureWebhook(merchantId, webhookData) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       const {
         webhookUrl,
         events = ['payment.success', 'payment.failed', 'refund.processed'],
@@ -386,11 +429,11 @@ class MerchantService {
         `INSERT INTO merchant_webhooks (
           id, merchant_id, webhook_url, webhook_secret, status, events,
           retry_attempts, retry_delay, timeout, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        ) VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
         RETURNING *`,
         [
           webhookId,
-          merchantId,
+          normalizedId,
           webhookUrl,
           webhookSecret,
           'active',
@@ -403,7 +446,7 @@ class MerchantService {
 
       // Log audit
       await db.logAudit({
-        tenantId: merchantId,
+        tenantId: normalizedId,
         entityType: 'webhook',
         entityId: webhookId,
         action: 'create',
@@ -431,6 +474,10 @@ class MerchantService {
    */
   async updateWebhook(merchantId, webhookId, updates) {
     try {
+      // Normalize and validate UUIDs
+      const normalizedMerchantId = this._normalizeUUID(merchantId, 'Merchant ID');
+      const normalizedWebhookId = this._normalizeUUID(webhookId, 'Webhook ID');
+      
       const allowedFields = ['webhook_url', 'status', 'events', 'retry_attempts', 'retry_delay', 'timeout'];
       
       const updateFields = [];
@@ -454,13 +501,13 @@ class MerchantService {
         throw new Error('No valid fields to update');
       }
 
-      values.push(webhookId);
-      values.push(merchantId);
+      values.push(normalizedWebhookId);
+      values.push(normalizedMerchantId);
       
       const query = `
         UPDATE merchant_webhooks 
         SET ${updateFields.join(', ')}, updated_at = NOW()
-        WHERE id = $${paramIndex} AND merchant_id = $${paramIndex + 1}
+        WHERE id::text = $${paramIndex} AND merchant_id::text = $${paramIndex + 1}
         RETURNING *
       `;
 
@@ -484,6 +531,9 @@ class MerchantService {
    */
   async configureRateLimit(merchantId, rateLimitData) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       const {
         endpointPattern = '/api/*',
         maxRequests = 100,
@@ -492,8 +542,8 @@ class MerchantService {
 
       // Check if rate limit already exists for this endpoint
       const existing = await db.query(
-        'SELECT id FROM merchant_rate_limits WHERE merchant_id = $1 AND endpoint_pattern = $2',
-        [merchantId, endpointPattern]
+        'SELECT id FROM merchant_rate_limits WHERE merchant_id::text = $1 AND endpoint_pattern = $2',
+        [normalizedId, endpointPattern]
       );
 
       if (existing.rows.length > 0) {
@@ -501,9 +551,9 @@ class MerchantService {
         const result = await db.query(
           `UPDATE merchant_rate_limits 
            SET max_requests = $1, window_ms = $2, updated_at = NOW()
-           WHERE merchant_id = $3 AND endpoint_pattern = $4
+           WHERE merchant_id::text = $3 AND endpoint_pattern = $4
            RETURNING *`,
-          [maxRequests, windowMs, merchantId, endpointPattern]
+          [maxRequests, windowMs, normalizedId, endpointPattern]
         );
         
         return result.rows[0];
@@ -513,14 +563,14 @@ class MerchantService {
         const result = await db.query(
           `INSERT INTO merchant_rate_limits (
             id, merchant_id, endpoint_pattern, max_requests, window_ms, status, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+          ) VALUES ($1, $2::uuid, $3, $4, $5, $6, NOW(), NOW())
           RETURNING *`,
-          [rateLimitId, merchantId, endpointPattern, maxRequests, windowMs, 'active']
+          [rateLimitId, normalizedId, endpointPattern, maxRequests, windowMs, 'active']
         );
 
         // Log audit
         await db.logAudit({
-          tenantId: merchantId,
+          tenantId: normalizedId,
           entityType: 'rate_limit',
           entityId: rateLimitId,
           action: 'create',
@@ -542,6 +592,9 @@ class MerchantService {
    */
   async addIPToWhitelist(merchantId, ipData) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       const { ipAddress, description } = ipData;
 
       if (!ipAddress) {
@@ -574,8 +627,8 @@ class MerchantService {
 
       // Check if IP already exists
       const existing = await db.query(
-        'SELECT id FROM merchant_ip_whitelist WHERE merchant_id = $1 AND ip_address = $2',
-        [merchantId, ipAddress]
+        'SELECT id FROM merchant_ip_whitelist WHERE merchant_id::text = $1 AND ip_address = $2',
+        [normalizedId, ipAddress]
       );
 
       if (existing.rows.length > 0) {
@@ -586,14 +639,14 @@ class MerchantService {
       const result = await db.query(
         `INSERT INTO merchant_ip_whitelist (
           id, merchant_id, ip_address, description, status, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        ) VALUES ($1, $2::uuid, $3, $4, $5, NOW(), NOW())
         RETURNING *`,
-        [ipId, merchantId, ipAddress, description || null, 'active']
+        [ipId, normalizedId, ipAddress, description || null, 'active']
       );
 
       // Log audit
       await db.logAudit({
-        tenantId: merchantId,
+        tenantId: normalizedId,
         entityType: 'ip_whitelist',
         entityId: ipId,
         action: 'create',
@@ -614,9 +667,13 @@ class MerchantService {
    */
   async removeIPFromWhitelist(merchantId, ipId) {
     try {
+      // Normalize and validate UUIDs
+      const normalizedMerchantId = this._normalizeUUID(merchantId, 'Merchant ID');
+      const normalizedIpId = this._normalizeUUID(ipId, 'IP Entry ID');
+      
       const result = await db.query(
-        'DELETE FROM merchant_ip_whitelist WHERE id = $1 AND merchant_id = $2 RETURNING *',
-        [ipId, merchantId]
+        'DELETE FROM merchant_ip_whitelist WHERE id::text = $1 AND merchant_id::text = $2 RETURNING *',
+        [normalizedIpId, normalizedMerchantId]
       );
 
       if (result.rows.length === 0) {
@@ -625,9 +682,9 @@ class MerchantService {
 
       // Log audit
       await db.logAudit({
-        tenantId: merchantId,
+        tenantId: normalizedMerchantId,
         entityType: 'ip_whitelist',
-        entityId: ipId,
+        entityId: normalizedIpId,
         action: 'delete'
       });
 
@@ -648,6 +705,9 @@ class MerchantService {
    */
   async getUsageStatistics(merchantId, filters = {}) {
     try {
+      // Normalize and validate UUID
+      const normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      
       const { startDate, endDate } = filters;
       
       let query = `
@@ -660,10 +720,10 @@ class MerchantService {
           SUM(total_amount) as total_amount,
           SUM(transaction_count) as total_transactions
         FROM merchant_usage_stats
-        WHERE merchant_id = $1
+        WHERE merchant_id::text = $1
       `;
       
-      const values = [merchantId];
+      const values = [normalizedId];
       let paramIndex = 2;
 
       if (startDate) {
@@ -716,6 +776,30 @@ class MerchantService {
    */
   async trackUsage(merchantId, usageData) {
     try {
+      // Validate usageData parameter
+      if (!usageData || typeof usageData !== 'object') {
+        console.warn('[trackUsage] Invalid usageData parameter, skipping usage tracking:', {
+          merchantId,
+          usageData
+        });
+        return;
+      }
+      
+      // Normalize and validate UUID - but don't fail if invalid (just log)
+      // NOTE: trackUsage is called from tracking middleware and should not disrupt the main request flow
+      // If UUID validation fails, we log a warning and return early rather than throwing an error
+      let normalizedId;
+      try {
+        normalizedId = this._normalizeUUID(merchantId, 'Merchant ID');
+      } catch (error) {
+        console.warn('[trackUsage] Invalid merchant ID, skipping usage tracking:', {
+          merchantId,
+          error: error.message,
+          endpoint: usageData.endpoint
+        });
+        return; // Silent return to avoid disrupting main request
+      }
+      
       const {
         endpoint,
         success = true,
@@ -724,7 +808,7 @@ class MerchantService {
       } = usageData;
 
       const today = new Date().toISOString().split('T')[0];
-      const usageId = require('uuid').v4();
+      const usageId = uuidv4();
 
       // Upsert usage statistics
       await db.query(
@@ -732,7 +816,7 @@ class MerchantService {
           id, merchant_id, date, endpoint, request_count, success_count, 
           error_count, total_amount, transaction_count, created_at, updated_at
         ) VALUES (
-          $1, $2, $3, $4, 1, $5, $6, $7, $8, NOW(), NOW()
+          $1, $2::uuid, $3, $4, 1, $5, $6, $7, $8, NOW(), NOW()
         )
         ON CONFLICT (merchant_id, date, endpoint)
         DO UPDATE SET
@@ -744,7 +828,7 @@ class MerchantService {
           updated_at = NOW()`,
         [
           usageId,
-          merchantId,
+          normalizedId,
           today,
           endpoint,
           success ? 1 : 0,
@@ -756,8 +840,8 @@ class MerchantService {
 
       // Update merchant's last_active_at
       await db.query(
-        'UPDATE merchants SET last_active_at = NOW() WHERE id = $1',
-        [merchantId]
+        'UPDATE merchants SET last_active_at = NOW() WHERE id::text = $1',
+        [normalizedId]
       );
     } catch (error) {
       console.error(`Failed to track usage for merchant ${merchantId} on endpoint ${usageData.endpoint}:`, error.message);
