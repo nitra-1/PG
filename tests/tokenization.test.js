@@ -21,7 +21,7 @@ describe('TokenizationService', () => {
         cardNumber: '4111111111111111',
         cvv: '123',
         expiryMonth: 12,
-        expiryYear: 2025,
+        expiryYear: 2027,
         cardholderName: 'John Doe'
       };
 
@@ -36,8 +36,8 @@ describe('TokenizationService', () => {
     });
 
     test('should detect card brand correctly', () => {
-      const visaCard = { cardNumber: '4111111111111111', cvv: '123', expiryMonth: 12, expiryYear: 2025 };
-      const mastercardCard = { cardNumber: '5555555555554444', cvv: '123', expiryMonth: 12, expiryYear: 2025 };
+      const visaCard = { cardNumber: '4111111111111111', cvv: '123', expiryMonth: 12, expiryYear: 2027 };
+      const mastercardCard = { cardNumber: '5555555555554444', cvv: '123', expiryMonth: 12, expiryYear: 2027 };
       
       expect(tokenizationService.tokenizeCard(visaCard).cardBrand).toBe('visa');
       expect(tokenizationService.tokenizeCard(mastercardCard).cardBrand).toBe('mastercard');
@@ -48,7 +48,7 @@ describe('TokenizationService', () => {
         cardNumber: '1234',
         cvv: '123',
         expiryMonth: 12,
-        expiryYear: 2025
+        expiryYear: 2027
       };
 
       expect(() => tokenizationService.tokenizeCard(invalidCardData)).toThrow('Invalid card number format');
@@ -59,7 +59,7 @@ describe('TokenizationService', () => {
         cardNumber: '4111111111111111',
         cvv: '12',
         expiryMonth: 12,
-        expiryYear: 2025
+        expiryYear: 2027
       };
 
       expect(() => tokenizationService.tokenizeCard(invalidCardData)).toThrow('Invalid CVV format');
@@ -81,7 +81,7 @@ describe('TokenizationService', () => {
         cardNumber: '4111111111111111',
         cvv: '123',
         expiryMonth: 12,
-        expiryYear: 2025,
+        expiryYear: 2027,
         cardholderName: 'John Doe'
       };
 
@@ -212,7 +212,7 @@ describe('TokenizationService', () => {
         cardNumber: '4111111111111111',
         cvv: '123',
         expiryMonth: 12,
-        expiryYear: 2025
+        expiryYear: 2027
       };
 
       const vaultEntry = tokenizationService.encryptToVault(data);
