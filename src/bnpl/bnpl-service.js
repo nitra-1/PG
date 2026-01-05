@@ -55,7 +55,9 @@ class BNPLService {
         throw new Error('Amount must be greater than 0');
       }
 
-      // Check if using external provider
+      // Check if using external provider (Afterpay, Klarna)
+      // External providers have dedicated integration classes in ./providers/
+      // Internal partners (simpl, lazypay, etc.) use the base service credit scoring
       const provider = this.getProvider(partner);
       if (provider) {
         return await provider.checkEligibility(customerData);
