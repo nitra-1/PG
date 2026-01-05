@@ -584,7 +584,7 @@ class AuditTrailService {
    * @returns {Object} Audit report
    */
   async generateAuditReport(reportParams) {
-    const { startDate, endDate, eventTypes, userId } = reportParams;
+    const { startDate, endDate, userId } = reportParams;
 
     const entries = await this.queryAuditTrail({
       startDate,

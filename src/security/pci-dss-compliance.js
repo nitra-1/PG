@@ -87,7 +87,7 @@ class PCIDSSComplianceService {
     // Requirement 4: Encrypt transmission (checked by HTTPS middleware)
     
     // Requirement 8: Assign unique ID to each person with computer access
-    if (!transactionData.userId && !transactionData.merchantId) {
+    if (!transactionData.merchantId) {
       violations.push({
         requirement: '8.1',
         description: 'User identification required for cardholder data access',
@@ -289,7 +289,7 @@ class PCIDSSComplianceService {
       });
     }
 
-    if (requirements.requireSpecialChars && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    if (requirements.requireSpecialChars && !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
       issues.push({
         requirement: '8.2.3',
         description: 'Password must contain special characters',
@@ -323,7 +323,7 @@ class PCIDSSComplianceService {
     if (/[A-Z]/.test(password)) score += 1;
     if (/[a-z]/.test(password)) score += 1;
     if (/\d/.test(password)) score += 1;
-    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score += 1;
+    if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) score += 1;
 
     if (score >= 6) return 'STRONG';
     if (score >= 4) return 'MEDIUM';

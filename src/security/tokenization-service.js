@@ -104,17 +104,16 @@ class TokenizationService {
   /**
    * Detokenize customer data (requires proper authorization)
    * @param {string} token - Customer data token
-   * @param {string} tokenType - Type of token (email, phone, name, address)
+   * @param {string} tokenType - Type of token (email, phone, name, address) - for future use
    * @returns {string} Original data
    */
-  detokenizeCustomer(token, tokenType) {
+  detokenizeCustomer(token, tokenType) { // eslint-disable-line no-unused-vars
     if (!this.verifyToken(token)) {
       throw new Error('Invalid token format');
     }
 
     // In production, retrieve from secure token vault
     // This is a simplified implementation
-    const tokenKey = `${token}:${tokenType}`;
     
     // Decrypt the token to get original data
     // Note: In production, this would query a separate token vault database
@@ -159,7 +158,8 @@ class TokenizationService {
       return false;
     }
 
-    const [prefix, type, random, checksum] = parts;
+    const random = parts[2];
+    const checksum = parts[3];
 
     // Verify random component length
     if (random.length !== 32) {
@@ -211,6 +211,8 @@ class TokenizationService {
    * @returns {Object} Decrypted data
    */
   retrieveFromVault(vaultId) {
+    // Suppress unused parameter warning - vaultId used in production implementation
+    void vaultId;
     // In production, this would query the vault database
     // This is a simplified placeholder
     throw new Error('Vault retrieval not implemented - requires secure vault database');
@@ -222,6 +224,8 @@ class TokenizationService {
    * @returns {string} Original data
    */
   decryptToken(token) {
+    // Suppress unused parameter warning - token used in production implementation
+    void token;
     // In production, this would use the token to look up the original data
     // from a secure token vault database
     throw new Error('Token decryption requires token vault database');
