@@ -14,17 +14,26 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 - **[🪟 Windows 11 Setup Guide](docs/WINDOWS_SETUP.md)** - Complete Windows setup instructions
 - **[🛒 E-commerce Integration Guide](docs/ECOMMERCE_INTEGRATION.md)** - Complete integration tutorial
 - **[📊 Payment Flow Diagrams](docs/PAYMENT_FLOW_DIAGRAMS.md)** - Visual flow diagrams
+- **[🛡️ Resilience Features](docs/RESILIENCE_FEATURES.md)** - Error handling, retry logic, circuit breaker, and smart routing
 
 ## 🚀 Features
 
 ### Payment Methods
 - **UPI Payments**: Collect requests, QR codes, intent-based payments
-- **Payment Gateway Integration**: Multiple gateway support (Razorpay, PayU, CCAvenue)
+- **Payment Gateway Integration**: Multiple gateway support (Razorpay, PayU, CCAvenue) with smart routing
 - **Card Payments**: Credit/Debit card processing with EMI support
 - **Net Banking**: Direct bank transfers
 - **Digital Wallets**: Paytm, PhonePe, Google Pay, Amazon Pay integration
 - **QR Code Solutions**: Static and dynamic QR code generation
 - **Biometric Payments**: Fingerprint, facial recognition, Aadhaar-based authentication
+
+### Gateway Resilience (NEW)
+- **Smart Routing**: Health-based, latency-based, cost-optimized, and priority-based routing
+- **Automatic Fallback**: Seamless failover to alternative gateways on primary failure
+- **Retry Logic**: Exponential backoff with jitter for transient failures
+- **Circuit Breaker**: Prevents cascading failures with automatic recovery
+- **Error Classification**: Standardized error handling with detailed categorization
+- **Health Monitoring**: Real-time gateway health tracking and metrics
 
 ### Financial Services
 - **Pay-in Services**: Customer payment collection with multiple methods
