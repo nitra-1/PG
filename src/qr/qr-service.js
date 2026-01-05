@@ -235,6 +235,12 @@ class QRService {
       }
 
       // Process payment with real-time transaction linking
+      // Real-time linking: Transaction object is created with full context (QR code ID, merchant ID, 
+      // customer details) and immediately stored in the QR code's transactions array. This enables:
+      // 1. Instant transaction tracking - transactions are queryable immediately after creation
+      // 2. QR code analytics - automatic aggregation of total transactions and amounts
+      // 3. Payment reconciliation - direct link between QR code and all associated payments
+      // 4. Historical tracking - complete audit trail of all payments made via each QR code
       const transactionId = `TXN_QR_${Date.now()}`;
       const transaction = {
         transactionId: transactionId,
