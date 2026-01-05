@@ -207,12 +207,10 @@ class TokenizationService {
 
   /**
    * Retrieve data from vault
-   * @param {string} vaultId - Vault identifier
+   * @param {string} _vaultId - Vault identifier (unused in placeholder implementation)
    * @returns {Object} Decrypted data
    */
-  retrieveFromVault(vaultId) {
-    // Suppress unused parameter warning - vaultId used in production implementation
-    void vaultId;
+  retrieveFromVault(_vaultId) {
     // In production, this would query the vault database
     // This is a simplified placeholder
     throw new Error('Vault retrieval not implemented - requires secure vault database');
@@ -220,12 +218,10 @@ class TokenizationService {
 
   /**
    * Decrypt token (internal use only)
-   * @param {string} token - Token to decrypt
+   * @param {string} _token - Token to decrypt (unused in placeholder implementation)
    * @returns {string} Original data
    */
-  decryptToken(token) {
-    // Suppress unused parameter warning - token used in production implementation
-    void token;
+  decryptToken(_token) {
     // In production, this would use the token to look up the original data
     // from a secure token vault database
     throw new Error('Token decryption requires token vault database');

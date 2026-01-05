@@ -88,13 +88,7 @@ app.get('/health', async (req, res) => {
     status: dbHealth.healthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    database: dbHealth,
-    security: {
-      pciDssEnabled: config.compliance.pciDssEnabled,
-      tlsEnforced: process.env.NODE_ENV === 'production',
-      auditTrailActive: true,
-      tokenizationActive: true
-    }
+    database: dbHealth
   });
 });
 

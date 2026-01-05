@@ -561,11 +561,11 @@ class AuditTrailService {
   redactIfSensitive(value) {
     if (typeof value === 'string') {
       const sensitivePatterns = [
-        /key/i,
+        /^api[_-]?key/i,
         /secret/i,
         /password/i,
-        /token/i,
-        /api/i
+        /^token$/i,
+        /^api_/i
       ];
 
       for (const pattern of sensitivePatterns) {
