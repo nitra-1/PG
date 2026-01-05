@@ -18,6 +18,7 @@ const BNPLService = require('../bnpl/bnpl-service');
 const EMIService = require('../emi/emi-service');
 const BiometricService = require('../biometric/biometric-service');
 const SecurityService = require('../security/security-service');
+const SubscriptionService = require('../subscription/subscription-service');
 
 // Initialize services
 const config = require('../config/config');
@@ -32,6 +33,7 @@ const bnplService = new BNPLService(config);
 const emiService = new EMIService(config);
 const biometricService = new BiometricService(config);
 const securityService = new SecurityService(config);
+const subscriptionService = new SubscriptionService(config);
 
 // Import merchant routes
 const merchantRoutes = require('../merchant/merchant-routes')(config, securityService);
@@ -276,6 +278,203 @@ router.post('/qr/dynamic', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/qr/:qrCodeId/payment
+ * Process QR code payment
+ */
+router.post('/qr/:qrCodeId/payment', authenticate, async (req, res) => {
+  try {
+    const result = await qrService.processQRPayment(req.params.qrCodeId, req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/qr/:qrCodeId
+ * Get QR code details
+ */
+router.get('/qr/:qrCodeId', authenticate, async (req, res) => {
+  try {
+    const result = qrService.getQRCode(req.params.qrCodeId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/qr/:qrCodeId/transactions
+ * Get QR code transactions
+ */
+router.get('/qr/:qrCodeId/transactions', authenticate, async (req, res) => {
+  try {
+    const result = qrService.getQRTransactions(req.params.qrCodeId, req.query);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ===== Subscription Routes =====
+
+/**
+ * POST /api/subscriptions/plans
+ * Create subscription plan
+ */
+router.post('/subscriptions/plans', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.createPlan(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/subscriptions/plans
+ * List subscription plans
+ */
+router.get('/subscriptions/plans', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.listPlans(req.query);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/subscriptions/plans/:planId
+ * Get subscription plan
+ */
+router.get('/subscriptions/plans/:planId', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.getPlan(req.params.planId);
+    res.json({ success: true, plan: result });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions
+ * Create subscription
+ */
+router.post('/subscriptions', authenticate, async (req, res) => {
+  try {
+    const result = await subscriptionService.createSubscription(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/subscriptions/:subscriptionId
+ * Get subscription details
+ */
+router.get('/subscriptions/:subscriptionId', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.getSubscription(req.params.subscriptionId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/subscriptions/:subscriptionId
+ * Update subscription
+ */
+router.put('/subscriptions/:subscriptionId', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.updateSubscription(req.params.subscriptionId, req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/:subscriptionId/cancel
+ * Cancel subscription
+ */
+router.post('/subscriptions/:subscriptionId/cancel', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.cancelSubscription(req.params.subscriptionId, req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/:subscriptionId/pause
+ * Pause subscription
+ */
+router.post('/subscriptions/:subscriptionId/pause', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.pauseSubscription(req.params.subscriptionId, req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/:subscriptionId/resume
+ * Resume subscription
+ */
+router.post('/subscriptions/:subscriptionId/resume', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.resumeSubscription(req.params.subscriptionId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/:subscriptionId/process-payment
+ * Process recurring payment
+ */
+router.post('/subscriptions/:subscriptionId/process-payment', authenticate, async (req, res) => {
+  try {
+    const result = await subscriptionService.processRecurringPayment(req.params.subscriptionId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/subscriptions/:subscriptionId/billing-history
+ * Get subscription billing history
+ */
+router.get('/subscriptions/:subscriptionId/billing-history', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.getSubscriptionBillingHistory(req.params.subscriptionId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/customers/:customerId/subscriptions
+ * List customer subscriptions
+ */
+router.get('/customers/:customerId/subscriptions', authenticate, async (req, res) => {
+  try {
+    const result = subscriptionService.listCustomerSubscriptions(req.params.customerId, req.query);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // ===== Wallet Routes =====
 
 /**
@@ -327,6 +526,60 @@ router.post('/bnpl/orders', authenticate, async (req, res) => {
   try {
     const result = await bnplService.createBNPLOrder(req.body);
     res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/bnpl/orders/:bnplOrderId
+ * Get BNPL order details
+ */
+router.get('/bnpl/orders/:bnplOrderId', authenticate, async (req, res) => {
+  try {
+    const result = await bnplService.getBNPLOrder(req.params.bnplOrderId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/bnpl/installments/process
+ * Process installment payment
+ */
+router.post('/bnpl/installments/process', authenticate, async (req, res) => {
+  try {
+    const result = await bnplService.processInstallment(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/bnpl/customers/:customerId/summary
+ * Get customer BNPL summary
+ */
+router.get('/bnpl/customers/:customerId/summary', authenticate, async (req, res) => {
+  try {
+    const result = await bnplService.getCustomerBNPLSummary(req.params.customerId);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/bnpl/providers
+ * Get available BNPL providers
+ */
+router.get('/bnpl/providers', authenticate, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      providers: bnplService.partners
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

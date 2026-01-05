@@ -234,8 +234,27 @@ class QRService {
         throw new Error('Amount mismatch');
       }
 
-      // Process payment
+      // Process payment with real-time transaction linking
       const transactionId = `TXN_QR_${Date.now()}`;
+      const transaction = {
+        transactionId: transactionId,
+        qrCodeId: qrCodeId,
+        merchantId: qrCode.merchantId,
+        amount: paymentData.amount || qrCode.amount,
+        orderId: qrCode.orderId || paymentData.orderId,
+        customerVPA: paymentData.customerVPA,
+        customerName: paymentData.customerName,
+        status: 'SUCCESS',
+        paymentMethod: 'QR_CODE',
+        qrType: qrCode.type,
+        processedAt: new Date().toISOString()
+      };
+
+      // Link transaction to QR code
+      if (!qrCode.transactions) {
+        qrCode.transactions = [];
+      }
+      qrCode.transactions.push(transaction);
 
       // Mark as used for single-use QR
       if (qrCode.singleUse) {
@@ -245,13 +264,17 @@ class QRService {
 
       // Update last payment time
       qrCode.lastPaymentAt = new Date().toISOString();
+      qrCode.totalTransactions = (qrCode.totalTransactions || 0) + 1;
+      qrCode.totalAmount = (qrCode.totalAmount || 0) + transaction.amount;
 
       return {
         success: true,
         transactionId: transactionId,
         qrCodeId: qrCodeId,
-        amount: paymentData.amount || qrCode.amount,
+        amount: transaction.amount,
+        orderId: transaction.orderId,
         status: 'SUCCESS',
+        transaction: transaction,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
@@ -278,7 +301,51 @@ class QRService {
       status: qrCode.status,
       createdAt: qrCode.createdAt,
       expiryTime: qrCode.expiryTime,
-      lastPaymentAt: qrCode.lastPaymentAt
+      lastPaymentAt: qrCode.lastPaymentAt,
+      totalTransactions: qrCode.totalTransactions || 0,
+      totalAmount: qrCode.totalAmount || 0,
+      transactions: qrCode.transactions || []
+    };
+  }
+
+  /**
+   * Get QR code transactions
+   * @param {string} qrCodeId - QR code ID
+   * @param {Object} filters - Filter options
+   * @returns {Object} Transaction list
+   */
+  getQRTransactions(qrCodeId, filters = {}) {
+    const qrCode = this.qrCodes.get(qrCodeId);
+    
+    if (!qrCode) {
+      throw new Error('QR code not found');
+    }
+
+    let transactions = qrCode.transactions || [];
+
+    // Apply filters
+    if (filters.status) {
+      transactions = transactions.filter(txn => txn.status === filters.status);
+    }
+
+    if (filters.fromDate) {
+      transactions = transactions.filter(txn => 
+        new Date(txn.processedAt) >= new Date(filters.fromDate)
+      );
+    }
+
+    if (filters.toDate) {
+      transactions = transactions.filter(txn => 
+        new Date(txn.processedAt) <= new Date(filters.toDate)
+      );
+    }
+
+    return {
+      success: true,
+      qrCodeId: qrCodeId,
+      transactions: transactions,
+      total: transactions.length,
+      totalAmount: transactions.reduce((sum, txn) => sum + txn.amount, 0)
     };
   }
 
