@@ -42,6 +42,53 @@ module.exports = {
   // Payment Gateway Configuration
   defaultGateway: process.env.DEFAULT_GATEWAY || 'razorpay',
 
+  // Gateway Priority for Smart Routing
+  gatewayPriority: process.env.GATEWAY_PRIORITY 
+    ? process.env.GATEWAY_PRIORITY.split(',') 
+    : ['razorpay', 'payu', 'ccavenue'],
+
+  // Routing Strategy: HEALTH_BASED, ROUND_ROBIN, COST_OPTIMIZED, LATENCY_BASED, PRIORITY
+  routingStrategy: process.env.ROUTING_STRATEGY || 'HEALTH_BASED',
+
+  // Fallback Configuration
+  fallbackEnabled: process.env.FALLBACK_ENABLED !== 'false',
+  maxFallbackAttempts: parseInt(process.env.MAX_FALLBACK_ATTEMPTS) || 2,
+  healthScoreThreshold: parseInt(process.env.HEALTH_SCORE_THRESHOLD) || 50,
+
+  // Retry Configuration
+  retry: {
+    maxAttempts: parseInt(process.env.RETRY_MAX_ATTEMPTS) || 3,
+    initialDelay: parseInt(process.env.RETRY_INITIAL_DELAY) || 1000,
+    maxDelay: parseInt(process.env.RETRY_MAX_DELAY) || 30000,
+    backoffMultiplier: parseFloat(process.env.RETRY_BACKOFF_MULTIPLIER) || 2,
+    jitterEnabled: process.env.RETRY_JITTER_ENABLED !== 'false'
+  },
+
+  // Circuit Breaker Configuration
+  circuitBreaker: {
+    failureThreshold: parseInt(process.env.CIRCUIT_BREAKER_FAILURE_THRESHOLD) || 5,
+    successThreshold: parseInt(process.env.CIRCUIT_BREAKER_SUCCESS_THRESHOLD) || 2,
+    openTimeout: parseInt(process.env.CIRCUIT_BREAKER_OPEN_TIMEOUT) || 60000,
+    requestTimeout: parseInt(process.env.CIRCUIT_BREAKER_REQUEST_TIMEOUT) || 30000,
+    volumeThreshold: parseInt(process.env.CIRCUIT_BREAKER_VOLUME_THRESHOLD) || 10
+  },
+
+  // Gateway Cost Configuration (for cost-optimized routing)
+  gatewayCosts: {
+    razorpay: {
+      fixedFee: parseFloat(process.env.RAZORPAY_FIXED_FEE) || 0,
+      percentageFee: parseFloat(process.env.RAZORPAY_PERCENTAGE_FEE) || 2.0
+    },
+    payu: {
+      fixedFee: parseFloat(process.env.PAYU_FIXED_FEE) || 0,
+      percentageFee: parseFloat(process.env.PAYU_PERCENTAGE_FEE) || 2.0
+    },
+    ccavenue: {
+      fixedFee: parseFloat(process.env.CCAVENUE_FIXED_FEE) || 0,
+      percentageFee: parseFloat(process.env.CCAVENUE_PERCENTAGE_FEE) || 2.0
+    }
+  },
+
   // Gateway API Keys (use environment variables in production)
   gateways: {
     razorpay: {
