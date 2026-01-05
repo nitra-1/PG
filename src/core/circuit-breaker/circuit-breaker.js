@@ -73,7 +73,7 @@ class CircuitBreaker {
     // Check circuit state
     if (this.state === CircuitState.OPEN) {
       // Check if enough time has passed to try again
-      if (Date.now() >= this.nextAttemptTime) {
+      if (this.nextAttemptTime && Date.now() >= this.nextAttemptTime) {
         this.transitionTo(CircuitState.HALF_OPEN);
       } else {
         const error = new Error(`Circuit breaker [${this.name}] is OPEN`);

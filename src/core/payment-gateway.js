@@ -231,6 +231,9 @@ class PaymentGateway {
    * @deprecated Use smartRouter.selectGateway instead
    */
   selectGateway(paymentData) {
+    // Deprecation warning
+    console.warn('[DEPRECATED] PaymentGateway.selectGateway() is deprecated. Smart routing is now handled automatically.');
+    
     // Use smart router for gateway selection
     const gatewayName = this.smartRouter.selectGateway(paymentData);
     const gateway = this.gateways.get(gatewayName);

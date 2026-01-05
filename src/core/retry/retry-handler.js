@@ -29,9 +29,9 @@ class RetryConfig {
     delay = Math.min(delay, this.maxDelay);
     
     // Add jitter to prevent thundering herd
+    // Jitter range: +/- 15% of delay
     if (this.jitterEnabled) {
-      const jitter = Math.random() * 0.3 * delay; // +/- 15% jitter
-      delay = delay - (0.15 * delay) + jitter;
+      delay = delay + (Math.random() - 0.5) * 0.3 * delay;
     }
     
     return Math.floor(delay);

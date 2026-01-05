@@ -239,7 +239,16 @@ class SmartRouter {
    * Update router configuration
    */
   updateConfig(newConfig) {
-    this.config = new SmartRouterConfig({ ...this.config, ...newConfig });
+    // Properly merge configuration
+    const mergedConfig = {
+      strategy: newConfig.strategy !== undefined ? newConfig.strategy : this.config.strategy,
+      fallbackEnabled: newConfig.fallbackEnabled !== undefined ? newConfig.fallbackEnabled : this.config.fallbackEnabled,
+      maxFallbackAttempts: newConfig.maxFallbackAttempts !== undefined ? newConfig.maxFallbackAttempts : this.config.maxFallbackAttempts,
+      gatewayPriority: newConfig.gatewayPriority || this.config.gatewayPriority,
+      gatewayCosts: newConfig.gatewayCosts || this.config.gatewayCosts,
+      healthScoreThreshold: newConfig.healthScoreThreshold !== undefined ? newConfig.healthScoreThreshold : this.config.healthScoreThreshold
+    };
+    this.config = new SmartRouterConfig(mergedConfig);
   }
 
   /**
