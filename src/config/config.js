@@ -117,9 +117,21 @@ module.exports = {
 
   // Security Configuration
   encryptionKey: process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  tokenizationKey: process.env.TOKENIZATION_KEY || process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
   hmacSecret: process.env.HMAC_SECRET || 'your-hmac-secret-key',
   jwtSecret: process.env.JWT_SECRET || 'your-jwt-secret-key',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+
+  // HTTPS/TLS Configuration
+  https: {
+    enabled: process.env.HTTPS_ENABLED === 'true' || process.env.NODE_ENV === 'production',
+    certPath: process.env.SSL_CERT_PATH,
+    keyPath: process.env.SSL_KEY_PATH,
+    port: parseInt(process.env.HTTPS_PORT) || 443,
+    hstsEnabled: process.env.HSTS_ENABLED !== 'false',
+    tlsMinVersion: process.env.TLS_MIN_VERSION || 'TLSv1.2',
+    tlsMaxVersion: process.env.TLS_MAX_VERSION || 'TLSv1.3'
+  },
 
   // Transaction Limits
   limits: {
