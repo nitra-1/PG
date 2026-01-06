@@ -161,6 +161,51 @@ class PayInService {
    */
   async storeOrder(order) {
     console.log('Order stored:', order.orderId);
+    
+    try {
+      const db = require('../database');
+      await db.insertWithTenant('payment_orders', {
+        order_id: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        status: this.mapStatusToDBStatus(order.status),
+        customer_id: order.customerId,
+        customer_email: order.customerEmail,
+        customer_phone: order.customerPhone,
+        customer_details: JSON.stringify({
+          customerId: order.customerId,
+          customerEmail: order.customerEmail,
+          customerPhone: order.customerPhone
+        }),
+        payment_method: order.paymentMethods ? order.paymentMethods[0] : null,
+        callback_url: order.callbackUrl,
+        metadata: JSON.stringify({
+          description: order.description,
+          paymentMethods: order.paymentMethods // Store all payment methods in metadata
+        }),
+        expires_at: new Date(order.expiryTime)
+      }, this.config.tenantId || this.config.defaultTenantId);
+    } catch (error) {
+      console.error('Failed to store order in database:', error);
+    }
+  }
+
+  /**
+   * Map order status to database status enum
+   * @param {string} status - Order status
+   * @returns {string} Database status
+   */
+  mapStatusToDBStatus(status) {
+    const statusMap = {
+      'CREATED': 'created',
+      'PENDING': 'pending',
+      'PROCESSING': 'pending',
+      'AUTHORIZED': 'authorized',
+      'CAPTURED': 'captured',
+      'FAILED': 'failed',
+      'CANCELLED': 'cancelled'
+    };
+    return statusMap[status] || 'created';
   }
 
   /**
@@ -171,6 +216,24 @@ class PayInService {
    */
   async updateOrderStatus(orderId, status, transactionId) {
     console.log(`Order ${orderId} updated to ${status}, Transaction: ${transactionId}`);
+    
+    try {
+      const db = require('../database');
+      // Find the order first
+      const orders = await db.findByTenant('payment_orders', this.config.tenantId || this.config.defaultTenantId, {
+        order_id: orderId
+      });
+      
+      if (orders && orders.length > 0) {
+        await db.updateByTenant('payment_orders', orders[0].id, {
+          status: this.mapStatusToDBStatus(status),
+          gateway_order_id: transactionId,
+          updated_at: new Date()
+        }, this.config.tenantId || this.config.defaultTenantId);
+      }
+    } catch (error) {
+      console.error('Failed to update order status in database:', error);
+    }
   }
 
   /**

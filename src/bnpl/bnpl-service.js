@@ -254,6 +254,32 @@ class BNPLService {
         processedAt: new Date().toISOString()
       };
 
+      // Store BNPL installment payment in database
+      try {
+        const db = require('../database');
+        await db.insertWithTenant('transactions', {
+          transaction_ref: payment.paymentId,
+          order_id: bnplOrderId,
+          payment_method: 'bnpl',
+          gateway: 'bnpl',
+          amount: amount,
+          currency: 'INR',
+          status: 'success',
+          metadata: JSON.stringify({
+            bnplOrderId: bnplOrderId,
+            installmentNumber: installmentNumber,
+            paymentMethod: paymentMethod,
+            paymentType: 'installment'
+          }),
+          gateway_transaction_id: payment.paymentId,
+          gateway_response_message: `BNPL installment ${installmentNumber} payment`,
+          initiated_at: new Date(payment.processedAt),
+          completed_at: new Date(payment.processedAt)
+        }, this.config.tenantId || this.config.defaultTenantId);
+      } catch (error) {
+        console.error('Failed to store BNPL transaction in database:', error);
+      }
+
       return {
         success: true,
         paymentId: payment.paymentId,

@@ -217,11 +217,42 @@ class PayoutService {
   async processPayout(payout, beneficiary) {
     // Integration with banking partner API
     // Mock implementation
-    return {
+    const result = {
       status: 'PROCESSING',
       utr: `UTR${Date.now()}`,
       timestamp: new Date().toISOString()
     };
+    
+    // Store payout transaction in database
+    try {
+      const db = require('../database');
+      await db.insertWithTenant('transactions', {
+        transaction_ref: payout.payoutId,
+        order_id: payout.payoutId,
+        payment_method: 'payout',
+        gateway: payout.mode || 'IMPS',
+        amount: payout.amount,
+        currency: payout.currency || 'INR',
+        status: 'processing',
+        customer_name: beneficiary.beneficiaryName || beneficiary.name,
+        metadata: JSON.stringify({
+          beneficiaryId: payout.beneficiaryId,
+          accountNumber: beneficiary.accountNumber,
+          ifscCode: beneficiary.ifscCode,
+          purpose: payout.purpose,
+          reference: payout.reference,
+          mode: payout.mode,
+          utr: result.utr
+        }),
+        gateway_transaction_id: result.utr,
+        gateway_response_message: `Payout initiated via ${payout.mode}`,
+        initiated_at: new Date()
+      }, this.config.tenantId || this.config.defaultTenantId);
+    } catch (error) {
+      console.error('Failed to store payout transaction in database:', error);
+    }
+    
+    return result;
   }
 
   /**

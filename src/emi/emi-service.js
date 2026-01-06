@@ -318,6 +318,32 @@ class EMIService {
         processedAt: new Date().toISOString()
       };
 
+      // Store EMI installment payment in database
+      try {
+        const db = require('../database');
+        await db.insertWithTenant('transactions', {
+          transaction_ref: payment.paymentId,
+          order_id: emiTransactionId,
+          payment_method: 'emi',
+          gateway: 'emi',
+          amount: amount,
+          currency: 'INR',
+          status: 'success',
+          metadata: JSON.stringify({
+            emiTransactionId: emiTransactionId,
+            installmentNumber: installmentNumber,
+            paymentMethod: paymentMethod,
+            paymentType: 'installment'
+          }),
+          gateway_transaction_id: payment.paymentId,
+          gateway_response_message: `EMI installment ${installmentNumber} payment`,
+          initiated_at: new Date(payment.processedAt),
+          completed_at: new Date(payment.processedAt)
+        }, this.config.tenantId || this.config.defaultTenantId);
+      } catch (error) {
+        console.error('Failed to store EMI transaction in database:', error);
+      }
+
       return {
         success: true,
         paymentId: payment.paymentId,

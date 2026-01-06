@@ -245,6 +245,7 @@ class QRService {
        * 
        * The transaction object is created with full context (QR code ID, merchant ID, customer details)
        * and immediately stored in the QR code's transactions array for instant availability.
+       * Additionally, the transaction is persisted to the database for long-term storage and reporting.
        */
       const transactionId = `TXN_QR_${Date.now()}`;
       const transaction = {
@@ -261,11 +262,38 @@ class QRService {
         processedAt: new Date().toISOString()
       };
 
-      // Link transaction to QR code
+      // Link transaction to QR code (in-memory for fast access)
       if (!qrCode.transactions) {
         qrCode.transactions = [];
       }
       qrCode.transactions.push(transaction);
+
+      // Persist transaction to database
+      try {
+        const db = require('../database');
+        await db.insertWithTenant('transactions', {
+          transaction_ref: transactionId,
+          order_id: transaction.orderId || transactionId,
+          payment_method: 'qr',
+          gateway: 'qr',
+          amount: transaction.amount,
+          currency: 'INR',
+          status: 'success',
+          customer_name: transaction.customerName,
+          metadata: JSON.stringify({
+            qrCodeId: qrCodeId,
+            qrType: qrCode.type,
+            customerVPA: transaction.customerVPA,
+            merchantId: qrCode.merchantId
+          }),
+          gateway_transaction_id: transactionId,
+          initiated_at: new Date(transaction.processedAt),
+          completed_at: new Date(transaction.processedAt)
+        }, this.config.tenantId || this.config.defaultTenantId);
+      } catch (error) {
+        console.error('Failed to persist QR transaction to database:', error);
+        // Continue even if DB persistence fails - in-memory storage is available
+      }
 
       // Mark as used for single-use QR
       if (qrCode.singleUse) {

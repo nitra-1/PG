@@ -344,10 +344,47 @@ class WalletService {
         throw new Error('Invalid callback signature');
       }
 
-      const { paymentId, status, walletTransactionId } = callbackData;
+      const { paymentId, status, walletTransactionId, amount, orderId } = callbackData;
 
       // Update payment status
       console.log(`Wallet payment ${paymentId} updated to ${status}`);
+      
+      // Store/update transaction in database
+      try {
+        const db = require('../database');
+        // Find existing transaction
+        const transactions = await db.query(
+          'SELECT * FROM transactions WHERE transaction_ref = $1 OR gateway_transaction_id = $1 LIMIT 1',
+          [paymentId]
+        );
+        
+        if (transactions.rows && transactions.rows.length > 0) {
+          // Update existing transaction
+          const transaction = transactions.rows[0];
+          await db.updateByTenant('transactions', transaction.id, {
+            status: this.mapStatusToDBStatus(status),
+            gateway_transaction_id: walletTransactionId,
+            completed_at: status === 'SUCCESS' ? new Date() : null,
+            updated_at: new Date()
+          }, transaction.tenant_id);
+        } else {
+          // Create new transaction
+          await db.insertWithTenant('transactions', {
+            transaction_ref: paymentId,
+            order_id: orderId || paymentId,
+            payment_method: 'wallet',
+            gateway: 'wallet',
+            amount: amount || 0,
+            currency: 'INR',
+            status: this.mapStatusToDBStatus(status),
+            gateway_transaction_id: walletTransactionId,
+            initiated_at: new Date(),
+            completed_at: status === 'SUCCESS' ? new Date() : null
+          }, this.config.tenantId || this.config.defaultTenantId);
+        }
+      } catch (error) {
+        console.error('Failed to store wallet transaction in database:', error);
+      }
 
       return {
         success: true,
@@ -356,6 +393,21 @@ class WalletService {
     } catch (error) {
       throw new Error(`Callback processing failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Map wallet status to database status enum
+   * @param {string} status - Wallet status
+   * @returns {string} Database status
+   */
+  mapStatusToDBStatus(status) {
+    const statusMap = {
+      'SUCCESS': 'success',
+      'FAILED': 'failed',
+      'PENDING': 'pending',
+      'PROCESSING': 'processing'
+    };
+    return statusMap[status] || 'pending';
   }
 
   /**
