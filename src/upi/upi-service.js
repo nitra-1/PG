@@ -237,10 +237,10 @@ class UPIService {
       }
 
       // Process callback
-      const { transactionId, status, utr } = callbackData;
+      const { transactionId, status, utr, amount } = callbackData;
 
-      // Update transaction in database
-      await this.updateTransactionStatus(transactionId, status, utr);
+      // Update transaction in database (pass amount if available)
+      await this.updateTransactionStatus(transactionId, status, utr, amount);
 
       // Send notification to merchant
       await this.notifyMerchant(transactionId, status);
@@ -270,8 +270,9 @@ class UPIService {
    * @param {string} transactionId - Transaction ID
    * @param {string} status - Transaction status
    * @param {string} utr - UTR number
+   * @param {number} amount - Transaction amount (optional, for new transactions)
    */
-  async updateTransactionStatus(transactionId, status, utr) {
+  async updateTransactionStatus(transactionId, status, utr, amount = null) {
     console.log(`Transaction ${transactionId} updated to ${status}, UTR: ${utr}`);
     
     try {
@@ -290,14 +291,14 @@ class UPIService {
           completed_at: status === 'SUCCESS' ? new Date() : null,
           updated_at: new Date()
         }, transaction.tenant_id);
-      } else {
-        // Create new transaction if not found
+      } else if (amount !== null && amount > 0) {
+        // Only create new transaction if amount is provided
         await db.insertWithTenant('transactions', {
           transaction_ref: transactionId,
           order_id: transactionId,
           payment_method: 'upi',
           gateway: 'upi',
-          amount: 0, // Amount should be provided, defaulting to 0
+          amount: amount,
           currency: 'INR',
           status: this.mapStatusToDBStatus(status),
           gateway_transaction_id: transactionId,
@@ -305,6 +306,9 @@ class UPIService {
           initiated_at: new Date(),
           completed_at: status === 'SUCCESS' ? new Date() : null
         }, this.config.tenantId || this.config.defaultTenantId);
+      } else {
+        // Log warning if transaction not found and amount not provided
+        console.warn(`Transaction ${transactionId} not found and amount not provided. Skipping database storage.`);
       }
     } catch (error) {
       console.error('Failed to update transaction status in database:', error);

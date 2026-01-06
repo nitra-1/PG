@@ -186,7 +186,7 @@ describe('Transaction Storage Tests', () => {
       });
       db.updateByTenant.mockResolvedValue({ id: 'txn-uuid-123' });
 
-      await upiService.updateTransactionStatus('TXN_UPI_001', 'SUCCESS', 'UTR123456');
+      await upiService.updateTransactionStatus('TXN_UPI_001', 'SUCCESS', 'UTR123456', 1000);
 
       expect(db.query).toHaveBeenCalled();
       expect(db.updateByTenant).toHaveBeenCalledWith(
@@ -200,13 +200,13 @@ describe('Transaction Storage Tests', () => {
       );
     });
 
-    test('should create new UPI transaction if not found', async () => {
+    test('should create new UPI transaction if not found and amount provided', async () => {
       const upiService = new UPIService(mockConfig);
       
       db.query.mockResolvedValue({ rows: [] });
       db.insertWithTenant.mockResolvedValue({ id: 'new-txn-uuid' });
 
-      await upiService.updateTransactionStatus('TXN_UPI_NEW', 'SUCCESS', 'UTR789012');
+      await upiService.updateTransactionStatus('TXN_UPI_NEW', 'SUCCESS', 'UTR789012', 2500);
 
       expect(db.insertWithTenant).toHaveBeenCalledWith(
         'transactions',
@@ -214,10 +214,29 @@ describe('Transaction Storage Tests', () => {
           transaction_ref: 'TXN_UPI_NEW',
           payment_method: 'upi',
           status: 'success',
+          amount: 2500,
           gateway_response_message: 'UTR: UTR789012'
         }),
         expect.any(String)
       );
+    });
+
+    test('should not create transaction if not found and amount not provided', async () => {
+      const upiService = new UPIService(mockConfig);
+      
+      db.query.mockResolvedValue({ rows: [] });
+
+      // Mock console.warn to verify it's called
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await upiService.updateTransactionStatus('TXN_UPI_NO_AMOUNT', 'SUCCESS', 'UTR999999');
+
+      expect(db.insertWithTenant).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Transaction TXN_UPI_NO_AMOUNT not found and amount not provided')
+      );
+
+      consoleWarnSpy.mockRestore();
     });
   });
 
