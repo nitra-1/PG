@@ -273,6 +273,57 @@ class UPIService {
    */
   async updateTransactionStatus(transactionId, status, utr) {
     console.log(`Transaction ${transactionId} updated to ${status}, UTR: ${utr}`);
+    
+    try {
+      const db = require('../database');
+      // Find the transaction first
+      const transactions = await db.query(
+        'SELECT * FROM transactions WHERE transaction_ref = $1 OR gateway_transaction_id = $1 LIMIT 1',
+        [transactionId]
+      );
+      
+      if (transactions.rows && transactions.rows.length > 0) {
+        const transaction = transactions.rows[0];
+        await db.updateByTenant('transactions', transaction.id, {
+          status: this.mapStatusToDBStatus(status),
+          gateway_response_message: utr ? `UTR: ${utr}` : null,
+          completed_at: status === 'SUCCESS' ? new Date() : null,
+          updated_at: new Date()
+        }, transaction.tenant_id);
+      } else {
+        // Create new transaction if not found
+        await db.insertWithTenant('transactions', {
+          transaction_ref: transactionId,
+          order_id: transactionId,
+          payment_method: 'upi',
+          gateway: 'upi',
+          amount: 0, // Amount should be provided, defaulting to 0
+          currency: 'INR',
+          status: this.mapStatusToDBStatus(status),
+          gateway_transaction_id: transactionId,
+          gateway_response_message: utr ? `UTR: ${utr}` : null,
+          initiated_at: new Date(),
+          completed_at: status === 'SUCCESS' ? new Date() : null
+        }, this.config.tenantId || this.config.defaultTenantId);
+      }
+    } catch (error) {
+      console.error('Failed to update transaction status in database:', error);
+    }
+  }
+
+  /**
+   * Map UPI status to database status enum
+   * @param {string} status - UPI status
+   * @returns {string} Database status
+   */
+  mapStatusToDBStatus(status) {
+    const statusMap = {
+      'SUCCESS': 'success',
+      'FAILED': 'failed',
+      'PENDING': 'pending',
+      'PROCESSING': 'processing'
+    };
+    return statusMap[status] || 'pending';
   }
 
   /**

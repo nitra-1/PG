@@ -280,6 +280,49 @@ class PaymentGateway {
     
     // Store in database and logging system
     console.log('Transaction logged:', logEntry);
+    
+    // Store transaction in database
+    try {
+      const db = require('../database');
+      await db.insertWithTenant('transactions', {
+        transaction_ref: response.transactionId,
+        order_id: paymentData.orderId || response.transactionId,
+        payment_method: paymentData.paymentMethod || 'card',
+        gateway: gatewayName || response.gateway,
+        amount: paymentData.amount,
+        currency: paymentData.currency || 'INR',
+        status: this.mapStatusToDBStatus(response.status),
+        customer_email: paymentData.customerEmail,
+        customer_phone: paymentData.customerPhone,
+        customer_name: paymentData.customerName,
+        metadata: JSON.stringify(paymentData.metadata || {}),
+        gateway_transaction_id: response.transactionId,
+        gateway_response_code: response.responseCode,
+        gateway_response_message: response.message,
+        initiated_at: new Date(),
+        completed_at: response.status === 'success' ? new Date() : null
+      }, paymentData.tenantId || this.config.defaultTenantId);
+    } catch (error) {
+      console.error('Failed to store transaction in database:', error);
+      // Don't throw - transaction logging should not fail the payment
+    }
+  }
+
+  /**
+   * Map gateway status to database status enum
+   * @param {string} status - Gateway status
+   * @returns {string} Database status
+   */
+  mapStatusToDBStatus(status) {
+    const statusMap = {
+      'success': 'success',
+      'completed': 'success',
+      'failed': 'failed',
+      'pending': 'pending',
+      'processing': 'processing',
+      'refunded': 'refunded'
+    };
+    return statusMap[status?.toLowerCase()] || 'pending';
   }
 
   /**
