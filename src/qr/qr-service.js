@@ -213,20 +213,20 @@ class QRService {
         throw new Error('QR code not found');
       }
 
-      if (qrCode.status !== 'ACTIVE') {
-        throw new Error('QR code is not active');
-      }
-
       // Check expiry for dynamic QR
       if (qrCode.type === 'DYNAMIC') {
         if (new Date() > new Date(qrCode.expiryTime)) {
           throw new Error('QR code has expired');
         }
 
-        // Check if already used for single-use QR
+        // Check if already used for single-use QR (before checking active status)
         if (qrCode.singleUse && qrCode.usedAt) {
           throw new Error('QR code already used');
         }
+      }
+
+      if (qrCode.status !== 'ACTIVE') {
+        throw new Error('QR code is not active');
       }
 
       // Validate amount for dynamic QR
@@ -458,8 +458,8 @@ class QRService {
         timestamp
       } = callbackData;
 
-      // Validate required fields
-      if (!qrCodeId || !amount || !status) {
+      // Validate required fields - need either qrCodeId or orderId, plus amount and status
+      if ((!qrCodeId && !orderId) || !amount || !status) {
         throw new Error('Missing required callback fields');
       }
 
