@@ -714,10 +714,21 @@ router.post('/security/aml-check', authenticate, async (req, res) => {
  */
 router.post('/demo/token', async (req, res) => {
   try {
-    const { userId = 'demo-user', name = 'Demo Customer' } = req.body;
+    const { userId = 'demo-user', name = 'Demo Customer', merchantId } = req.body;
+    
+    // Validate merchantId format if provided
+    if (merchantId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(merchantId)) {
+        return res.status(400).json({ 
+          error: 'Invalid merchantId format. Must be a valid UUID.' 
+        });
+      }
+    }
     
     const token = securityService.generateJWT({
       userId: userId,
+      merchantId: merchantId,
       name: name,
       role: 'customer'
     }, 3600); // 1 hour expiration
