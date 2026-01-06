@@ -322,7 +322,8 @@ class PaymentGateway {
       'processing': 'processing',
       'refunded': 'refunded'
     };
-    return statusMap[status?.toLowerCase()] || 'pending';
+    const statusStr = typeof status === 'string' ? status.toLowerCase() : '';
+    return statusMap[statusStr] || 'pending';
   }
 
   /**

@@ -181,7 +181,7 @@ class PayInService {
         callback_url: order.callbackUrl,
         metadata: JSON.stringify({
           description: order.description,
-          paymentMethods: order.paymentMethods
+          paymentMethods: order.paymentMethods // Store all payment methods in metadata
         }),
         expires_at: new Date(order.expiryTime)
       }, this.config.tenantId || this.config.defaultTenantId);

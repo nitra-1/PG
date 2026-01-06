@@ -291,8 +291,8 @@ class UPIService {
           completed_at: status === 'SUCCESS' ? new Date() : null,
           updated_at: new Date()
         }, transaction.tenant_id);
-      } else if (amount !== null && amount > 0) {
-        // Only create new transaction if amount is provided
+      } else if (amount != null && amount >= 0) {
+        // Only create new transaction if amount is provided (including zero for balance inquiries)
         await db.insertWithTenant('transactions', {
           transaction_ref: transactionId,
           order_id: transactionId,
