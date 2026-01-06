@@ -714,10 +714,11 @@ router.post('/security/aml-check', authenticate, async (req, res) => {
  */
 router.post('/demo/token', async (req, res) => {
   try {
-    const { userId = 'demo-user', name = 'Demo Customer' } = req.body;
+    const { userId = 'demo-user', name = 'Demo Customer', merchantId } = req.body;
     
     const token = securityService.generateJWT({
       userId: userId,
+      merchantId: merchantId,
       name: name,
       role: 'customer'
     }, 3600); // 1 hour expiration
