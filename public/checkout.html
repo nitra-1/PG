@@ -877,6 +877,7 @@
                     return;
                 }
                 await processPayment('wallet', {
+                    paymentMethod: 'wallet',
                     walletProvider: wallet,
                     mobile: document.getElementById('wallet-mobile').value,
                     amount: 2499,
@@ -895,6 +896,7 @@
             document.getElementById('bnpl-payment-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 await processPayment('bnpl', {
+                    paymentMethod: 'bnpl',
                     name: document.getElementById('bnpl-name').value,
                     email: document.getElementById('bnpl-email').value,
                     mobile: document.getElementById('bnpl-mobile').value,
@@ -915,6 +917,7 @@
                     return;
                 }
                 await processPayment('emi', {
+                    paymentMethod: 'emi',
                     cardNumber: document.getElementById('emi-card-number').value.replace(/\s/g, ''),
                     cardHolderName: document.getElementById('emi-card-holder').value,
                     emiTenure: parseInt(tenure),
@@ -933,6 +936,7 @@
                     return;
                 }
                 await processPayment('biometric', {
+                    paymentMethod: 'biometric',
                     biometricType: biometricType,
                     mobile: document.getElementById('biometric-mobile').value,
                     amount: 2499,
