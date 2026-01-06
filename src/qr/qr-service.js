@@ -219,12 +219,15 @@ class QRService {
           throw new Error('QR code has expired');
         }
 
-        // Check if already used for single-use QR (before checking active status)
+        // Check if already used for single-use QR (check BEFORE active status)
+        // This provides better error messages - if QR was used, we want to tell user
+        // "already used" rather than generic "not active"
         if (qrCode.singleUse && qrCode.usedAt) {
           throw new Error('QR code already used');
         }
       }
 
+      // Check active status after specific validations
       if (qrCode.status !== 'ACTIVE') {
         throw new Error('QR code is not active');
       }
@@ -566,19 +569,45 @@ class QRService {
    * @returns {Promise<boolean>}
    */
   async verifyCallbackSignature(data) {
-    // In production, implement HMAC-SHA256 signature verification
+    // SECURITY: In production, implement HMAC-SHA256 signature verification
     // using shared secret with UPI Payment Service Provider
-    // Example:
+    
+    // Check if webhook secret is configured
+    if (!this.config.webhookSecret || this.config.webhookSecret === 'your-shared-secret-key') {
+      // In development/test mode without configured secret, log warning but allow
+      console.warn('[WEBHOOK SECURITY] Webhook signature verification is not configured. This is only acceptable in development/test environments.');
+      return true;
+    }
+    
+    // Production implementation example (uncomment and customize for your PSP):
     // const crypto = require('crypto');
-    // const signature = data.signature;
-    // const payload = JSON.stringify(data);
+    // const signature = data.signature || data.headers?.['x-webhook-signature'];
+    // if (!signature) {
+    //   console.error('[WEBHOOK SECURITY] No signature provided in webhook');
+    //   return false;
+    // }
+    // 
+    // // Create expected signature (adjust payload format based on PSP requirements)
+    // const payload = JSON.stringify({
+    //   qrCodeId: data.qrCodeId,
+    //   transactionId: data.transactionId,
+    //   amount: data.amount,
+    //   status: data.status,
+    //   timestamp: data.timestamp
+    // });
+    // 
     // const expectedSignature = crypto
     //   .createHmac('sha256', this.config.webhookSecret)
     //   .update(payload)
     //   .digest('hex');
-    // return signature === expectedSignature;
+    // 
+    // const isValid = signature === expectedSignature;
+    // if (!isValid) {
+    //   console.error('[WEBHOOK SECURITY] Invalid webhook signature');
+    // }
+    // return isValid;
     
-    // For now, return true (should be implemented in production)
+    // For now, return true (should be implemented before production deployment)
     return true;
   }
 
