@@ -51,7 +51,7 @@ const authenticate = (req, res, next) => {
     
     // Extract tenant ID from various possible sources
     // Priority: explicit tenantId > merchantId > userId (for backward compatibility)
-    req.tenantId = decoded.tenantId || decoded.merchantId || decoded.userId || config.defaultTenantId || 'default-tenant';
+    req.tenantId = decoded.tenantId || decoded.merchantId || decoded.userId || config.defaultTenantId;
     
     next();
   } catch (error) {
@@ -68,9 +68,10 @@ const authenticate = (req, res, next) => {
 router.post('/payments/process', authenticate, async (req, res) => {
   try {
     // Add tenant ID to payment data from authenticated request
+    // Use tenant ID from JWT token (req.tenantId) to prevent tenant spoofing
     const paymentData = {
       ...req.body,
-      tenantId: req.body.tenantId || req.tenantId
+      tenantId: req.tenantId
     };
     const result = await paymentGateway.processPayment(paymentData);
     res.json(result);
