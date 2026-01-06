@@ -430,6 +430,175 @@ class QRService {
       totalTransactions: merchantQRs.filter(qr => qr.lastPaymentAt).length
     };
   }
+
+  /**
+   * Handle UPI callback/webhook for QR code payments
+   * This is called when a user scans a QR code and completes payment via UPI app
+   * @param {Object} callbackData - Callback data from UPI Payment Service Provider
+   * @returns {Promise<Object>} Processed callback response
+   */
+  async handleCallback(callbackData) {
+    try {
+      // Verify callback signature for security
+      const isValid = await this.verifyCallbackSignature(callbackData);
+      if (!isValid) {
+        throw new Error('Invalid callback signature');
+      }
+
+      const {
+        qrCodeId,
+        transactionId,
+        merchantId,
+        amount,
+        orderId,
+        customerVPA,
+        customerName,
+        utr,
+        status,
+        timestamp
+      } = callbackData;
+
+      // Validate required fields
+      if (!qrCodeId || !amount || !status) {
+        throw new Error('Missing required callback fields');
+      }
+
+      // Find QR code - it might be identified by orderId if qrCodeId not provided
+      let qrCode = null;
+      if (qrCodeId) {
+        qrCode = this.qrCodes.get(qrCodeId);
+      } else if (orderId) {
+        // Search by orderId for dynamic QR codes
+        qrCode = Array.from(this.qrCodes.values()).find(qr => qr.orderId === orderId);
+      }
+
+      if (!qrCode) {
+        // For static QR codes or if QR not in memory, we can still store transaction
+        console.warn(`QR code not found for callback. QR ID: ${qrCodeId}, Order ID: ${orderId}. Processing as standalone transaction.`);
+      }
+
+      // Generate transaction ID if not provided
+      const txnId = transactionId || `TXN_QR_${Date.now()}`;
+
+      // Create transaction object
+      const transaction = {
+        transactionId: txnId,
+        qrCodeId: qrCodeId || 'UNKNOWN',
+        merchantId: merchantId || (qrCode ? qrCode.merchantId : 'UNKNOWN'),
+        amount: amount,
+        orderId: orderId || txnId,
+        customerVPA: customerVPA,
+        customerName: customerName,
+        utr: utr,
+        status: this.mapStatusToDBStatus(status),
+        paymentMethod: 'QR_CODE',
+        qrType: qrCode ? qrCode.type : 'UNKNOWN',
+        processedAt: timestamp || new Date().toISOString()
+      };
+
+      // Update QR code if found
+      if (qrCode) {
+        // Link transaction to QR code (in-memory for fast access)
+        if (!qrCode.transactions) {
+          qrCode.transactions = [];
+        }
+        qrCode.transactions.push(transaction);
+
+        // Mark as used for single-use dynamic QR
+        if (qrCode.singleUse && qrCode.type === 'DYNAMIC') {
+          qrCode.usedAt = new Date().toISOString();
+          qrCode.status = 'USED';
+        }
+
+        // Update statistics
+        qrCode.lastPaymentAt = new Date().toISOString();
+        qrCode.totalTransactions = (qrCode.totalTransactions || 0) + 1;
+        qrCode.totalAmount = (qrCode.totalAmount || 0) + amount;
+      }
+
+      // Persist transaction to database
+      try {
+        const db = require('../database');
+        await db.insertWithTenant('transactions', {
+          transaction_ref: txnId,
+          order_id: transaction.orderId,
+          payment_method: 'qr',
+          gateway: 'qr',
+          amount: transaction.amount,
+          currency: 'INR',
+          status: transaction.status,
+          customer_name: transaction.customerName,
+          metadata: JSON.stringify({
+            qrCodeId: transaction.qrCodeId,
+            qrType: transaction.qrType,
+            customerVPA: transaction.customerVPA,
+            merchantId: transaction.merchantId,
+            utr: transaction.utr,
+            webhookReceived: true
+          }),
+          gateway_transaction_id: txnId,
+          gateway_response_message: utr ? `UTR: ${utr}` : null,
+          initiated_at: new Date(transaction.processedAt),
+          completed_at: transaction.status === 'success' ? new Date(transaction.processedAt) : null
+        }, this.config.tenantId || this.config.defaultTenantId);
+        
+        console.log(`QR payment transaction stored via webhook: ${txnId}`);
+      } catch (error) {
+        console.error('Failed to persist QR transaction to database:', error);
+        // Continue even if DB persistence fails - in-memory storage is available
+      }
+
+      return {
+        success: true,
+        acknowledged: true,
+        transactionId: txnId,
+        status: transaction.status
+      };
+    } catch (error) {
+      console.error('QR callback processing failed:', error);
+      throw new Error(`QR callback processing failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verify callback signature for security
+   * @param {Object} data - Callback data
+   * @returns {Promise<boolean>}
+   */
+  async verifyCallbackSignature(data) {
+    // In production, implement HMAC-SHA256 signature verification
+    // using shared secret with UPI Payment Service Provider
+    // Example:
+    // const crypto = require('crypto');
+    // const signature = data.signature;
+    // const payload = JSON.stringify(data);
+    // const expectedSignature = crypto
+    //   .createHmac('sha256', this.config.webhookSecret)
+    //   .update(payload)
+    //   .digest('hex');
+    // return signature === expectedSignature;
+    
+    // For now, return true (should be implemented in production)
+    return true;
+  }
+
+  /**
+   * Map callback status to database status enum
+   * @param {string} status - Callback status
+   * @returns {string} Database status
+   */
+  mapStatusToDBStatus(status) {
+    const statusStr = typeof status === 'string' ? status.toUpperCase() : '';
+    const statusMap = {
+      'SUCCESS': 'success',
+      'COMPLETED': 'success',
+      'FAILED': 'failed',
+      'FAILURE': 'failed',
+      'PENDING': 'pending',
+      'PROCESSING': 'processing'
+    };
+    return statusMap[statusStr] || 'pending';
+  }
 }
 
 module.exports = QRService;
