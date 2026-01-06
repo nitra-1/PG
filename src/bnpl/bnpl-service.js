@@ -1,12 +1,33 @@
 /**
  * Buy Now Pay Later (BNPL) Service
- * Handles BNPL transactions and credit management
+ * Handles BNPL transactions and credit management with multiple provider support
  */
+
+const AfterpayProvider = require('./providers/afterpay-provider');
+const KlarnaProvider = require('./providers/klarna-provider');
 
 class BNPLService {
   constructor(config) {
     this.config = config;
-    this.partners = ['simpl', 'lazypay', 'zestmoney', 'flexmoney', 'payl8r'];
+    this.partners = ['simpl', 'lazypay', 'zestmoney', 'flexmoney', 'payl8r', 'afterpay', 'klarna'];
+    
+    // Initialize provider instances
+    this.providers = {
+      afterpay: new AfterpayProvider(config),
+      klarna: new KlarnaProvider(config)
+    };
+  }
+
+  /**
+   * Get provider instance
+   * @param {string} provider - Provider name
+   * @returns {Object} Provider instance
+   */
+  getProvider(provider) {
+    if (this.providers[provider]) {
+      return this.providers[provider];
+    }
+    return null;
   }
 
   /**
@@ -29,7 +50,20 @@ class BNPLService {
         throw new Error('Missing required customer details');
       }
 
-      // Perform credit assessment
+      // Validate amount
+      if (amount <= 0) {
+        throw new Error('Amount must be greater than 0');
+      }
+
+      // Check if using external provider (Afterpay, Klarna)
+      // External providers have dedicated integration classes in ./providers/
+      // Internal partners (simpl, lazypay, etc.) use the base service credit scoring
+      const provider = this.getProvider(partner);
+      if (provider) {
+        return await provider.checkEligibility(customerData);
+      }
+
+      // Perform credit assessment for internal partners
       const creditScore = await this.assessCreditScore(customerId);
       
       // Determine eligibility
@@ -90,11 +124,30 @@ class BNPLService {
         orderId,
         merchantId,
         partner,
-        installmentPlan
+        installmentPlan,
+        customerEmail,
+        customerPhone
       } = orderData;
 
-      // Check eligibility
-      const eligibility = await this.checkEligibility({ customerId, amount, partner });
+      // Validate required fields
+      if (!customerId || !amount || !orderId || !merchantId) {
+        throw new Error('Missing required order details');
+      }
+
+      // Check if using external provider
+      const provider = this.getProvider(partner);
+      if (provider) {
+        const eligibility = await provider.checkEligibility({ customerId, amount, customerEmail, customerPhone });
+        
+        if (!eligibility.isEligible) {
+          throw new Error('Customer not eligible for BNPL');
+        }
+
+        return await provider.createOrder(orderData);
+      }
+
+      // Check eligibility for internal partners
+      const eligibility = await this.checkEligibility({ customerId, amount, partner, customerPhone });
       
       if (!eligibility.isEligible) {
         throw new Error('Customer not eligible for BNPL');

@@ -24,7 +24,10 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 - **Card Payments**: Credit/Debit card processing with EMI support
 - **Net Banking**: Direct bank transfers
 - **Digital Wallets**: Paytm, PhonePe, Google Pay, Amazon Pay integration
-- **QR Code Solutions**: Static and dynamic QR code generation
+- **QR Code Solutions**: Static and dynamic QR code generation with real-time transaction linking
+  - Real-time payment tracking
+  - Transaction history and analytics
+  - Single-use and reusable QR codes
 - **Biometric Payments**: Fingerprint, facial recognition, Aadhaar-based authentication
 
 ### Gateway Resilience (NEW)
@@ -39,7 +42,15 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 - **Pay-in Services**: Customer payment collection with multiple methods
 - **Payout Services**: Bulk and individual payouts with beneficiary management
 - **PAPG (Payment Aggregator Payment Gateway)**: Smart routing with automatic failover
-- **BNPL (Buy Now Pay Later)**: Credit assessment and installment management
+- **BNPL (Buy Now Pay Later)**: Credit assessment and installment management with multiple provider support
+  - **Afterpay**: Pay in 4 or 6 installments (₹100 - ₹50,000)
+  - **Klarna**: Pay in 3, 4, or 30 days (₹50 - ₹1,00,000)
+  - Internal partners: Simpl, LazyPay, ZestMoney, FlexMoney, Payl8r
+- **Subscription Payments**: Recurring billing for SaaS and membership models
+  - Flexible billing intervals (Daily, Weekly, Monthly, Yearly)
+  - Trial periods and pause/resume functionality
+  - Automated recurring payment processing
+  - Complete subscription lifecycle management
 - **EMI Processing**: Flexible installment plans with bank integration
 
 ### Merchant Management
@@ -127,10 +138,13 @@ For detailed Windows 11 setup instructions including prerequisites installation 
 ## 💳 Sample Checkout Page
 
 A fully functional checkout demo page is included at `/checkout.html` with:
-- All 8 payment methods (UPI, Card, Net Banking, Wallets, QR, BNPL, EMI, Biometric)
+- All 8+ payment methods (UPI, Card, Net Banking, Wallets, QR, BNPL, EMI, Biometric, Subscriptions)
 - Real-time API integration
 - Modern, responsive UI
 - Auto-generated demo tokens for testing
+- BNPL provider selection with Afterpay and Klarna
+- Subscription plan selection
+- Dynamic QR code generation
 
 **Quick Access:** `http://localhost:3000/checkout.html`
 
@@ -144,6 +158,12 @@ Create a `.env` file in the root directory. See `src/config/config.js` for all a
 
 ### Getting Started
 - **[Quick Start Guide](docs/QUICK_START.md)** - Get up and running in 5 minutes with code examples
+
+### New Features
+- **[BNPL Integration Guide](docs/BNPL_INTEGRATION.md)** - Complete guide for Buy Now Pay Later with Afterpay and Klarna
+- **[Subscription Payments](docs/SUBSCRIPTION_PAYMENTS.md)** - Recurring billing and subscription management
+- **[QR Code Integration](docs/QR_CODE_INTEGRATION.md)** - Enhanced QR code payments with real-time transaction linking
+- **[Integration Examples](docs/INTEGRATION_EXAMPLES.md)** - Practical code examples for merchants
 
 ### Database
 - **[Database Setup Guide](docs/DATABASE_SETUP.md)** - Complete database setup, migrations, and multi-tenancy configuration
