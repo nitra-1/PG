@@ -48,6 +48,11 @@ const authenticate = (req, res, next) => {
     
     const decoded = securityService.verifyJWT(token);
     req.user = decoded;
+    
+    // Extract tenant ID from various possible sources
+    // Priority: explicit tenantId > merchantId > userId (for backward compatibility)
+    req.tenantId = decoded.tenantId || decoded.merchantId || decoded.userId || config.defaultTenantId || 'default-tenant';
+    
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
@@ -62,7 +67,12 @@ const authenticate = (req, res, next) => {
  */
 router.post('/payments/process', authenticate, async (req, res) => {
   try {
-    const result = await paymentGateway.processPayment(req.body);
+    // Add tenant ID to payment data from authenticated request
+    const paymentData = {
+      ...req.body,
+      tenantId: req.body.tenantId || req.tenantId
+    };
+    const result = await paymentGateway.processPayment(paymentData);
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });

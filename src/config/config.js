@@ -31,6 +31,9 @@ module.exports = {
     }
   },
 
+  // Default Tenant ID for backwards compatibility
+  defaultTenantId: process.env.DEFAULT_TENANT_ID || 'default-tenant',
+
   // Redis Configuration
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
