@@ -7,6 +7,11 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 
 ## 🎯 Quick Links
 
+### Solution Overview
+- **[📋 Executive Summary](FINTECH_SOLUTION_EXECUTIVE_SUMMARY.md)** - Quick reference for presentations and stakeholders
+- **[📄 Complete Specifications](FINTECH_SOLUTION_SPECIFICATIONS.md)** - Detailed solution overview, capabilities, and roadmap (1,797 lines)
+
+### Getting Started
 - **[💳 Sample Checkout Page](CHECKOUT_QUICKSTART.md)** - Try the live demo checkout page
 - **[🏪 Merchant Dashboard](public/merchant-dashboard.html)** - Merchant self-service portal
 - **[📘 Quick Start Guide](docs/QUICK_START.md)** - Get started in 5 minutes
