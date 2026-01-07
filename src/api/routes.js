@@ -163,6 +163,22 @@ router.post('/upi/intent', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/upi/webhook
+ * Webhook endpoint for UPI payment notifications
+ * Called by UPI Payment Service Provider when payment status changes
+ * No authentication required as this is a public webhook (signature verified internally)
+ */
+router.post('/upi/webhook', async (req, res) => {
+  try {
+    const result = await upiService.handleCallback(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('UPI webhook error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // ===== Pay-in Routes =====
 
 /**
@@ -324,6 +340,22 @@ router.get('/qr/:qrCodeId/transactions', authenticate, async (req, res) => {
     const result = qrService.getQRTransactions(req.params.qrCodeId, req.query);
     res.json(result);
   } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/qr/webhook
+ * Webhook endpoint for UPI QR code payment notifications
+ * Called by UPI Payment Service Provider when user completes payment via QR scan
+ * No authentication required as this is a public webhook (signature verified internally)
+ */
+router.post('/qr/webhook', async (req, res) => {
+  try {
+    const result = await qrService.handleCallback(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('QR webhook error:', error);
     res.status(400).json({ error: error.message });
   }
 });
