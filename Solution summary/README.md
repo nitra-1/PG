@@ -10,6 +10,7 @@ A complete, enterprise-grade payment gateway solution with support for multiple 
 ### Solution Overview
 - **[📋 Executive Summary](FINTECH_SOLUTION_EXECUTIVE_SUMMARY.md)** - Quick reference for presentations and stakeholders
 - **[📄 Complete Specifications](FINTECH_SOLUTION_SPECIFICATIONS.md)** - Detailed solution overview, capabilities, and roadmap (1,797 lines)
+- **[🛡️ Fraud Detection Analysis](FRAUD_DETECTION_ANALYSIS.md)** - Comprehensive fraud detection analysis with AI/ML strategy (1,068 lines)
 
 ### Getting Started
 - **[💳 Sample Checkout Page](CHECKOUT_QUICKSTART.md)** - Try the live demo checkout page
