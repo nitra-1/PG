@@ -37,6 +37,7 @@ A **comprehensive Payment Gateway and Fintech Platform** - a single integration 
 #### Infrastructure & Services
 - ✅ **Multi-Gateway Support** - Razorpay, PayU, CCAvenue with abstraction layer
 - ✅ **Smart Routing (PAPG)** - Health-based, cost-optimized, automatic failover
+- ✅ **Double-Entry Ledger System** - Bank-grade accounting, RBI-compliant, complete audit trail
 - ✅ **Merchant Management** - Onboarding, API keys, webhooks, dashboard
 - ✅ **Security & Compliance** - AES-256 encryption, PCI-DSS ready, KYC/AML
 - ✅ **RESTful APIs** - 50+ endpoints, comprehensive documentation
@@ -56,6 +57,7 @@ A **comprehensive Payment Gateway and Fintech Platform** - a single integration 
 - **Response Time:** <200ms average
 - **Uptime:** 99.99% design target
 - **Architecture:** Microservices, horizontally scalable
+- **Accounting:** Double-entry ledger with immutable audit trail
 
 ---
 
@@ -103,7 +105,7 @@ A **comprehensive Payment Gateway and Fintech Platform** - a single integration 
 - T+1/T+2 settlement cycles
 - Reconciliation automation
 - Dispute management
-- **Status:** Transaction tracking complete, needs settlement automation
+- **Status:** Double-entry ledger system complete, reconciliation framework ready, needs bank API integration
 
 ### 🟡 Important but Parallel (Can be done alongside)
 
@@ -264,27 +266,34 @@ A **comprehensive Payment Gateway and Fintech Platform** - a single integration 
    - Competitors lock you into their gateway
    - **Result:** 5-10% higher success rate, 15-20% lower costs
 
-2. **Comprehensive Features**
+2. **Bank-Grade Accounting**
+   - Double-entry ledger system with complete audit trail
+   - RBI-compliant fund segregation (escrow, merchant, gateway, revenue)
+   - Immutable records with reconciliation support
+   - **Result:** Pass RBI audits, transparent accounting, dispute resolution
+
+3. **Comprehensive Features**
    - Payment processing + payouts + BNPL + subscriptions in one platform
    - Competitors: fragmented services
    - **Result:** Single integration vs. multiple
 
-3. **Developer Experience**
+4. **Developer Experience**
    - 2000+ lines of documentation
    - 5-minute quick start
    - Sample code for everything
    - **Result:** Fastest time to integration
 
-4. **India-First Design**
+5. **India-First Design**
    - Deep UPI integration (collect, intent, QR)
    - All local wallets
    - Aadhaar biometric ready
    - **Result:** Better for Indian market than international players
 
-5. **Transparent & Fair**
+6. **Transparent & Fair**
    - Lower fees (15-20% cheaper)
    - No hidden charges
    - Open architecture
+   - Complete financial transparency via ledger
    - **Result:** Better economics for merchants
 
 ---

@@ -305,6 +305,56 @@ This is a **Payment Gateway Platform** that serves as a single integration point
 - Settlement reconciliation
 - Compliance checks (AML, sanctions list)
 
+#### ✅ Double-Entry Ledger System (NEW - PR #29)
+**Status:** Fully Implemented  
+**Location:** `src/core/ledger/`  
+**Documentation:** `docs/LEDGER_SYSTEM.md`, `LEDGER_IMPLEMENTATION_SUMMARY.md`
+
+**Features:**
+- **Bank-Grade Accounting**: Complete double-entry bookkeeping system
+- **Four Separate Ledgers**:
+  - Merchant Ledger: Tracks receivables and payouts
+  - Gateway Ledger: Tracks collections and fees
+  - Escrow Ledger: RBI-mandated nodal account
+  - Platform Revenue Ledger: MDR and commissions
+- **Immutable Records**: Ledger entries cannot be modified, only reversed
+- **Double-Entry Validation**: Every transaction has balanced debits and credits
+- **Idempotency**: Safe retry with duplicate prevention
+- **Complete Audit Trail**: All operations logged with metadata
+- **Reconciliation Support**:
+  - Gateway settlement reconciliation
+  - Bank escrow statement reconciliation
+  - Discrepancy detection and resolution
+- **Settlement Tracking**: T+1/T+2 settlement cycles
+- **Account Balances**: Derived from entries (not stored as source of truth)
+- **RBI Compliance**: Fund segregation, traceable transactions
+- **Reporting**: Ledger summary, transaction history, balance queries
+
+**Database Tables:**
+- `ledger_accounts`: Chart of accounts (20+ predefined accounts)
+- `ledger_transactions`: Groups related entries
+- `ledger_entries`: Individual debit/credit entries (immutable)
+- `settlements`: Merchant settlement tracking
+- `reconciliation_batches`: Reconciliation tracking
+- `reconciliation_items`: Individual reconciliation items
+- `ledger_audit_logs`: Complete audit trail
+- `account_balances`: VIEW (derived from entries)
+
+**Event Handlers:**
+- Payment success → Escrow → Merchant → Platform fees
+- Refund processing
+- Settlement to merchant bank account
+- Chargeback debit/reversal
+- Manual adjustments with approval workflow
+
+**APIs:**
+- Account balance queries
+- Transaction details
+- Ledger summary and reports
+- Transaction reversal
+- Reconciliation batch management
+- Health checks
+
 ### 3.3 Merchant Management (100% Complete)
 
 #### ✅ Merchant Onboarding
@@ -509,6 +559,7 @@ This is a **Payment Gateway Platform** that serves as a single integration point
 - Service-oriented architecture (SOA)
 - Clear separation of concerns
 - Gateway abstraction layer
+- Double-entry ledger system (bank-grade accounting)
 - Event-driven architecture ready
 - Horizontal scaling support
 - Stateless application design
@@ -526,6 +577,10 @@ This is a **Payment Gateway Platform** that serves as a single integration point
 - Connection pooling
 - Query optimization
 - Backup and recovery procedures
+- **Ledger System Tables**: Comprehensive accounting schema with immutability enforcement
+- **Database Triggers**: Enforce ledger entry immutability
+- **Database Views**: Derived account balances
+- **Double-Entry Validation**: Database-level constraint functions
 
 #### ✅ Deployment Configurations
 **Status:** Production Ready  
@@ -595,6 +650,9 @@ This is a **Payment Gateway Platform** that serves as a single integration point
 - ✅ MERCHANT_API.md (Merchant onboarding)
 - ✅ RESILIENCE_FEATURES.md (Error handling & resilience)
 - ✅ PCI_DSS_COMPLIANCE.md (Compliance guide)
+- ✅ LEDGER_SYSTEM.md (Double-entry ledger documentation)
+- ✅ LEDGER_ENTRIES_EXAMPLES.md (Ledger entry examples)
+- ✅ LEDGER_IMPLEMENTATION_SUMMARY.md (Ledger implementation summary)
 
 ---
 
@@ -840,7 +898,7 @@ While the platform is **production-ready** with all core features implemented, t
   - Dispute management
   - Chargeback handling
 
-**Current Status:** Transaction tracking implemented, needs automated settlement
+**Current Status:** Double-entry ledger system implemented with reconciliation framework, settlement tracking, and audit trail. Needs bank API integration for automated fund transfers.
 
 #### 🟡 Merchant Onboarding & KYC
 **Priority:** HIGH  
@@ -1452,6 +1510,13 @@ Platforms that connect multiple sellers with buyers can use the payment gateway 
 - **Session Management**: Redis-based, 30-minute timeout
 - **2FA**: TOTP-based (Google Authenticator compatible)
 
+#### Accounting & Audit
+- **Double-Entry Ledger**: Immutable accounting records
+- **Audit Trail**: Complete operation history with metadata
+- **Fund Segregation**: Separate ledgers for escrow, merchant, gateway, platform
+- **Reconciliation**: Automated gateway and bank reconciliation
+- **Tamper-Proof**: Database triggers enforce immutability
+
 #### Network Security
 - **DDoS Protection**: CloudFlare/AWS Shield ready
 - **WAF**: Web Application Firewall ready
@@ -1523,13 +1588,23 @@ Platforms that connect multiple sellers with buyers can use the payment gateway 
 - We offer payment processing + payouts + BNPL + subscriptions + QR + biometric
 - Reduces merchant integration complexity by 80%
 
-#### 2. Smart Gateway Routing
+#### 2. Bank-Grade Accounting System
+**Advantage:** Transparent, auditable financial operations
+- Double-entry ledger with complete audit trail
+- RBI-compliant fund segregation (4 separate ledgers)
+- Immutable records with tamper-proof enforcement
+- Automated reconciliation with gateways and banks
+- Complete traceability: customer → escrow → merchant → fees
+- Pass RBI audits and regulatory inspections with confidence
+- **Competitors lack this level of financial transparency**
+
+#### 3. Smart Gateway Routing
 **Advantage:** Higher success rates and lower costs
 - Automatic failover increases success rate by 5-10%
 - Cost-optimized routing saves 15-20% on fees
 - Latency-based routing improves checkout conversion
 
-#### 3. Built for India
+#### 4. Built for India
 **Advantage:** Deep support for Indian payment methods
 - UPI with all features (collect, intent, QR)
 - All major wallets integrated
@@ -1559,6 +1634,7 @@ Platforms that connect multiple sellers with buyers can use the payment gateway 
 - End-to-end encryption
 - Tokenization
 - Fraud detection
+- Double-entry accounting for RBI compliance
 - Merchants don't handle sensitive data
 
 ### 7.2 Target Market Opportunity
@@ -1725,6 +1801,7 @@ This **Payment Gateway and Fintech Platform** is a comprehensive, production-rea
 ### Current Status
 ✅ **Core Platform**: 100% complete and production-ready  
 ✅ **Payment Methods**: All 10+ methods fully implemented  
+✅ **Double-Entry Ledger**: Bank-grade accounting system with RBI compliance  
 ✅ **APIs & Integration**: Comprehensive and well-documented  
 ✅ **Security & Compliance**: Technically compliant, ready for certification  
 ✅ **Documentation**: 2000+ lines covering all aspects
@@ -1771,6 +1848,7 @@ This **Payment Gateway and Fintech Platform** is a comprehensive, production-rea
 ### Competitive Position
 This solution offers a **unique combination** of:
 - Comprehensive feature set (all payment methods + financial services)
+- Bank-grade accounting (double-entry ledger with RBI compliance)
 - Smart routing technology (better success rates, lower costs)
 - Developer-friendly integration (fastest time to market)
 - Enterprise-grade reliability (scales from startup to enterprise)
