@@ -9,7 +9,18 @@
 
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { ledgerService, reconciliationService } = require('../core/ledger');
+
+/**
+ * Rate limiter for health check endpoint
+ */
+const healthCheckLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 /**
  * Authentication middleware (placeholder - implement based on your auth system)
@@ -369,7 +380,7 @@ router.put('/reconciliation/items/:itemId/resolve', requireFinanceRole, async (r
  * GET /api/ledger/health
  * Health check for ledger system
  */
-router.get('/health', async (req, res) => {
+router.get('/health', healthCheckLimiter, async (req, res) => {
   try {
     // Check if we can query the database
     const db = require('../database');
