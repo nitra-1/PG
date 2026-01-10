@@ -6,9 +6,15 @@
 const connection = require('./connection');
 const utils = require('./utils');
 const tenantMiddleware = require('./tenant-middleware');
+const knexConfig = require('../../knexfile');
+const environment = process.env.NODE_ENV || 'development';
+const knex = require('knex')(knexConfig[environment]);
 
 module.exports = {
-  // Connection management
+  // Knex query builder (for ledger system and migrations)
+  knex,
+  
+  // Connection management (legacy pg pool)
   initializePool: connection.initializePool,
   getPool: connection.getPool,
   query: connection.query,
