@@ -13,6 +13,14 @@
 
 const db = require('../../database');
 const { v4: uuidv4 } = require('uuid');
+const accountingPeriodService = require('./accounting-period-service');
+const ledgerLockService = require('./ledger-lock-service');
+const {
+  PeriodClosedError,
+  LedgerLockedError,
+  AdminOverrideRequiredError,
+  InsufficientOverridePrivilegesError
+} = require('../errors/accounting-errors');
 
 class LedgerService {
   constructor() {
@@ -92,6 +100,10 @@ class LedgerService {
    * @param {Object} params.metadata - Additional metadata
    * @param {string} params.createdBy - User who created the transaction
    * @param {string} params.sourceEvent - Source event identifier
+   * @param {boolean} params.override - Admin override flag (default: false)
+   * @param {string} params.overrideJustification - Required if override=true
+   * @param {string} params.userRole - User's role for override validation
+   * @param {Date} params.transactionDate - Transaction date for period check (default: now)
    * @returns {Object} Posted transaction with entries
    */
   async postTransaction(params) {
@@ -108,13 +120,86 @@ class LedgerService {
       entries,
       metadata = {},
       createdBy,
-      sourceEvent
+      sourceEvent,
+      override = false,
+      overrideJustification,
+      userRole,
+      transactionDate = new Date()
     } = params;
     
     // Validate required parameters
     if (!tenantId || !transactionRef || !eventType || !entries || entries.length === 0) {
       throw new Error('Missing required parameters for ledger transaction');
     }
+    
+    // ============================================================
+    // RBI COMPLIANCE: ACCOUNTING PERIOD & LEDGER LOCK CHECKS
+    // ============================================================
+    
+    // Check accounting period for posting
+    const periodCheck = await accountingPeriodService.checkPeriodForPosting({
+      tenantId,
+      transactionDate,
+      periodType: 'DAILY'
+    });
+    
+    // If ledger is locked, reject immediately (no override allowed)
+    if (periodCheck.locked) {
+      throw new LedgerLockedError(
+        periodCheck.lock_info.lock_type,
+        periodCheck.lock_info.locked_by,
+        periodCheck.lock_info.locked_at,
+        periodCheck.lock_info.reason
+      );
+    }
+    
+    // If posting not allowed and override not requested
+    if (!periodCheck.posting_allowed && !override) {
+      if (periodCheck.override_required) {
+        // SOFT_CLOSED period - admin override is possible
+        throw new AdminOverrideRequiredError(
+          'post_to_soft_closed_period',
+          `Period is ${periodCheck.period.status}. Admin override with justification required.`
+        );
+      } else {
+        // HARD_CLOSED period - no override allowed
+        throw new PeriodClosedError(
+          periodCheck.period.type,
+          periodCheck.period.period_start,
+          periodCheck.period.period_end,
+          periodCheck.period.status,
+          'Cannot post to HARD_CLOSED period - period must be reopened'
+        );
+      }
+    }
+    
+    // If override requested, validate it
+    if (override) {
+      // Override only allowed for SOFT_CLOSED periods
+      if (!periodCheck.override_required) {
+        throw new Error('Override flag is only valid for SOFT_CLOSED periods');
+      }
+      
+      // Validate override permissions
+      if (userRole !== 'FINANCE_ADMIN') {
+        throw new InsufficientOverridePrivilegesError(
+          userRole,
+          'FINANCE_ADMIN',
+          'post_to_soft_closed_period'
+        );
+      }
+      
+      // Justification is mandatory for overrides
+      if (!overrideJustification || overrideJustification.trim().length < 10) {
+        throw new Error('Override justification must be at least 10 characters');
+      }
+      
+      // Log the override in admin_overrides_log (will be done after transaction creation)
+    }
+    
+    // ============================================================
+    // END COMPLIANCE CHECKS
+    // ============================================================
     
     // Check idempotency - if this key was already processed, return existing transaction
     if (idempotencyKey) {
@@ -215,11 +300,33 @@ class LedgerService {
         metadata: JSON.stringify({ eventType, sourceOrderId })
       });
       
+      // If override was used, log it in admin_overrides_log
+      if (override) {
+        await trx('admin_overrides_log').insert({
+          id: uuidv4(),
+          tenant_id: tenantId,
+          override_type: 'SOFT_CLOSE_POSTING',
+          justification: overrideJustification,
+          entity_type: 'ledger_transaction',
+          entity_id: transaction.id,
+          affected_entities: JSON.stringify([transaction.id]),
+          override_by: createdBy,
+          override_by_role: userRole,
+          metadata: JSON.stringify({
+            periodId: periodCheck.period.id,
+            periodStatus: periodCheck.period.status,
+            transactionRef,
+            eventType
+          })
+        });
+      }
+      
       return {
         transaction: { ...transaction, status: 'posted' },
         entries: createdEntries,
         duplicate: false,
-        validation: { totalDebits, totalCredits, balanced: true }
+        validation: { totalDebits, totalCredits, balanced: true },
+        override_used: override
       };
     });
   }
