@@ -899,15 +899,6 @@ router.get('/reports/platform-revenue', requireFinanceRole, async (req, res) => 
       .groupBy('la.account_code')
       .select('la.account_code');
     
-    const revenue = await db.knex('ledger_entries')
-      .where('tenant_id', tenantId)
-      .where('account_code', 'like', 'REV-%')
-      .whereBetween('transaction_date', [new Date(fromDate), new Date(toDate)])
-      .where('entry_type', 'credit')
-      .sum('amount as total_revenue')
-      .groupBy('account_code')
-      .select('account_code');
-    
     res.json({
       success: true,
       report: {
