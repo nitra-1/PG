@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Secure Authentication</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            padding: 30px 0;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .auth-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .cancel-btn {
+            width: 100%;
+            padding: 15px;
+            background: #f8f9fa;
+            color: #666;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .cancel-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .bank-iframe {
+            width: 100%;
+            height: 500px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            margin: 20px 0;
+        }
+
+        .timer {
+            text-align: center;
+            padding: 15px;
+            background: #f0f4ff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #667eea;
+        }
+
+        .timer.warning {
+            background: #fef3c7;
+            color: #f59e0b;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+            display: block;
+        }
+
+        .status-message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+            display: block;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .otp-input-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .otp-input {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 1.5em;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: border-color 0.3s ease;
+        }
+
+        .otp-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .otp-input {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🔒 3D Secure Authentication</h1>
+            <p>Verify your card with your bank</p>
+        </div>
+
+        <div class="auth-section">
+            <div id="status-message" class="status-message"></div>
+
+            <div id="timer" class="timer">
+                ⏱️ Time remaining: <span id="time-left">5:00</span>
+            </div>
+
+            <!-- Card Details Entry (Secure) -->
+            <div id="card-entry-section">
+                <div class="info-box">
+                    <strong>🔒 Secure Card Entry:</strong> Your card details will be securely submitted to your bank for verification. We use bank-grade encryption and never store your card information.
+                </div>
+
+                <h2 class="section-title">Enter Card Details</h2>
+
+                <form id="card-details-form">
+                    <div class="form-group">
+                        <label>Card Number</label>
+                        <input type="text" id="card-number" placeholder="1234 5678 9012 3456" maxlength="19" required autocomplete="cc-number">
+                    </div>
+                    <div class="form-group">
+                        <label>Cardholder Name</label>
+                        <input type="text" id="card-holder" placeholder="Name on card" required autocomplete="cc-name">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Expiry Date</label>
+                            <input type="text" id="card-expiry" placeholder="MM/YY" maxlength="5" required autocomplete="cc-exp">
+                        </div>
+                        <div class="form-group">
+                            <label>CVV</label>
+                            <input type="password" id="card-cvv" placeholder="123" maxlength="4" required autocomplete="cc-csc">
+                        </div>
+                    </div>
+                    <button type="submit" class="submit-btn">Proceed to Bank Verification</button>
+                    <button type="button" class="cancel-btn" onclick="cancelPayment()">Cancel Payment</button>
+                </form>
+            </div>
+
+            <!-- OTP Entry Section -->
+            <div id="otp-section" style="display: none;">
+                <div class="info-box">
+                    <strong>📱 OTP Verification:</strong> An OTP has been sent to your registered mobile number. Please enter it below.
+                </div>
+
+                <h2 class="section-title">Enter OTP</h2>
+
+                <form id="otp-form">
+                    <div class="otp-input-group">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Verify OTP</button>
+                    <button type="button" class="cancel-btn" onclick="resendOTP()">Resend OTP</button>
+                    <button type="button" class="cancel-btn" onclick="cancelPayment()">Cancel Payment</button>
+                </form>
+            </div>
+
+            <!-- Bank Redirect/Iframe Section -->
+            <div id="bank-redirect-section" style="display: none;">
+                <div class="warning-box">
+                    <strong>⚠️ Bank Authentication:</strong> You are being redirected to your bank's secure page. Do not close this window.
+                </div>
+                <iframe id="bank-iframe" class="bank-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = window.location.origin;
+        let authToken = '';
+        let orderData = {};
+        let timeLeft = 300; // 5 minutes
+        let timerInterval;
+        let otpRetries = 3;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeAuth();
+            setupCardFormatting();
+            setupOTPInputs();
+            startTimer();
+        });
+
+        // Initialize authentication
+        function initializeAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            authToken = urlParams.get('token') || '';
+            orderData = {
+                orderId: urlParams.get('orderId') || '',
+                amount: urlParams.get('amount') || '',
+                cardHolderName: urlParams.get('cardHolderName') || '',
+                email: urlParams.get('email') || '',
+                mobile: urlParams.get('mobile') || ''
+            };
+
+            // Pre-fill cardholder name if available
+            if (orderData.cardHolderName) {
+                document.getElementById('card-holder').value = orderData.cardHolderName;
+            }
+        }
+
+        // Start countdown timer
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('time-left').textContent = 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                // Warning when < 1 minute
+                if (timeLeft < 60) {
+                    document.getElementById('timer').classList.add('warning');
+                }
+
+                // Timeout
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+
+        // Handle timeout
+        function handleTimeout() {
+            showStatus('error', '⏱️ Session Timeout: Your session has expired. Please try again.');
+            setTimeout(() => {
+                window.location.href = `/payment-status.html?status=timeout&order=${orderData.orderId}`;
+            }, 3000);
+        }
+
+        // Setup card formatting
+        function setupCardFormatting() {
+            const cardNumber = document.getElementById('card-number');
+            cardNumber.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\s/g, '');
+                let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+                e.target.value = formattedValue;
+            });
+
+            const expiryInput = document.getElementById('card-expiry');
+            expiryInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length >= 2) {
+                    value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                }
+                e.target.value = value;
+            });
+
+            // Card details form submission
+            document.getElementById('card-details-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitCardDetails();
+            });
+        }
+
+        // Setup OTP inputs
+        function setupOTPInputs() {
+            const otpInputs = document.querySelectorAll('.otp-input');
+            
+            otpInputs.forEach((input, index) => {
+                input.addEventListener('input', (e) => {
+                    if (e.target.value.length === 1 && index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
+                    }
+                });
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && e.target.value === '' && index > 0) {
+                        otpInputs[index - 1].focus();
+                    }
+                });
+            });
+
+            // OTP form submission
+            document.getElementById('otp-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await verifyOTP();
+            });
+        }
+
+        // Submit card details
+        async function submitCardDetails() {
+            try {
+                showLoading(true);
+
+                // In production, this would tokenize the card via PCI-compliant service
+                // For demo, we simulate the 3DS flow
+                const cardData = {
+                    cardNumber: document.getElementById('card-number').value.replace(/\s/g, ''),
+                    cardHolder: document.getElementById('card-holder').value,
+                    expiryDate: document.getElementById('card-expiry').value,
+                    cvv: document.getElementById('card-cvv').value,
+                    ...orderData,
+                    paymentMethod: 'card',
+                    customerId: 'DEMO_CUST_001',
+                    currency: 'INR'
+                };
+
+                // Simulate bank OTP request
+                setTimeout(() => {
+                    showLoading(false);
+                    showOTPSection();
+                    showStatus('success', '✅ OTP sent to your registered mobile number');
+                }, 2000);
+
+            } catch (error) {
+                showLoading(false);
+                showStatus('error', `❌ Error: ${error.message}`);
+            }
+        }
+
+        // Show OTP section
+        function showOTPSection() {
+            document.getElementById('card-entry-section').style.display = 'none';
+            document.getElementById('otp-section').style.display = 'block';
+            document.querySelectorAll('.otp-input')[0].focus();
+        }
+
+        // Verify OTP
+        async function verifyOTP() {
+            try {
+                showLoading(true);
+
+                const otpInputs = document.querySelectorAll('.otp-input');
+                const otp = Array.from(otpInputs).map(input => input.value).join('');
+
+                if (otp.length !== 6) {
+                    throw new Error('Please enter complete OTP');
+                }
+
+                // Simulate OTP verification
+                // In production, this would verify with the bank/gateway
+                const response = await fetch(`${API_BASE_URL}/api/payments/process`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        orderId: orderData.orderId,
+                        amount: orderData.amount,
+                        paymentMethod: 'card',
+                        otp: otp,
+                        customerId: 'DEMO_CUST_001',
+                        currency: 'INR'
+                    })
+                });
+
+                const result = await response.json();
+
+                showLoading(false);
+
+                if (result.success || result.status === 'success' || result.transactionId) {
+                    showStatus('success', '✅ Payment Successful! Redirecting...');
+                    clearInterval(timerInterval);
+                    setTimeout(() => {
+                        window.location.href = `/payment-status.html?status=success&txn=${result.transactionId}`;
+                    }, 2000);
+                } else {
+                    otpRetries--;
+                    if (otpRetries > 0) {
+                        showStatus('error', `❌ Invalid OTP. ${otpRetries} attempts remaining.`);
+                        // Clear OTP inputs
+                        otpInputs.forEach(input => input.value = '');
+                        otpInputs[0].focus();
+                    } else {
+                        showStatus('error', '❌ Maximum OTP attempts exceeded. Payment cancelled.');
+                        setTimeout(() => {
+                            window.location.href = `/payment-status.html?status=failed&error=max_otp_attempts`;
+                        }, 3000);
+                    }
+                }
+            } catch (error) {
+                showLoading(false);
+                showStatus('error', `❌ Error: ${error.message}`);
+            }
+        }
+
+        // Resend OTP
+        function resendOTP() {
+            showLoading(true);
+            // Simulate OTP resend
+            setTimeout(() => {
+                showLoading(false);
+                showStatus('success', '✅ OTP resent to your registered mobile number');
+                otpRetries = 3; // Reset retry count
+            }, 2000);
+        }
+
+        // Cancel payment
+        function cancelPayment() {
+            if (confirm('Are you sure you want to cancel this payment?')) {
+                clearInterval(timerInterval);
+                window.location.href = `/payment-status.html?status=cancelled&order=${orderData.orderId}`;
+            }
+        }
+
+        // Show status message
+        function showStatus(type, message) {
+            const statusEl = document.getElementById('status-message');
+            statusEl.className = `status-message ${type}`;
+            statusEl.textContent = message;
+            
+            // Auto-hide after 5 seconds for success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Show loading
+        function showLoading(show) {
+            const overlay = document.getElementById('loading-overlay');
+            if (show) {
+                overlay.classList.add('active');
+            } else {
+                overlay.classList.remove('active');
+            }
+        }
+
+        // Listen for postMessage from bank iframe (for iframe-based 3DS)
+        window.addEventListener('message', (event) => {
+            // Verify origin in production
+            if (event.data.type === '3DS_COMPLETE') {
+                clearInterval(timerInterval);
+                if (event.data.status === 'success') {
+                    window.location.href = `/payment-status.html?status=success&txn=${event.data.transactionId}`;
+                } else {
+                    window.location.href = `/payment-status.html?status=failed&error=${event.data.error}`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -171,6 +171,25 @@ module.exports = {
     prometheusPort: parseInt(process.env.PROMETHEUS_PORT) || 9090
   },
 
+  // Checkout Configuration
+  checkout: {
+    mode: process.env.CHECKOUT_MODE || 'hosted', // 'hosted' or 'embedded'
+    hostedUrl: process.env.HOSTED_CHECKOUT_URL || '/checkout-hosted.html',
+    embeddedSdkUrl: process.env.EMBEDDED_SDK_URL || '/sdk/checkout.js',
+    returnUrl: process.env.CHECKOUT_RETURN_URL || '/payment-status.html',
+    cancelUrl: process.env.CHECKOUT_CANCEL_URL || '/payment-cancel.html',
+    webhookUrl: process.env.CHECKOUT_WEBHOOK_URL || '/api/payments/webhook',
+    // 3DS Configuration
+    threeDSEnabled: process.env.THREE_DS_ENABLED !== 'false',
+    threeDSReturnUrl: process.env.THREE_DS_RETURN_URL || '/3ds-return.html',
+    threeDSTimeout: parseInt(process.env.THREE_DS_TIMEOUT) || 300000, // 5 minutes
+    // OTP Configuration
+    otpEnabled: process.env.OTP_ENABLED !== 'false',
+    otpLength: parseInt(process.env.OTP_LENGTH) || 6,
+    otpTimeout: parseInt(process.env.OTP_TIMEOUT) || 180000, // 3 minutes
+    otpRetries: parseInt(process.env.OTP_RETRIES) || 3
+  },
+
   // Feature Flags
   features: {
     upi: process.env.FEATURE_UPI !== 'false',

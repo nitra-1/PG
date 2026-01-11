@@ -39,6 +39,57 @@
             opacity: 0.9;
         }
 
+        .checkout-mode-selector {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px auto;
+            max-width: 600px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mode-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .mode-btn.active {
+            background: white;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .pci-warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .pci-warning strong {
+            color: #92400e;
+        }
+
+        .pci-warning p {
+            color: #78350f;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
         .main-content {
             display: grid;
             grid-template-columns: 1fr 400px;
@@ -399,10 +450,22 @@
         <div class="header">
             <h1>🏦 Payment Gateway Checkout</h1>
             <p>Comprehensive Demo - All Payment Methods</p>
+            
+            <div class="checkout-mode-selector">
+                <span style="color: white; font-weight: 600;">Checkout Mode:</span>
+                <button class="mode-btn" onclick="switchToHosted()">🔒 Hosted (Secure)</button>
+                <button class="mode-btn active" onclick="switchToDemo()">🧪 Demo (Current)</button>
+            </div>
         </div>
 
         <div class="main-content">
             <div class="payment-section">
+                <div class="pci-warning">
+                    <strong>⚠️ DEMO MODE - PCI-DSS Notice:</strong>
+                    <p>This page demonstrates payment UI for testing purposes only. For production use, card payments MUST use the <strong>Hosted Checkout</strong> to maintain PCI-DSS compliance. Card details should never be collected directly in your application.</p>
+                    <p style="margin-top: 8px;"><a href="/checkout-hosted.html" style="color: #667eea; font-weight: 600;">Click here to use PCI-compliant Hosted Checkout →</a></p>
+                </div>
+
                 <h2 class="section-title">Select Payment Method</h2>
 
                 <div class="payment-methods">
@@ -1092,6 +1155,19 @@
                 }
                 e.target.value = value;
             });
+        }
+
+        // Switch to hosted checkout mode
+        function switchToHosted() {
+            if (confirm('Switch to PCI-compliant Hosted Checkout?\n\nHosted checkout ensures your application never handles sensitive card data, maintaining PCI-DSS SAQ-A compliance.')) {
+                window.location.href = '/checkout-hosted.html?amount=2499';
+            }
+        }
+
+        // Switch to demo mode (current page)
+        function switchToDemo() {
+            // Already on demo page
+            alert('You are currently on the Demo checkout page.\n\nNote: This is for demonstration only. Use Hosted Checkout for production card payments to maintain PCI compliance.');
         }
     </script>
 </body>
