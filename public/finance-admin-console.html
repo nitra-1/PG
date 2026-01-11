@@ -878,14 +878,14 @@
       const userId = storage.getItem('userId');
       
       if (!role || !userId) {
-        window.location.href = '/platform-login.html';
+        window.location.replace('/platform-login.html?logout=true');
         return;
       }
       
       if (!['FINANCE_ADMIN', 'COMPLIANCE_ADMIN'].includes(role)) {
         alert('Access denied: Finance Admin Console requires FINANCE_ADMIN or COMPLIANCE_ADMIN role');
         storage.clear();
-        window.location.href = '/platform-login.html';
+        window.location.replace('/platform-login.html?logout=true');
         return;
       }
       
