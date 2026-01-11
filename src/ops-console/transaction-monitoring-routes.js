@@ -169,7 +169,7 @@ router.get('/:id', requireOpsConsoleAccess, logOpsAction('GET_TRANSACTION'), asy
       `SELECT 
         id, tenant_id as merchant_id, amount, currency, status, 
         payment_method, gateway, created_at, updated_at,
-        gateway_transaction_id, description
+        gateway_transaction_id
       FROM transactions 
       WHERE id = $1`,
       [id]
