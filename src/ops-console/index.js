@@ -26,9 +26,10 @@ router.use('/auth', authRoutes);
 
 // Apply global finance operations blocker to all other routes
 // NOTE: requireOpsConsoleAccess is applied at individual route level, not globally
+// This avoids duplicate middleware application while maintaining security
 router.use(blockFinanceOperations);
 
-// Mount route modules
+// Mount route modules (each route applies requireOpsConsoleAccess individually)
 router.use('/merchants', merchantManagementRoutes);
 router.use('/transactions', transactionMonitoringRoutes);
 router.use('/gateway-health', gatewayHealthRoutes);
