@@ -18,6 +18,10 @@
  * constraint name, it will be replaced with a properly named constraint.
  */
 
+// Constants for constraint names (to avoid typos and improve maintainability)
+const OLD_TRUNCATED_NAME = 'accounting_periods_tenant_id_period_type_period_start_period_en';
+const NEW_CONSTRAINT_NAME = 'uq_acct_period_tenant_type_dates';
+
 exports.up = async function(knex) {
   // Check if the table already exists (from a failed previous migration)
   const tableExists = await knex.schema.hasTable('accounting_periods');
@@ -31,27 +35,27 @@ exports.up = async function(knex) {
         -- Drop old auto-generated constraint with truncated name (if it exists)
         IF EXISTS (
           SELECT 1 FROM pg_constraint 
-          WHERE conname = 'accounting_periods_tenant_id_period_type_period_start_period_en'
+          WHERE conname = '${OLD_TRUNCATED_NAME}'
         ) THEN
           ALTER TABLE accounting_periods 
-          DROP CONSTRAINT accounting_periods_tenant_id_period_type_period_start_period_en;
+          DROP CONSTRAINT ${OLD_TRUNCATED_NAME};
         END IF;
         
         -- Drop old index with truncated name (if it exists) 
         IF EXISTS (
           SELECT 1 FROM pg_indexes 
-          WHERE indexname = 'accounting_periods_tenant_id_period_type_period_start_period_en'
+          WHERE indexname = '${OLD_TRUNCATED_NAME}'
         ) THEN
-          DROP INDEX accounting_periods_tenant_id_period_type_period_start_period_en;
+          DROP INDEX ${OLD_TRUNCATED_NAME};
         END IF;
         
         -- Add new constraint with explicit short name if it doesn't exist
         IF NOT EXISTS (
           SELECT 1 FROM pg_constraint 
-          WHERE conname = 'uq_acct_period_tenant_type_dates'
+          WHERE conname = '${NEW_CONSTRAINT_NAME}'
         ) THEN
           ALTER TABLE accounting_periods 
-          ADD CONSTRAINT uq_acct_period_tenant_type_dates 
+          ADD CONSTRAINT ${NEW_CONSTRAINT_NAME} 
           UNIQUE (tenant_id, period_type, period_start, period_end);
         END IF;
       END $$;
@@ -96,7 +100,7 @@ exports.up = async function(knex) {
       // Unique constraint: No overlapping periods of same type for same tenant
       // Use explicit short name to avoid PostgreSQL 63-char identifier limit
       table.unique(['tenant_id', 'period_type', 'period_start', 'period_end'], {
-        indexName: 'uq_acct_period_tenant_type_dates'
+        indexName: NEW_CONSTRAINT_NAME
       });
     });
   }
