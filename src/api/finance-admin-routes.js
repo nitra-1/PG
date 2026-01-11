@@ -980,13 +980,19 @@ router.get('/reports/settlement-aging', requireFinanceRole, async (req, res) => 
  */
 router.get('/merchants', requireFinanceRole, async (req, res) => {
   try {
-    const { limit = 100, offset = 0 } = req.query;
+    // Validate and sanitize pagination parameters
+    const rawLimit = parseInt(req.query.limit || 100);
+    const rawOffset = parseInt(req.query.offset || 0);
+    
+    // Ensure positive integers within reasonable bounds
+    const limit = Math.min(Math.max(1, rawLimit), 1000);
+    const offset = Math.max(0, rawOffset);
     
     const merchants = await db.knex('merchants')
       .select('id', 'merchant_code', 'merchant_name', 'status', 'email')
       .orderBy('merchant_name', 'asc')
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
+      .limit(limit)
+      .offset(offset);
     
     res.json({
       success: true,

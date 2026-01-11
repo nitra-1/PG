@@ -829,10 +829,53 @@
       return UUID_REGEX.test(uuid);
     }
     
+    // Safe localStorage wrapper with error handling
+    function safeLocalStorage() {
+      return {
+        getItem: (key) => {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            console.warn('localStorage.getItem failed:', e);
+            return null;
+          }
+        },
+        setItem: (key, value) => {
+          try {
+            localStorage.setItem(key, value);
+            return true;
+          } catch (e) {
+            console.warn('localStorage.setItem failed:', e);
+            return false;
+          }
+        },
+        removeItem: (key) => {
+          try {
+            localStorage.removeItem(key);
+            return true;
+          } catch (e) {
+            console.warn('localStorage.removeItem failed:', e);
+            return false;
+          }
+        },
+        clear: () => {
+          try {
+            storage.clear();
+            return true;
+          } catch (e) {
+            console.warn('storage.clear failed:', e);
+            return false;
+          }
+        }
+      };
+    }
+    
+    const storage = safeLocalStorage();
+    
     // Check user access on load
     async function checkAccess() {
-      const role = localStorage.getItem('userRole');
-      const userId = localStorage.getItem('userId');
+      const role = storage.getItem('userRole');
+      const userId = storage.getItem('userId');
       
       if (!role || !userId) {
         window.location.href = '/platform-login.html';
@@ -841,7 +884,7 @@
       
       if (!['FINANCE_ADMIN', 'COMPLIANCE_ADMIN'].includes(role)) {
         alert('Access denied: Finance Admin Console requires FINANCE_ADMIN or COMPLIANCE_ADMIN role');
-        localStorage.clear();
+        storage.clear();
         window.location.href = '/platform-login.html';
         return;
       }
@@ -879,7 +922,7 @@
           });
           
           // Try to restore previously selected merchant
-          const savedTenantId = localStorage.getItem('selectedTenantId');
+          const savedTenantId = storage.getItem('selectedTenantId');
           // Validate UUID format and check if merchant exists in current list
           if (savedTenantId && isValidUUID(savedTenantId) && data.merchants.some(m => m.id === savedTenantId)) {
             selector.value = savedTenantId;
@@ -890,7 +933,7 @@
             // Auto-select if only one merchant exists
             selector.value = data.merchants[0].id;
             currentTenantId = data.merchants[0].id;
-            localStorage.setItem('selectedTenantId', currentTenantId);
+            storage.setItem('selectedTenantId', currentTenantId);
             // Auto-load dashboard
             loadDashboard();
           }
@@ -917,7 +960,7 @@
       currentTenantId = selector.value;
       
       if (currentTenantId) {
-        localStorage.setItem('selectedTenantId', currentTenantId);
+        storage.setItem('selectedTenantId', currentTenantId);
         // Reload current tab data with new tenant
         const activeTab = document.querySelector('.nav-menu a.active');
         if (activeTab) {
@@ -936,7 +979,7 @@
         'Content-Type': 'application/json',
         'x-user-role': window.currentUser.role,
         'x-user-id': window.currentUser.userId,
-        'x-user-email': localStorage.getItem('userEmail') || 'unknown',
+        'x-user-email': storage.getItem('userEmail') || 'unknown',
         ...options.headers
       };
       
@@ -1577,7 +1620,7 @@
     // Logout
     function logout() {
       if (confirm('Are you sure you want to log out?')) {
-        localStorage.clear();
+        storage.clear();
         window.location.href = '/platform-login.html';
       }
     }
