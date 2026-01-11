@@ -368,6 +368,10 @@
         <p>This console does not have financial authority.</p>
         <p>For ledger, settlements, and accounting, use Finance Admin Console.</p>
       </div>
+      
+      <button class="btn btn-secondary" onclick="logout()" style="width: 100%; margin-top: 20px;">
+        🚪 Logout
+      </button>
     </nav>
     
     <!-- Main content -->
@@ -670,14 +674,14 @@
       
       // Require proper authentication - no defaults allowed
       if (!role || !userId) {
-        alert('Authentication required: Please log in first');
-        window.location.href = '/';
+        window.location.href = '/platform-login.html';
         return;
       }
       
       if (!['PLATFORM_ADMIN', 'OPS_ADMIN'].includes(role)) {
         alert('Access denied: Ops Console requires PLATFORM_ADMIN or OPS_ADMIN role');
-        window.location.href = '/';
+        localStorage.clear();
+        window.location.href = '/platform-login.html';
         return;
       }
       
@@ -1095,6 +1099,34 @@
         alert('Error: ' + error.message);
       }
     });
+    
+    // Logout function
+    async function logout() {
+      if (!confirm('Are you sure you want to log out?')) {
+        return;
+      }
+      
+      try {
+        // Call logout API (optional, for logging purposes)
+        await fetch('/api/ops/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': localStorage.getItem('userId'),
+            'x-username': localStorage.getItem('username')
+          }
+        });
+      } catch (error) {
+        console.error('Logout API call failed:', error);
+        // Continue with logout even if API call fails
+      }
+      
+      // Clear localStorage
+      localStorage.clear();
+      
+      // Redirect to login page
+      window.location.href = '/platform-login.html';
+    }
     
     // Initialize
     checkAccess();

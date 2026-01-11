@@ -1,0 +1,178 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                 OPS CONSOLE LOGIN - QUICK REFERENCE                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 1: FIX YOUR PASSWORD HASH                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+  The password you inserted ('asdf.') is plain text.
+  You need to update it with a bcrypt hash.
+
+  Option A - Use provided hash for password "asdf.":
+  ──────────────────────────────────────────────────
+  $ psql -U postgres -d payment_gateway
+  > \i fix-admin-password.sql
+  > \q
+
+  Option B - Generate hash for different password:
+  ──────────────────────────────────────────────────
+  $ node generate-password-hash.js "mynewpassword"
+  (Copy the hash from output)
+
+  $ psql -U postgres -d payment_gateway
+  > UPDATE platform_users 
+  > SET password_hash = '$2b$10$...'  -- paste hash
+  > WHERE username = 'admin';
+  > \q
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 2: VERIFY SETUP                                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+  $ node verify-login-setup.js
+
+  Expected output:
+  ════════════════════════════════════════
+  ✓ All checks passed!
+  ════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 3: START SERVER                                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+  $ npm start
+
+  Look for:
+  ═══════════════════════════════════════════════════════════╗
+  ║           Payment Gateway Server Started                  ║
+  ╚═══════════════════════════════════════════════════════════╝
+
+  Server: http://0.0.0.0:3000
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 4: LOGIN                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+  1. Open browser to:
+     ► http://localhost:3000/platform-login.html
+
+  2. Enter credentials:
+     Username: admin
+     Password: asdf.  (or your new password)
+
+  3. Click "Sign In"
+
+  4. Success! You'll be redirected to:
+     ► http://localhost:3000/ops-console.html
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                          TROUBLESHOOTING                             ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  Problem: "Invalid username or password"
+  ───────────────────────────────────────
+  Check password hash:
+  $ psql -U postgres -d payment_gateway
+  > SELECT username, LENGTH(password_hash) as len 
+  > FROM platform_users WHERE username = 'admin';
+  
+  Expected: len = 60 (if not, regenerate hash)
+
+  Problem: "Account is disabled"
+  ───────────────────────────────
+  $ psql -U postgres -d payment_gateway
+  > UPDATE platform_users SET status = 'active' 
+  > WHERE username = 'admin';
+
+  Problem: Login page won't load
+  ───────────────────────────────
+  • Make sure server is running (npm start)
+  • Check URL: http://localhost:3000/platform-login.html
+  • Check server logs for errors
+
+  Problem: Still seeing "Authentication required"
+  ────────────────────────────────────────────────
+  • Clear browser localStorage:
+    Open browser console (F12)
+    Type: localStorage.clear()
+    Press Enter
+  • Try logging in again
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                        WHAT WAS IMPLEMENTED                          ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  NEW FILES:
+  ──────────
+  ✓ public/platform-login.html          Login page UI
+  ✓ src/ops-console/auth-routes.js      Authentication API
+  ✓ generate-password-hash.js           Password hash generator
+  ✓ fix-admin-password.sql              SQL to fix admin password
+  ✓ verify-login-setup.js               Setup verification script
+  ✓ OPS_CONSOLE_LOGIN_SETUP.md          Complete setup guide
+  ✓ OPS_CONSOLE_LOGIN_TESTS.md          Test plan (15 tests)
+  ✓ IMPLEMENTATION_SUMMARY_LOGIN.md     Full implementation summary
+
+  MODIFIED FILES:
+  ───────────────
+  ✓ src/ops-console/index.js            Added auth routes
+  ✓ public/ops-console.html             Added logout button
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                           QUICK REFERENCE                            ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  Login URL:       http://localhost:3000/platform-login.html
+  Console URL:     http://localhost:3000/ops-console.html
+  
+  Default Admin:
+    Username: admin
+    Password: asdf.  (after fixing hash)
+    Role:     PLATFORM_ADMIN
+  
+  API Endpoints:
+    POST /api/ops/auth/login    Login with username/password
+    POST /api/ops/auth/logout   Logout (optional)
+  
+  Commands:
+    node generate-password-hash.js "password"    Generate hash
+    node verify-login-setup.js                   Verify setup
+    npm start                                     Start server
+    psql -U postgres -d payment_gateway          Access database
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                          SECURITY FEATURES                           ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  ✓ Bcrypt password hashing (10 salt rounds)
+  ✓ Account status validation (prevents disabled accounts)
+  ✓ Role-based access (PLATFORM_ADMIN, OPS_ADMIN only)
+  ✓ Audit trail logging (logs all login/logout events)
+  ✓ Last login timestamp tracking
+  ✓ Session persistence (localStorage)
+  ✓ Secure logout functionality
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                         NEED MORE HELP?                              ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  Read the documentation:
+    • OPS_CONSOLE_LOGIN_SETUP.md      Setup instructions
+    • OPS_CONSOLE_LOGIN_TESTS.md      Test cases
+    • IMPLEMENTATION_SUMMARY_LOGIN.md Complete summary
+
+  Run verification:
+    $ node verify-login-setup.js
+
+  Test the API directly:
+    $ curl -X POST http://localhost:3000/api/ops/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{"username":"admin","password":"asdf."}'
+
+═══════════════════════════════════════════════════════════════════════
+
+                         IMPLEMENTATION COMPLETE ✅
+                     Your ops console is ready to use!
+
+═══════════════════════════════════════════════════════════════════════
