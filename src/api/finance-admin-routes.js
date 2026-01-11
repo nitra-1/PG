@@ -976,12 +976,17 @@ router.get('/reports/settlement-aging', requireFinanceRole, async (req, res) => 
 /**
  * GET /api/finance-admin/merchants
  * List all merchants/tenants for FINANCE_ADMIN to select from
+ * Note: FINANCE_ADMIN/COMPLIANCE_ADMIN are platform-wide roles with access to all merchants
  */
 router.get('/merchants', requireFinanceRole, async (req, res) => {
   try {
+    const { limit = 100, offset = 0 } = req.query;
+    
     const merchants = await db.knex('merchants')
       .select('id', 'merchant_code', 'merchant_name', 'status', 'email')
-      .orderBy('merchant_name', 'asc');
+      .orderBy('merchant_name', 'asc')
+      .limit(parseInt(limit))
+      .offset(parseInt(offset));
     
     res.json({
       success: true,
