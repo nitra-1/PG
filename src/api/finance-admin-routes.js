@@ -21,6 +21,14 @@ const {
 const db = require('../database');
 
 /**
+ * Validate UUID format
+ */
+const isValidUUID = (uuid) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
+/**
  * Role-based authentication middleware
  */
 const requireFinanceRole = (req, res, next) => {
@@ -80,6 +88,13 @@ router.get('/dashboard', requireFinanceRole, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'tenantId is required'
+      });
+    }
+    
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
       });
     }
     
@@ -173,6 +188,13 @@ router.get('/ledger/transactions', requireFinanceRole, async (req, res) => {
       });
     }
     
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
+      });
+    }
+    
     let query = db.knex('ledger_transactions as lt')
       .select(
         'lt.*',
@@ -181,16 +203,16 @@ router.get('/ledger/transactions', requireFinanceRole, async (req, res) => {
       .leftJoin('ledger_entries as le', 'lt.id', 'le.transaction_id')
       .where('lt.tenant_id', tenantId)
       .groupBy('lt.id')
-      .orderBy('lt.transaction_date', 'desc')
+      .orderBy('lt.created_at', 'desc')
       .limit(parseInt(limit))
       .offset(parseInt(offset));
     
     if (fromDate) {
-      query = query.where('lt.transaction_date', '>=', new Date(fromDate));
+      query = query.where('lt.created_at', '>=', new Date(fromDate));
     }
     
     if (toDate) {
-      query = query.where('lt.transaction_date', '<=', new Date(toDate));
+      query = query.where('lt.created_at', '<=', new Date(toDate));
     }
     
     if (eventType) {
@@ -204,8 +226,8 @@ router.get('/ledger/transactions', requireFinanceRole, async (req, res) => {
       .where('tenant_id', tenantId)
       .count('* as count');
     
-    if (fromDate) countQuery.where('transaction_date', '>=', new Date(fromDate));
-    if (toDate) countQuery.where('transaction_date', '<=', new Date(toDate));
+    if (fromDate) countQuery.where('created_at', '>=', new Date(fromDate));
+    if (toDate) countQuery.where('created_at', '<=', new Date(toDate));
     if (eventType) countQuery.where('event_type', eventType);
     
     const [{ count }] = await countQuery;
@@ -241,6 +263,13 @@ router.get('/ledger/accounts', requireFinanceRole, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'tenantId is required'
+      });
+    }
+    
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
       });
     }
     
@@ -285,12 +314,20 @@ router.get('/ledger/export', requireFinanceRole, async (req, res) => {
       });
     }
     
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
+      });
+    }
+    
     const transactions = await db.knex('ledger_entries as le')
       .select(
-        'le.transaction_date',
+        'le.created_at as transaction_date',
         'lt.transaction_ref',
         'lt.event_type',
-        'le.account_code',
+        'le.account_id',
+        'la.account_code',
         'la.account_name',
         'le.entry_type',
         'le.amount',
@@ -298,10 +335,10 @@ router.get('/ledger/export', requireFinanceRole, async (req, res) => {
         'lt.created_by'
       )
       .join('ledger_transactions as lt', 'le.transaction_id', 'lt.id')
-      .leftJoin('ledger_accounts as la', 'le.account_code', 'la.account_code')
+      .leftJoin('ledger_accounts as la', 'le.account_id', 'la.id')
       .where('le.tenant_id', tenantId)
-      .whereBetween('le.transaction_date', [new Date(fromDate), new Date(toDate)])
-      .orderBy('le.transaction_date', 'asc');
+      .whereBetween('le.created_at', [new Date(fromDate), new Date(toDate)])
+      .orderBy('le.created_at', 'asc');
     
     // Convert to CSV
     const csvHeader = 'Date,Transaction Ref,Event Type,Account Code,Account Name,Entry Type,Amount,Description,Created By\n';
@@ -338,6 +375,13 @@ router.post('/overrides/request', requireFinanceRole, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'tenantId, overrideType, and justification are required'
+      });
+    }
+    
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
       });
     }
     
@@ -612,6 +656,13 @@ router.get('/reconciliation/batches', requireFinanceRole, async (req, res) => {
       });
     }
     
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
+      });
+    }
+    
     let query = db.knex('reconciliation_batches')
       .where('tenant_id', tenantId)
       .orderBy('created_at', 'desc')
@@ -731,6 +782,13 @@ router.get('/reports/daily-escrow-balance', requireFinanceRole, async (req, res)
       });
     }
     
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
+      });
+    }
+    
     const balance = await ledgerService.getAccountBalance({
       tenantId,
       accountCode: 'ESC-001',
@@ -778,6 +836,13 @@ router.get('/reports/merchant-payables', requireFinanceRole, async (req, res) =>
       });
     }
     
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
+      });
+    }
+    
     const payables = await db.knex('account_balances')
       .where('tenant_id', tenantId)
       .where('account_type', 'merchant')
@@ -817,14 +882,22 @@ router.get('/reports/platform-revenue', requireFinanceRole, async (req, res) => 
       });
     }
     
-    const revenue = await db.knex('ledger_entries')
-      .where('tenant_id', tenantId)
-      .where('account_code', 'like', 'REV-%')
-      .whereBetween('transaction_date', [new Date(fromDate), new Date(toDate)])
-      .where('entry_type', 'credit')
-      .sum('amount as total_revenue')
-      .groupBy('account_code')
-      .select('account_code');
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
+      });
+    }
+    
+    const revenue = await db.knex('ledger_entries as le')
+      .join('ledger_accounts as la', 'le.account_id', 'la.id')
+      .where('le.tenant_id', tenantId)
+      .where('la.account_code', 'like', 'REV-%')
+      .whereBetween('le.created_at', [new Date(fromDate), new Date(toDate)])
+      .where('le.entry_type', 'credit')
+      .sum('le.amount as total_revenue')
+      .groupBy('la.account_code')
+      .select('la.account_code');
     
     res.json({
       success: true,
@@ -857,6 +930,13 @@ router.get('/reports/settlement-aging', requireFinanceRole, async (req, res) => 
       return res.status(400).json({
         success: false,
         error: 'tenantId is required'
+      });
+    }
+    
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
       });
     }
     
