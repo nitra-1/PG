@@ -24,8 +24,8 @@ jest.mock('../src/core/ledger', () => ({
   reconciliationService: {}
 }));
 
-jest.mock('../src/database', () => ({
-  knex: jest.fn(() => ({
+jest.mock('../src/database', () => {
+  const mockKnex = jest.fn(() => ({
     where: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
@@ -38,11 +38,14 @@ jest.mock('../src/database', () => ({
     sum: jest.fn().mockReturnThis(),
     count: jest.fn().mockReturnThis(),
     then: jest.fn((cb) => cb([]))
-  })),
-  knex: {
-    raw: jest.fn()
-  }
-}));
+  }));
+  
+  mockKnex.raw = jest.fn();
+  
+  return {
+    knex: mockKnex
+  };
+});
 
 describe('Finance Admin Routes - UUID Validation', () => {
   let app;
