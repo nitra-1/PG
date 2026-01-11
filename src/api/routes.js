@@ -37,6 +37,7 @@ const subscriptionService = new SubscriptionService(config);
 
 // Import merchant routes
 const merchantRoutes = require('../merchant/merchant-routes')(config, securityService);
+const merchantDashboardRoutes = require('../merchant/merchant-dashboard-routes')();
 
 // Middleware for authentication
 const authenticate = (req, res, next) => {
@@ -809,5 +810,8 @@ router.post('/demo/token', async (req, res) => {
 
 // ===== Merchant Routes =====
 router.use('/merchants', merchantRoutes);
+
+// ===== Merchant Dashboard Routes =====
+router.use('/merchant', merchantDashboardRoutes);
 
 module.exports = router;

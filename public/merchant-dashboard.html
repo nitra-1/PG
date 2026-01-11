@@ -338,12 +338,17 @@
 
         <div class="tabs">
             <button class="tab-button active" onclick="showTab('overview')">📊 Overview</button>
+            <button class="tab-button" onclick="showTab('transactions')">💳 Transactions</button>
+            <button class="tab-button" onclick="showTab('refunds')">↩️ Refunds</button>
+            <button class="tab-button" onclick="showTab('settlements')">💰 Settlements</button>
+            <button class="tab-button" onclick="showTab('disputes')">⚠️ Disputes</button>
+            <button class="tab-button" onclick="showTab('daily-ops')">📅 Daily Operations</button>
+            <button class="tab-button" onclick="showTab('reports')">📊 Reports</button>
             <button class="tab-button" onclick="showTab('settings')">⚙️ Settings</button>
             <button class="tab-button" onclick="showTab('api-keys')">🔑 API Keys</button>
             <button class="tab-button" onclick="showTab('webhooks')">🔔 Webhooks</button>
             <button class="tab-button" onclick="showTab('rate-limits')">⏱️ Rate Limits</button>
             <button class="tab-button" onclick="showTab('ip-whitelist')">🛡️ IP Whitelist</button>
-            <button class="tab-button" onclick="showTab('usage')">📈 Usage</button>
         </div>
 
         <!-- Overview Tab -->
@@ -390,6 +395,229 @@
                     <button class="btn btn-primary" onclick="showTab('rate-limits')">Set Rate Limit</button>
                     <button class="btn btn-primary" onclick="showTab('usage')">View Usage</button>
                 </div>
+            </div>
+        </div>
+
+
+        <!-- Transactions Tab -->
+        <div id="transactions" class="tab-content">
+            <div class="card">
+                <h2>Transactions</h2>
+                <div class="form-group">
+                    <label>Filter by Status</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <select id="tx-status-filter" style="flex: 1; max-width: 200px;">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="success">Success</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                        </select>
+                        <input type="date" id="tx-start-date" style="flex: 1; max-width: 200px;">
+                        <input type="date" id="tx-end-date" style="flex: 1; max-width: 200px;">
+                        <button class="btn btn-primary" onclick="loadTransactions()">Filter</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Payment Method</th>
+                                <th>Gateway</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-list">
+                            <tr><td colspan="8" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="tx-pagination" style="margin-top: 20px; text-align: center;"></div>
+            </div>
+        </div>
+
+        <!-- Refunds Tab -->
+        <div id="refunds" class="tab-content">
+            <div class="card">
+                <h2>Refunds</h2>
+                <button class="btn btn-primary" onclick="showInitiateRefundForm()">+ Initiate Refund</button>
+                
+                <div id="initiate-refund-form" class="hidden" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                    <h3>Initiate Refund</h3>
+                    <form onsubmit="initiateRefund(event)">
+                        <div class="form-group">
+                            <label>Transaction ID</label>
+                            <input type="text" id="refund-transaction-id" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Refund Amount</label>
+                            <input type="number" id="refund-amount" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Reason</label>
+                            <input type="text" id="refund-reason" placeholder="Customer request">
+                        </div>
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea id="refund-notes" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Initiate Refund</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideInitiateRefundForm()">Cancel</button>
+                    </form>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Refund Ref</th>
+                                <th>Order ID</th>
+                                <th>Amount</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Initiated</th>
+                                <th>Completed</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="refunds-list">
+                            <tr><td colspan="8" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settlements Tab -->
+        <div id="settlements" class="tab-content">
+            <div class="card">
+                <h2>Settlements (Read-Only)</h2>
+                <div class="alert alert-info">
+                    View your settlement history. For settlement inquiries, please contact support.
+                </div>
+                
+                <div class="form-group">
+                    <label>Filter by Date Range</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="settlement-start-date">
+                        <input type="date" id="settlement-end-date">
+                        <button class="btn btn-primary" onclick="loadSettlements()">Filter</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Settlement Ref</th>
+                                <th>Date</th>
+                                <th>Gross Amount</th>
+                                <th>Fees</th>
+                                <th>Net Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="settlements-list">
+                            <tr><td colspan="7" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disputes Tab -->
+        <div id="disputes" class="tab-content">
+            <div class="card">
+                <h2>Disputes (Read-Only)</h2>
+                <div class="alert alert-info">
+                    View disputes raised against your transactions. Evidence upload coming in Phase 2.
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Dispute Ref</th>
+                                <th>Order ID</th>
+                                <th>Amount</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Dispute Date</th>
+                                <th>Response Due</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="disputes-list">
+                            <tr><td colspan="8" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Operations Tab -->
+        <div id="daily-ops" class="tab-content">
+            <div class="card">
+                <h2>Daily Operations</h2>
+                <p style="color: #666; margin-bottom: 20px;">Real-time operational monitoring for today and yesterday</p>
+                
+                <h3>Today's Activity</h3>
+                <div class="stats-grid" id="today-stats">
+                    <!-- Stats will be loaded here -->
+                </div>
+                
+                <h3 style="margin-top: 30px;">Yesterday's Activity</h3>
+                <div class="stats-grid" id="yesterday-stats">
+                    <!-- Stats will be loaded here -->
+                </div>
+                
+                <h3 style="margin-top: 30px;">Pending Items</h3>
+                <div class="stats-grid" id="pending-stats">
+                    <!-- Stats will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab (Downloadable Statements) -->
+        <div id="reports" class="tab-content">
+            <div class="card">
+                <h2>Downloadable Statements</h2>
+                <p style="color: #666; margin-bottom: 20px;">Generate and download statements for accounting and reconciliation</p>
+                
+                <form onsubmit="generateStatement(event)">
+                    <div class="form-group">
+                        <label>Statement Type</label>
+                        <select id="statement-type" required>
+                            <option value="">Select Type</option>
+                            <option value="transactions">Transaction Statement</option>
+                            <option value="settlements">Settlement Statement</option>
+                            <option value="refunds">Refund Statement</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date Range</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="date" id="report-start-date" required style="flex: 1;">
+                            <input type="date" id="report-end-date" required style="flex: 1;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Format</label>
+                        <select id="statement-format" required>
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV (Excel Compatible)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Generate & Download</button>
+                </form>
             </div>
         </div>
 
@@ -667,6 +895,24 @@
                 case 'overview':
                     loadOverview();
                     break;
+                case 'transactions':
+                    loadTransactions();
+                    break;
+                case 'refunds':
+                    loadRefunds();
+                    break;
+                case 'settlements':
+                    loadSettlements();
+                    break;
+                case 'disputes':
+                    loadDisputes();
+                    break;
+                case 'daily-ops':
+                    loadDailyOperations();
+                    break;
+                case 'reports':
+                    // Reports tab doesn't need initial data load
+                    break;
                 case 'settings':
                     loadSettings();
                     break;
@@ -681,9 +927,6 @@
                     break;
                 case 'ip-whitelist':
                     loadIPWhitelist();
-                    break;
-                case 'usage':
-                    loadUsageStats();
                     break;
             }
         }
@@ -1329,6 +1572,415 @@
                 console.error('Error loading usage stats:', error);
                 const tbody = document.getElementById('usage-list');
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Error loading usage stats</td></tr>';
+            }
+        }
+
+        // ===== NEW FUNCTIONS FOR MERCHANT DASHBOARD ENHANCEMENTS =====
+
+        // Transactions functions
+        async function loadTransactions() {
+            try {
+                const status = document.getElementById('tx-status-filter').value;
+                const startDate = document.getElementById('tx-start-date').value;
+                const endDate = document.getElementById('tx-end-date').value;
+                
+                let url = `${API_BASE_URL}/merchant/transactions?merchantId=${currentMerchantId}&limit=50`;
+                if (status) url += `&status=${status}`;
+                if (startDate) url += `&startDate=${startDate}`;
+                if (endDate) url += `&endDate=${endDate}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const tbody = document.getElementById('transactions-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.transactions.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No transactions found</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.transactions.forEach(tx => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${tx.order_id}</td>
+                            <td>₹${parseFloat(tx.amount).toFixed(2)}</td>
+                            <td><span class="badge badge-${tx.status === 'success' ? 'success' : tx.status === 'failed' ? 'danger' : 'warning'}">${tx.status}</span></td>
+                            <td>${tx.payment_method}</td>
+                            <td>${tx.gateway}</td>
+                            <td>${tx.customer_email || '-'}</td>
+                            <td>${new Date(tx.created_at).toLocaleDateString()}</td>
+                            <td>
+                                <button class="btn btn-secondary btn-small" onclick="viewTransaction('${tx.id}')">View</button>
+                                ${tx.status === 'success' && !tx.has_refund ? `<button class="btn btn-primary btn-small" onclick="quickRefund('${tx.id}', ${tx.amount})">Refund</button>` : ''}
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    showAlert(data.error || 'Failed to load transactions', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+                showAlert('Failed to load transactions', 'error');
+            }
+        }
+
+        async function viewTransaction(transactionId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/transactions/${transactionId}?merchantId=${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const tx = data.data;
+                    alert(`Transaction Details:\n\nOrder ID: ${tx.order_id}\nAmount: ₹${tx.amount}\nStatus: ${tx.status}\nPayment Method: ${tx.payment_method}\nGateway: ${tx.gateway}\nCustomer: ${tx.customer_email || 'N/A'}\nDate: ${new Date(tx.created_at).toLocaleString()}`);
+                }
+            } catch (error) {
+                console.error('Error viewing transaction:', error);
+            }
+        }
+
+        function quickRefund(transactionId, amount) {
+            document.getElementById('refund-transaction-id').value = transactionId;
+            document.getElementById('refund-amount').value = amount;
+            showTab('refunds');
+            showInitiateRefundForm();
+        }
+
+        // Refund functions
+        function showInitiateRefundForm() {
+            document.getElementById('initiate-refund-form').classList.remove('hidden');
+        }
+
+        function hideInitiateRefundForm() {
+            document.getElementById('initiate-refund-form').classList.add('hidden');
+            document.getElementById('refund-transaction-id').value = '';
+            document.getElementById('refund-amount').value = '';
+            document.getElementById('refund-reason').value = '';
+            document.getElementById('refund-notes').value = '';
+        }
+
+        async function initiateRefund(event) {
+            event.preventDefault();
+            
+            const transactionId = document.getElementById('refund-transaction-id').value;
+            const refundAmount = document.getElementById('refund-amount').value;
+            const reason = document.getElementById('refund-reason').value;
+            const notes = document.getElementById('refund-notes').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/refunds?merchantId=${currentMerchantId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        transactionId,
+                        refundAmount: parseFloat(refundAmount),
+                        reason,
+                        notes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Refund initiated successfully', 'success');
+                    hideInitiateRefundForm();
+                    loadRefunds();
+                } else {
+                    showAlert(data.error || 'Failed to initiate refund', 'error');
+                }
+            } catch (error) {
+                console.error('Error initiating refund:', error);
+                showAlert('Failed to initiate refund', 'error');
+            }
+        }
+
+        async function loadRefunds() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/refunds?merchantId=${currentMerchantId}&limit=50`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const tbody = document.getElementById('refunds-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.refunds.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No refunds found</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.refunds.forEach(refund => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${refund.refund_ref}</td>
+                            <td>${refund.order_id}</td>
+                            <td>₹${parseFloat(refund.refund_amount).toFixed(2)}</td>
+                            <td><span class="badge badge-${refund.refund_type === 'full' ? 'success' : 'warning'}">${refund.refund_type}</span></td>
+                            <td><span class="badge badge-${refund.status === 'completed' ? 'success' : refund.status === 'failed' ? 'danger' : 'warning'}">${refund.status}</span></td>
+                            <td>${new Date(refund.initiated_at).toLocaleDateString()}</td>
+                            <td>${refund.completed_at ? new Date(refund.completed_at).toLocaleDateString() : '-'}</td>
+                            <td>
+                                <button class="btn btn-secondary btn-small" onclick="viewRefund('${refund.id}')">View</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    showAlert(data.error || 'Failed to load refunds', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading refunds:', error);
+                showAlert('Failed to load refunds', 'error');
+            }
+        }
+
+        async function viewRefund(refundId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/refunds/${refundId}?merchantId=${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const r = data.data;
+                    alert(`Refund Details:\n\nRefund Ref: ${r.refund_ref}\nOrder ID: ${r.order_id}\nAmount: ₹${r.refund_amount}\nType: ${r.refund_type}\nStatus: ${r.status}\nReason: ${r.reason || 'N/A'}\nInitiated: ${new Date(r.initiated_at).toLocaleString()}\nCompleted: ${r.completed_at ? new Date(r.completed_at).toLocaleString() : 'Pending'}`);
+                }
+            } catch (error) {
+                console.error('Error viewing refund:', error);
+            }
+        }
+
+        // Settlement functions
+        async function loadSettlements() {
+            try {
+                const startDate = document.getElementById('settlement-start-date').value;
+                const endDate = document.getElementById('settlement-end-date').value;
+                
+                let url = `${API_BASE_URL}/merchant/settlements?merchantId=${currentMerchantId}&limit=50`;
+                if (startDate) url += `&startDate=${startDate}`;
+                if (endDate) url += `&endDate=${endDate}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const tbody = document.getElementById('settlements-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.settlements.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No settlements found</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.settlements.forEach(settlement => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${settlement.settlement_ref}</td>
+                            <td>${new Date(settlement.settlement_date).toLocaleDateString()}</td>
+                            <td>₹${parseFloat(settlement.gross_amount).toFixed(2)}</td>
+                            <td>₹${parseFloat(settlement.fees_amount || 0).toFixed(2)}</td>
+                            <td>₹${parseFloat(settlement.net_amount).toFixed(2)}</td>
+                            <td><span class="badge badge-${settlement.status === 'completed' ? 'success' : 'warning'}">${settlement.status}</span></td>
+                            <td>
+                                <button class="btn btn-secondary btn-small" onclick="viewSettlement('${settlement.id}')">View</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    showAlert(data.error || 'Failed to load settlements', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading settlements:', error);
+                showAlert('Failed to load settlements', 'error');
+            }
+        }
+
+        async function viewSettlement(settlementId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/settlements/${settlementId}?merchantId=${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const s = data.data;
+                    alert(`Settlement Details:\n\nSettlement Ref: ${s.settlement_ref}\nDate: ${new Date(s.settlement_date).toLocaleDateString()}\nGross Amount: ₹${s.gross_amount}\nFees: ₹${s.fees_amount}\nNet Amount: ₹${s.net_amount}\nStatus: ${s.status}\nBank Account: ${s.bank_account_number || 'N/A'}`);
+                }
+            } catch (error) {
+                console.error('Error viewing settlement:', error);
+            }
+        }
+
+        // Dispute functions
+        async function loadDisputes() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/disputes?merchantId=${currentMerchantId}&limit=50`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const tbody = document.getElementById('disputes-list');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.disputes.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No disputes found</td></tr>';
+                        return;
+                    }
+                    
+                    data.data.disputes.forEach(dispute => {
+                        const row = document.createElement('tr');
+                        const dueDateClass = dispute.response_due_date && new Date(dispute.response_due_date) < new Date() ? 'color: red;' : '';
+                        row.innerHTML = `
+                            <td>${dispute.dispute_ref}</td>
+                            <td>${dispute.order_id}</td>
+                            <td>₹${parseFloat(dispute.disputed_amount).toFixed(2)}</td>
+                            <td>${dispute.dispute_type}</td>
+                            <td><span class="badge badge-${dispute.status === 'won' ? 'success' : dispute.status === 'lost' ? 'danger' : 'warning'}">${dispute.status}</span></td>
+                            <td>${new Date(dispute.dispute_date).toLocaleDateString()}</td>
+                            <td style="${dueDateClass}">${dispute.response_due_date ? new Date(dispute.response_due_date).toLocaleDateString() : 'N/A'}</td>
+                            <td>
+                                <button class="btn btn-secondary btn-small" onclick="viewDispute('${dispute.id}')">View</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    showAlert(data.error || 'Failed to load disputes', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading disputes:', error);
+                showAlert('Failed to load disputes', 'error');
+            }
+        }
+
+        async function viewDispute(disputeId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/disputes/${disputeId}?merchantId=${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const d = data.data;
+                    alert(`Dispute Details:\n\nDispute Ref: ${d.dispute_ref}\nOrder ID: ${d.order_id}\nAmount: ₹${d.disputed_amount}\nType: ${d.dispute_type}\nStatus: ${d.status}\nReason: ${d.customer_reason || 'N/A'}\nDispute Date: ${new Date(d.dispute_date).toLocaleDateString()}\nResponse Due: ${d.response_due_date ? new Date(d.response_due_date).toLocaleDateString() : 'N/A'}`);
+                }
+            } catch (error) {
+                console.error('Error viewing dispute:', error);
+            }
+        }
+
+        // Daily Operations functions
+        async function loadDailyOperations() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/merchant/analytics/daily-operations?merchantId=${currentMerchantId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Today's stats
+                    const todayDiv = document.getElementById('today-stats');
+                    todayDiv.innerHTML = `
+                        <div class="stat-card">
+                            <h3>Total Transactions</h3>
+                            <div class="value">${data.data.today.total_transactions}</div>
+                            <div class="subtitle">${data.data.today.date}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Successful</h3>
+                            <div class="value">${data.data.today.successful_transactions}</div>
+                            <div class="subtitle">Success</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Failed</h3>
+                            <div class="value">${data.data.today.failed_transactions}</div>
+                            <div class="subtitle">Failed</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Pending</h3>
+                            <div class="value">${data.data.today.pending_transactions}</div>
+                            <div class="subtitle">Processing</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Amount</h3>
+                            <div class="value">₹${parseFloat(data.data.today.total_amount).toLocaleString()}</div>
+                            <div class="subtitle">Revenue</div>
+                        </div>
+                    `;
+                    
+                    // Yesterday's stats
+                    const yesterdayDiv = document.getElementById('yesterday-stats');
+                    yesterdayDiv.innerHTML = `
+                        <div class="stat-card">
+                            <h3>Total Transactions</h3>
+                            <div class="value">${data.data.yesterday.total_transactions}</div>
+                            <div class="subtitle">${data.data.yesterday.date}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Successful</h3>
+                            <div class="value">${data.data.yesterday.successful_transactions}</div>
+                            <div class="subtitle">Success</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Failed</h3>
+                            <div class="value">${data.data.yesterday.failed_transactions}</div>
+                            <div class="subtitle">Failed</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Amount</h3>
+                            <div class="value">₹${parseFloat(data.data.yesterday.total_amount).toLocaleString()}</div>
+                            <div class="subtitle">Revenue</div>
+                        </div>
+                    `;
+                    
+                    // Pending items
+                    const pendingDiv = document.getElementById('pending-stats');
+                    pendingDiv.innerHTML = `
+                        <div class="stat-card">
+                            <h3>Pending Refunds</h3>
+                            <div class="value">${data.data.pending_refunds.count}</div>
+                            <div class="subtitle">₹${parseFloat(data.data.pending_refunds.total_amount).toLocaleString()}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Open Disputes</h3>
+                            <div class="value">${data.data.open_disputes.count}</div>
+                            <div class="subtitle">₹${parseFloat(data.data.open_disputes.total_amount).toLocaleString()}</div>
+                        </div>
+                    `;
+                } else {
+                    showAlert(data.error || 'Failed to load daily operations data', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading daily operations:', error);
+                showAlert('Failed to load daily operations data', 'error');
+            }
+        }
+
+        // Reports/Statements functions
+        async function generateStatement(event) {
+            event.preventDefault();
+            
+            const type = document.getElementById('statement-type').value;
+            const startDate = document.getElementById('report-start-date').value;
+            const endDate = document.getElementById('report-end-date').value;
+            const format = document.getElementById('statement-format').value;
+            
+            try {
+                const url = `${API_BASE_URL}/merchant/analytics/statements?merchantId=${currentMerchantId}&type=${type}&startDate=${startDate}&endDate=${endDate}&format=${format}`;
+                
+                if (format === 'csv') {
+                    // Download CSV
+                    window.location.href = url;
+                    showAlert('Statement download started', 'success');
+                } else {
+                    // Show JSON data
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showAlert(`Statement generated with ${data.data.total} records`, 'success');
+                        console.log('Statement data:', data.data);
+                        // Optionally display the data in a modal or new page
+                    } else {
+                        showAlert(data.error || 'Failed to generate statement', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error generating statement:', error);
+                showAlert('Failed to generate statement', 'error');
             }
         }
 
