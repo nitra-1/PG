@@ -16,25 +16,58 @@ exports.up = async function(knex) {
   // ============================================================
   // 1. Add AUDITOR role to platform_users enum
   // ============================================================
+  // First, ensure the platform_users_role enum type exists
+  // If it doesn't exist, create it with all roles including AUDITOR
+  // If it exists, add AUDITOR to it (if not already present)
   await knex.raw(`
     DO $$ 
     BEGIN
-      -- Check if AUDITOR value already exists in the enum
-      IF NOT EXISTS (
-        SELECT 1 FROM pg_enum 
-        WHERE enumlabel = 'AUDITOR' 
-        AND enumtypid = (
-          SELECT oid FROM pg_type WHERE typname = 'platform_users_role'
-        )
-      ) THEN
-        -- Add AUDITOR to the existing enum
-        ALTER TYPE platform_users_role ADD VALUE 'AUDITOR';
+      -- Check if platform_users_role type exists
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'platform_users_role') THEN
+        -- Create the enum type with all roles including AUDITOR
+        CREATE TYPE platform_users_role AS ENUM ('PLATFORM_ADMIN', 'OPS_ADMIN', 'FINANCE_ADMIN', 'MERCHANT', 'AUDITOR');
+      ELSE
+        -- Type exists, check if AUDITOR value already exists in the enum
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_enum 
+          WHERE enumlabel = 'AUDITOR' 
+          AND enumtypid = (
+            SELECT oid FROM pg_type WHERE typname = 'platform_users_role'
+          )
+        ) THEN
+          -- Add AUDITOR to the existing enum
+          ALTER TYPE platform_users_role ADD VALUE 'AUDITOR';
+        END IF;
       END IF;
     END $$;
   `);
 
   // ============================================================
-  // 2. Create auditor_access_windows table
+  // 2. Ensure platform_users table exists
+  // Create it if it doesn't exist (for cases where migration 20240107 wasn't run)
+  // ============================================================
+  const platformUsersExists = await knex.schema.hasTable('platform_users');
+  if (!platformUsersExists) {
+    await knex.schema.createTable('platform_users', function(table) {
+      table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+      table.string('username', 100).notNullable().unique();
+      table.string('email', 255).notNullable().unique();
+      table.string('password_hash', 255).notNullable();
+      table.specificType('role', 'platform_users_role').notNullable();
+      table.enum('status', ['active', 'disabled', 'pending']).defaultTo('active');
+      table.timestamp('last_login_at');
+      table.uuid('created_by').references('id').inTable('platform_users').onDelete('SET NULL');
+      table.timestamps(true, true);
+      
+      // Indexes
+      table.index('username');
+      table.index('email');
+      table.index(['role', 'status']);
+    });
+  }
+
+  // ============================================================
+  // 3. Create auditor_access_windows table
   // Time-boxed access control for audit periods
   // ============================================================
   await knex.schema.createTable('auditor_access_windows', function(table) {
@@ -75,7 +108,7 @@ exports.up = async function(knex) {
   });
 
   // ============================================================
-  // 3. Create compliance_reports_cache table
+  // 4. Create compliance_reports_cache table
   // Pre-generated compliance reports for performance
   // ============================================================
   await knex.schema.createTable('compliance_reports_cache', function(table) {
@@ -112,7 +145,7 @@ exports.up = async function(knex) {
   });
 
   // ============================================================
-  // 4. Create audit_portal_access_log table
+  // 5. Create audit_portal_access_log table
   // Track all auditor activities
   // ============================================================
   await knex.schema.createTable('audit_portal_access_log', function(table) {
