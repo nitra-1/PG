@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finance Admin Console - INTERNAL USE ONLY</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f7fa;
+      color: #333;
+    }
+    
+    /* CRITICAL: RBI Watermark */
+    .watermark {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #c0392b;
+      color: white;
+      padding: 8px;
+      text-align: center;
+      font-weight: bold;
+      z-index: 9999;
+      font-size: 13px;
+      letter-spacing: 3px;
+    }
+    
+    .container {
+      display: flex;
+      height: 100vh;
+      padding-top: 40px;
+    }
+    
+    .sidebar {
+      width: 280px;
+      background: #2c3e50;
+      color: white;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    .sidebar h1 {
+      font-size: 18px;
+      margin-bottom: 10px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .role-indicator {
+      background: #c0392b;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-weight: 500;
+    }
+    
+    .nav-menu {
+      list-style: none;
+    }
+    
+    .nav-menu li {
+      margin-bottom: 8px;
+    }
+    
+    .nav-menu a {
+      color: white;
+      text-decoration: none;
+      display: block;
+      padding: 10px 12px;
+      border-radius: 4px;
+      transition: background 0.2s;
+      font-size: 14px;
+    }
+    
+    .nav-menu a:hover {
+      background: rgba(255,255,255,0.1);
+    }
+    
+    .nav-menu a.active {
+      background: #c0392b;
+    }
+    
+    .content {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+    }
+    
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    h2 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .card h3 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card h4 {
+      font-size: 14px;
+      color: #7f8c8d;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+      font-weight: 500;
+    }
+    
+    .btn-primary {
+      background: #3498db;
+      color: white;
+    }
+    
+    .btn-success {
+      background: #27ae60;
+      color: white;
+    }
+    
+    .btn-danger {
+      background: #e74c3c;
+      color: white;
+    }
+    
+    .btn-secondary {
+      background: #95a5a6;
+      color: white;
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #ecf0f1;
+      font-size: 14px;
+    }
+    
+    th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #2c3e50;
+    }
+    
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .badge-success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .badge-danger {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .badge-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .badge-info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    
+    .alert {
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    
+    .alert-danger {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+    
+    .alert-warning {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      color: #856404;
+    }
+    
+    .alert-info {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      margin-bottom: 20px;
+    }
+    
+    .modal-footer {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    
+    .readonly-badge {
+      display: inline-block;
+      background: #e74c3c;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-left: 10px;
+      font-weight: bold;
+    }
+    
+    .filters {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    
+    .audit-info {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Critical Watermark -->
+  <div class="watermark">⚠️ INTERNAL – FINANCE ONLY – RBI REGULATED ⚠️</div>
+  
+  <div class="container">
+    <nav class="sidebar">
+      <h1>🏦 Finance Admin Console</h1>
+      <div class="role-indicator" id="roleIndicator">Loading...</div>
+      
+      <ul class="nav-menu">
+        <li><a href="#" data-tab="dashboard" class="active">📊 Dashboard</a></li>
+        <li><a href="#" data-tab="accounting-periods">📅 Accounting Periods</a></li>
+        <li><a href="#" data-tab="settlements">💰 Settlements</a></li>
+        <li><a href="#" data-tab="ledger-locks">🔒 Ledger Locks</a></li>
+        <li><a href="#" data-tab="overrides">✋ Override Approvals</a></li>
+        <li><a href="#" data-tab="reconciliation">🔄 Reconciliation</a></li>
+        <li><a href="#" data-tab="ledger-explorer">📖 Ledger Explorer</a></li>
+        <li><a href="#" data-tab="reports">📈 Financial Reports</a></li>
+      </ul>
+      
+      <button class="btn btn-secondary" onclick="logout()" style="width: 100%; margin-top: 20px;">
+        🚪 Logout
+      </button>
+    </nav>
+    
+    <main class="content">
+      <!-- Dashboard Tab -->
+      <div id="dashboard-tab" class="tab-content active">
+        <h2>Finance Dashboard</h2>
+        
+        <div class="alert alert-info">
+          ℹ️ <strong>Audit Notice:</strong> All actions in this console are logged. This is an RBI-regulated platform.
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h4>Current Period</h4>
+            <div class="value" id="stat-period" style="font-size: 20px;">-</div>
+          </div>
+          <div class="stat-card">
+            <h4>Active Locks</h4>
+            <div class="value" id="stat-locks">-</div>
+          </div>
+          <div class="stat-card">
+            <h4>Pending Settlements</h4>
+            <div class="value" id="stat-settlements">-</div>
+          </div>
+          <div class="stat-card">
+            <h4>Pending Approvals</h4>
+            <div class="value" id="stat-approvals">-</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Recent Override Actions</h3>
+          <div id="recentOverrides">Loading...</div>
+        </div>
+      </div>
+      
+      <!-- Accounting Periods Tab -->
+      <div id="accounting-periods-tab" class="tab-content">
+        <h2>Accounting Period Management</h2>
+        
+        <div class="card">
+          <button class="btn btn-primary" onclick="showCreatePeriodModal()">+ Create New Period</button>
+        </div>
+        
+        <div class="card">
+          <h3>Current Open Period</h3>
+          <div id="openPeriodInfo">Loading...</div>
+        </div>
+        
+        <div class="card">
+          <h3>Period History</h3>
+          <table id="periodsTable">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Closed By</th>
+                <th>Closed At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="periodsTableBody">
+              <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Settlements Tab -->
+      <div id="settlements-tab" class="tab-content">
+        <h2>Settlement State Management</h2>
+        
+        <div class="alert alert-warning">
+          ⚠️ Settlement state transitions are irreversible. Bank confirmation establishes finality.
+        </div>
+        
+        <div class="filters">
+          <div class="form-group">
+            <label>Status</label>
+            <select id="settlement-status" onchange="loadSettlements()">
+              <option value="">All</option>
+              <option value="CREATED">Created</option>
+              <option value="FUNDS_RESERVED">Funds Reserved</option>
+              <option value="SENT_TO_BANK">Sent to Bank</option>
+              <option value="BANK_CONFIRMED">Bank Confirmed</option>
+              <option value="SETTLED">Settled</option>
+              <option value="FAILED">Failed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="loadSettlements()">Search</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <table id="settlementsTable">
+            <thead>
+              <tr>
+                <th>Settlement Ref</th>
+                <th>Merchant</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>UTR</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="settlementsTableBody">
+              <tr><td colspan="7">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Ledger Locks Tab -->
+      <div id="ledger-locks-tab" class="tab-content">
+        <h2>Ledger Lock Management</h2>
+        
+        <div class="card">
+          <button class="btn btn-danger" onclick="showApplyLockModal()">🔒 Apply Ledger Lock</button>
+        </div>
+        
+        <div class="card">
+          <h3>Active Locks</h3>
+          <div id="activeLocksContainer">Loading...</div>
+        </div>
+        
+        <div class="card">
+          <h3>Lock History</h3>
+          <table id="locksHistoryTable">
+            <thead>
+              <tr>
+                <th>Lock Type</th>
+                <th>Period</th>
+                <th>Reason</th>
+                <th>Locked By</th>
+                <th>Locked At</th>
+                <th>Released At</th>
+              </tr>
+            </thead>
+            <tbody id="locksHistoryTableBody">
+              <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Override Approvals Tab -->
+      <div id="overrides-tab" class="tab-content">
+        <h2>Admin Override Approvals <span class="readonly-badge">DUAL-CONFIRMATION</span></h2>
+        
+        <div class="alert alert-danger">
+          🚫 <strong>Self-Approval Forbidden:</strong> Finance Admins request, Compliance Admins approve.
+        </div>
+        
+        <div class="card" id="requestOverrideCard" style="display:none;">
+          <h3>Request Override</h3>
+          <button class="btn btn-primary" onclick="showRequestOverrideModal()">+ Request Override</button>
+        </div>
+        
+        <div class="card">
+          <h3>Pending Approvals</h3>
+          <table id="pendingApprovalsTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Requested By</th>
+                <th>Justification</th>
+                <th>Requested At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pendingApprovalsTableBody">
+              <tr><td colspan="5">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="card">
+          <h3>Override History</h3>
+          <table id="overrideHistoryTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Justification</th>
+                <th>Requested By</th>
+                <th>Approved By</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="overrideHistoryTableBody">
+              <tr><td colspan="5">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Reconciliation Tab -->
+      <div id="reconciliation-tab" class="tab-content">
+        <h2>Reconciliation Console</h2>
+        
+        <div class="alert alert-info">
+          ℹ️ Reconciliation identifies discrepancies but does not mutate ledger entries.
+        </div>
+        
+        <div class="card">
+          <button class="btn btn-primary" onclick="showCreateReconciliationModal()">+ Create Reconciliation Batch</button>
+        </div>
+        
+        <div class="card">
+          <h3>Reconciliation Batches</h3>
+          <table id="reconciliationBatchesTable">
+            <thead>
+              <tr>
+                <th>Batch ID</th>
+                <th>Type</th>
+                <th>Period</th>
+                <th>Status</th>
+                <th>Matched</th>
+                <th>Mismatched</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reconciliationBatchesTableBody">
+              <tr><td colspan="8">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Ledger Explorer Tab -->
+      <div id="ledger-explorer-tab" class="tab-content">
+        <h2>Ledger Explorer <span class="readonly-badge">READ-ONLY</span></h2>
+        
+        <div class="alert alert-danger">
+          🚫 <strong>No Edits:</strong> Ledger is strictly read-only. All mutations via proper APIs only.
+        </div>
+        
+        <div class="filters">
+          <div class="form-group">
+            <label>From Date</label>
+            <input type="date" id="ledger-from-date">
+          </div>
+          <div class="form-group">
+            <label>To Date</label>
+            <input type="date" id="ledger-to-date">
+          </div>
+          <div class="form-group">
+            <label>Event Type</label>
+            <select id="ledger-event-type">
+              <option value="">All</option>
+              <option value="payment_success">Payment Success</option>
+              <option value="refund_completed">Refund</option>
+              <option value="settlement">Settlement</option>
+              <option value="manual_adjustment">Manual Adjustment</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="loadLedgerTransactions()">Search</button>
+            <button class="btn btn-secondary" onclick="exportLedger()">Export CSV</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <table id="ledgerTransactionsTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Transaction Ref</th>
+                <th>Event Type</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Created By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerTransactionsTableBody">
+              <tr><td colspan="7">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Reports Tab -->
+      <div id="reports-tab" class="tab-content">
+        <h2>Financial Reports</h2>
+        
+        <div class="stats-grid">
+          <div class="card">
+            <h3>📊 Daily Escrow Balance</h3>
+            <button class="btn btn-primary" onclick="generateEscrowReport()">Generate Report</button>
+            <div id="escrowReportResult" class="audit-info" style="margin-top: 15px; display: none;"></div>
+          </div>
+          
+          <div class="card">
+            <h3>💼 Merchant Payables</h3>
+            <button class="btn btn-primary" onclick="generateMerchantPayablesReport()">Generate Report</button>
+            <div id="merchantPayablesResult" class="audit-info" style="margin-top: 15px; display: none;"></div>
+          </div>
+          
+          <div class="card">
+            <h3>💰 Platform Revenue</h3>
+            <div class="form-group">
+              <label>From Date</label>
+              <input type="date" id="revenue-from-date">
+            </div>
+            <div class="form-group">
+              <label>To Date</label>
+              <input type="date" id="revenue-to-date">
+            </div>
+            <button class="btn btn-primary" onclick="generateRevenueReport()">Generate Report</button>
+            <div id="revenueReportResult" class="audit-info" style="margin-top: 15px; display: none;"></div>
+          </div>
+          
+          <div class="card">
+            <h3>⏳ Settlement Aging</h3>
+            <button class="btn btn-primary" onclick="generateSettlementAgingReport()">Generate Report</button>
+            <div id="settlementAgingResult" class="audit-info" style="margin-top: 15px; display: none;"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Modals -->
+  <div id="closePeriodModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Close Accounting Period</h3>
+      </div>
+      <form id="closePeriodForm">
+        <div class="alert alert-warning">
+          ⚠️ <strong>Warning:</strong> HARD_CLOSE is irreversible!
+        </div>
+        <div class="form-group">
+          <label>Target Status *</label>
+          <select name="targetStatus" required>
+            <option value="SOFT_CLOSED">Soft Close (allows overrides)</option>
+            <option value="HARD_CLOSED">Hard Close (IRREVERSIBLE)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Closure Notes *</label>
+          <textarea name="closureNotes" required placeholder="Reason for closing this period"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('closePeriodModal')">Cancel</button>
+          <button type="submit" class="btn btn-danger">Close Period</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="applyLockModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Apply Ledger Lock</h3>
+      </div>
+      <form id="applyLockForm">
+        <div class="form-group">
+          <label>Lock Type *</label>
+          <select name="lockType" required>
+            <option value="AUDIT_LOCK">Audit Lock</option>
+            <option value="RECONCILIATION_LOCK">Reconciliation Lock</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Start Date *</label>
+          <input type="date" name="lockStartDate" required>
+        </div>
+        <div class="form-group">
+          <label>End Date *</label>
+          <input type="date" name="lockEndDate" required>
+        </div>
+        <div class="form-group">
+          <label>Reason *</label>
+          <textarea name="reason" required placeholder="Detailed justification for applying lock"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('applyLockModal')">Cancel</button>
+          <button type="submit" class="btn btn-danger">Apply Lock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="requestOverrideModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Request Admin Override</h3>
+      </div>
+      <form id="requestOverrideForm">
+        <div class="alert alert-info">
+          ℹ️ This request will be sent to Compliance Admin for approval.
+        </div>
+        <div class="form-group">
+          <label>Override Type *</label>
+          <select name="overrideType" required>
+            <option value="SOFT_CLOSE_POSTING">Posting to Soft Closed Period</option>
+            <option value="EXCEPTIONAL_CORRECTION">Exceptional Correction</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Justification *</label>
+          <textarea name="justification" required placeholder="Detailed business justification for override"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Affected Transaction IDs</label>
+          <input type="text" name="affectedTransactionIds" placeholder="Comma-separated transaction IDs">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('requestOverrideModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api/finance-admin';
+    const TENANT_ID = 'default'; // TODO: Get from session
+    
+    // Check user access on load
+    async function checkAccess() {
+      const role = localStorage.getItem('userRole');
+      const userId = localStorage.getItem('userId');
+      
+      if (!role || !userId) {
+        window.location.href = '/platform-login.html';
+        return;
+      }
+      
+      if (!['FINANCE_ADMIN', 'COMPLIANCE_ADMIN'].includes(role)) {
+        alert('Access denied: Finance Admin Console requires FINANCE_ADMIN or COMPLIANCE_ADMIN role');
+        localStorage.clear();
+        window.location.href = '/platform-login.html';
+        return;
+      }
+      
+      document.getElementById('roleIndicator').textContent = role;
+      
+      // Show override request button only for Finance Admin
+      if (role === 'FINANCE_ADMIN') {
+        document.getElementById('requestOverrideCard').style.display = 'block';
+      }
+      
+      window.currentUser = { role, userId };
+    }
+    
+    // API helper
+    async function apiCall(endpoint, options = {}) {
+      if (!window.currentUser?.role || !window.currentUser?.userId) {
+        throw new Error('Authentication required');
+      }
+      
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-user-role': window.currentUser.role,
+        'x-user-id': window.currentUser.userId,
+        'x-user-email': localStorage.getItem('userEmail') || 'unknown',
+        ...options.headers
+      };
+      
+      const response = await fetch(API_BASE + endpoint, {
+        ...options,
+        headers
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'API request failed');
+      }
+      
+      return data;
+    }
+    
+    // Tab navigation
+    document.querySelectorAll('.nav-menu a').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tab = link.dataset.tab;
+        
+        document.querySelectorAll('.nav-menu a').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+        
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.getElementById(tab + '-tab').classList.add('active');
+        
+        loadTabData(tab);
+      });
+    });
+    
+    function loadTabData(tab) {
+      switch(tab) {
+        case 'dashboard':
+          loadDashboard();
+          break;
+        case 'accounting-periods':
+          loadAccountingPeriods();
+          break;
+        case 'settlements':
+          loadSettlements();
+          break;
+        case 'ledger-locks':
+          loadLedgerLocks();
+          break;
+        case 'overrides':
+          loadOverrides();
+          break;
+        case 'reconciliation':
+          loadReconciliation();
+          break;
+        case 'ledger-explorer':
+          loadLedgerExplorer();
+          break;
+        case 'reports':
+          // Reports are on-demand
+          break;
+      }
+    }
+    
+    // Dashboard
+    async function loadDashboard() {
+      try {
+        const data = await apiCall(`/dashboard?tenantId=${TENANT_ID}`);
+        
+        if (data.success) {
+          const dash = data.dashboard;
+          
+          // Update stats
+          document.getElementById('stat-period').textContent = dash.currentPeriod 
+            ? `${dash.currentPeriod.period_type} (${dash.currentPeriod.status})`
+            : 'No open period';
+          document.getElementById('stat-locks').textContent = dash.activeLocks?.length || 0;
+          document.getElementById('stat-settlements').textContent = dash.pendingSettlements?.length || 0;
+          document.getElementById('stat-approvals').textContent = dash.pendingApprovals?.length || 0;
+          
+          // Recent overrides
+          const overridesDiv = document.getElementById('recentOverrides');
+          if (dash.recentOverrides?.length > 0) {
+            overridesDiv.innerHTML = dash.recentOverrides.map(o => `
+              <div class="audit-info" style="margin-bottom: 10px;">
+                <strong>${o.override_type}</strong><br>
+                By: ${o.override_by} | Approved by: ${o.approved_by || 'Pending'}<br>
+                <small>${new Date(o.created_at).toLocaleString()}</small>
+              </div>
+            `).join('');
+          } else {
+            overridesDiv.innerHTML = '<p>No recent overrides</p>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    // Accounting Periods
+    async function loadAccountingPeriods() {
+      try {
+        const data = await apiCall(`/accounting-periods?tenantId=${TENANT_ID}&limit=50`);
+        
+        if (data.success) {
+          const tbody = document.getElementById('periodsTableBody');
+          if (data.data?.length > 0) {
+            tbody.innerHTML = data.data.map(p => `
+              <tr>
+                <td>${p.period_start} to ${p.period_end}</td>
+                <td>${p.period_type}</td>
+                <td><span class="badge badge-${p.status === 'OPEN' ? 'success' : p.status === 'SOFT_CLOSED' ? 'warning' : 'danger'}">${p.status}</span></td>
+                <td>${p.closed_by || '-'}</td>
+                <td>${p.closed_at ? new Date(p.closed_at).toLocaleString() : '-'}</td>
+                <td>
+                  ${p.status === 'OPEN' ? `<button class="btn btn-warning" onclick="closePeriod('${p.id}')">Close</button>` : ''}
+                  ${p.status === 'SOFT_CLOSED' ? `<button class="btn btn-danger" onclick="closePeriod('${p.id}')">Hard Close</button>` : ''}
+                </td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="6">No periods found</td></tr>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading periods:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function closePeriod(periodId) {
+      window.currentPeriodId = periodId;
+      document.getElementById('closePeriodModal').classList.add('active');
+    }
+    
+    // Settlements
+    async function loadSettlements() {
+      try {
+        const status = document.getElementById('settlement-status')?.value || '';
+        const params = `tenantId=${TENANT_ID}${status ? '&status=' + status : ''}`;
+        const data = await apiCall(`/settlements?${params}`);
+        
+        if (data.success) {
+          const tbody = document.getElementById('settlementsTableBody');
+          if (data.data?.length > 0) {
+            tbody.innerHTML = data.data.map(s => `
+              <tr>
+                <td>${s.settlement_ref}</td>
+                <td>${s.merchant_id}</td>
+                <td>${s.net_amount} ${s.currency || 'INR'}</td>
+                <td><span class="badge badge-info">${s.status}</span></td>
+                <td>${s.utr_number || '-'}</td>
+                <td>${new Date(s.created_at).toLocaleString()}</td>
+                <td>
+                  <button class="btn btn-primary" onclick="viewSettlement('${s.id}')">View</button>
+                </td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="7">No settlements found</td></tr>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settlements:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function viewSettlement(id) {
+      alert('Settlement details: ' + id);
+      // TODO: Implement settlement detail modal
+    }
+    
+    // Ledger Locks
+    async function loadLedgerLocks() {
+      try {
+        const data = await apiCall(`/ledger-locks?tenantId=${TENANT_ID}`);
+        
+        if (data.success) {
+          const container = document.getElementById('activeLocksContainer');
+          if (data.data?.length > 0) {
+            container.innerHTML = data.data.map(lock => `
+              <div class="alert alert-danger">
+                <strong>${lock.lock_type}</strong><br>
+                Period: ${lock.lock_start_date} to ${lock.lock_end_date}<br>
+                Reason: ${lock.reason}<br>
+                Locked by: ${lock.locked_by} (${lock.locked_by_role})<br>
+                <button class="btn btn-secondary" onclick="releaseLock('${lock.id}')">Release Lock</button>
+              </div>
+            `).join('');
+          } else {
+            container.innerHTML = '<p>No active locks</p>';
+          }
+        }
+        
+        // Load history
+        const histData = await apiCall(`/ledger-locks/history?tenantId=${TENANT_ID}`);
+        if (histData.success) {
+          const tbody = document.getElementById('locksHistoryTableBody');
+          if (histData.data?.length > 0) {
+            tbody.innerHTML = histData.data.map(lock => `
+              <tr>
+                <td>${lock.lock_type}</td>
+                <td>${lock.lock_start_date} to ${lock.lock_end_date}</td>
+                <td>${lock.reason}</td>
+                <td>${lock.locked_by}</td>
+                <td>${new Date(lock.created_at).toLocaleString()}</td>
+                <td>${lock.released_at ? new Date(lock.released_at).toLocaleString() : '-'}</td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="6">No lock history</td></tr>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading locks:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function showApplyLockModal() {
+      document.getElementById('applyLockModal').classList.add('active');
+    }
+    
+    async function releaseLock(lockId) {
+      const releaseNotes = prompt('Enter release notes (required):');
+      if (!releaseNotes) return;
+      
+      try {
+        await apiCall(`/ledger-locks/${lockId}/release`, {
+          method: 'POST',
+          body: JSON.stringify({
+            tenantId: TENANT_ID,
+            releaseNotes
+          })
+        });
+        alert('Lock released successfully');
+        loadLedgerLocks();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    // Overrides
+    async function loadOverrides() {
+      try {
+        // Load pending approvals
+        const pendingData = await apiCall('/overrides/pending');
+        if (pendingData.success) {
+          const tbody = document.getElementById('pendingApprovalsTableBody');
+          if (pendingData.data?.length > 0) {
+            tbody.innerHTML = pendingData.data.map(req => {
+              const requestData = JSON.parse(req.request_data);
+              return `
+                <tr>
+                  <td>${req.request_type}</td>
+                  <td>${req.requestor_email}</td>
+                  <td>${requestData.justification}</td>
+                  <td>${new Date(req.requested_at).toLocaleString()}</td>
+                  <td>
+                    ${window.currentUser.role === 'COMPLIANCE_ADMIN' ? `
+                      <button class="btn btn-success" onclick="approveOverride('${req.id}')">Approve</button>
+                      <button class="btn btn-danger" onclick="rejectOverride('${req.id}')">Reject</button>
+                    ` : '<span class="badge badge-warning">Pending</span>'}
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5">No pending approvals</td></tr>';
+          }
+        }
+        
+        // Load history
+        const histData = await apiCall(`/overrides/history?tenantId=${TENANT_ID}`);
+        if (histData.success) {
+          const tbody = document.getElementById('overrideHistoryTableBody');
+          if (histData.data?.length > 0) {
+            tbody.innerHTML = histData.data.map(o => `
+              <tr>
+                <td>${o.override_type}</td>
+                <td>${o.justification}</td>
+                <td>${o.override_by}</td>
+                <td>${o.approved_by || 'Pending'}</td>
+                <td>${new Date(o.created_at).toLocaleString()}</td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5">No override history</td></tr>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading overrides:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function showRequestOverrideModal() {
+      document.getElementById('requestOverrideModal').classList.add('active');
+    }
+    
+    async function approveOverride(requestId) {
+      const approvalReason = prompt('Enter approval reason (required):');
+      if (!approvalReason) return;
+      
+      try {
+        await apiCall(`/overrides/${requestId}/approve`, {
+          method: 'POST',
+          body: JSON.stringify({ approvalReason })
+        });
+        alert('Override approved successfully');
+        loadOverrides();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function rejectOverride(requestId) {
+      const rejectionReason = prompt('Enter rejection reason (required):');
+      if (!rejectionReason) return;
+      
+      try {
+        await apiCall(`/overrides/${requestId}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ rejectionReason })
+        });
+        alert('Override rejected');
+        loadOverrides();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    // Reconciliation
+    async function loadReconciliation() {
+      try {
+        const data = await apiCall(`/reconciliation/batches?tenantId=${TENANT_ID}`);
+        
+        if (data.success) {
+          const tbody = document.getElementById('reconciliationBatchesTableBody');
+          if (data.data?.length > 0) {
+            tbody.innerHTML = data.data.map(batch => `
+              <tr>
+                <td>${batch.id.substring(0,8)}...</td>
+                <td>${batch.reconciliation_type}</td>
+                <td>${batch.period_from} to ${batch.period_to}</td>
+                <td><span class="badge badge-${batch.status === 'completed' ? 'success' : 'warning'}">${batch.status}</span></td>
+                <td>${batch.matched_count || 0}</td>
+                <td>${batch.mismatched_count || 0}</td>
+                <td>${new Date(batch.created_at).toLocaleString()}</td>
+                <td>
+                  <button class="btn btn-primary" onclick="viewBatch('${batch.id}')">View</button>
+                </td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="8">No reconciliation batches</td></tr>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading reconciliation:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function viewBatch(batchId) {
+      alert('Batch details: ' + batchId);
+      // TODO: Implement batch detail modal
+    }
+    
+    function showCreateReconciliationModal() {
+      alert('Create reconciliation batch modal - TODO');
+    }
+    
+    // Ledger Explorer
+    async function loadLedgerExplorer() {
+      await loadLedgerTransactions();
+    }
+    
+    async function loadLedgerTransactions() {
+      try {
+        const fromDate = document.getElementById('ledger-from-date')?.value || '';
+        const toDate = document.getElementById('ledger-to-date')?.value || '';
+        const eventType = document.getElementById('ledger-event-type')?.value || '';
+        
+        const params = new URLSearchParams({
+          tenantId: TENANT_ID,
+          limit: 50
+        });
+        if (fromDate) params.append('fromDate', fromDate);
+        if (toDate) params.append('toDate', toDate);
+        if (eventType) params.append('eventType', eventType);
+        
+        const data = await apiCall(`/ledger/transactions?${params.toString()}`);
+        
+        if (data.success) {
+          const tbody = document.getElementById('ledgerTransactionsTableBody');
+          if (data.data?.transactions?.length > 0) {
+            tbody.innerHTML = data.data.transactions.map(txn => `
+              <tr>
+                <td>${new Date(txn.transaction_date).toLocaleDateString()}</td>
+                <td>${txn.transaction_ref}</td>
+                <td>${txn.event_type}</td>
+                <td>${txn.description || '-'}</td>
+                <td>${txn.entries?.reduce((sum, e) => sum + parseFloat(e.amount), 0).toFixed(2)}</td>
+                <td>${txn.created_by}</td>
+                <td>
+                  <button class="btn btn-secondary" onclick="viewTransaction('${txn.id}')">View</button>
+                </td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="7">No transactions found</td></tr>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading ledger transactions:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function viewTransaction(txnId) {
+      alert('Transaction details: ' + txnId);
+      // TODO: Implement transaction detail modal
+    }
+    
+    async function exportLedger() {
+      const fromDate = document.getElementById('ledger-from-date')?.value;
+      const toDate = document.getElementById('ledger-to-date')?.value;
+      
+      if (!fromDate || !toDate) {
+        alert('Please select date range for export');
+        return;
+      }
+      
+      window.location.href = `${API_BASE}/ledger/export?tenantId=${TENANT_ID}&fromDate=${fromDate}&toDate=${toDate}`;
+    }
+    
+    // Financial Reports
+    async function generateEscrowReport() {
+      try {
+        const reportDate = new Date().toISOString().split('T')[0];
+        const data = await apiCall(`/reports/daily-escrow-balance?tenantId=${TENANT_ID}&reportDate=${reportDate}`);
+        
+        if (data.success) {
+          const result = document.getElementById('escrowReportResult');
+          result.style.display = 'block';
+          result.innerHTML = `
+            <strong>Date:</strong> ${data.report.reportDate}<br>
+            <strong>Escrow Balance:</strong> ${data.report.escrowBalance?.balance || 0}<br>
+            <strong>Customer Liability:</strong> ${data.report.customerLiability?.balance || 0}<br>
+            <strong>Reconciled:</strong> ${data.report.reconciled ? '✓ Yes' : '✗ No'}
+          `;
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function generateMerchantPayablesReport() {
+      try {
+        const data = await apiCall(`/reports/merchant-payables?tenantId=${TENANT_ID}`);
+        
+        if (data.success) {
+          const result = document.getElementById('merchantPayablesResult');
+          result.style.display = 'block';
+          result.innerHTML = `
+            <strong>Total Merchants:</strong> ${data.report.payables?.length || 0}<br>
+            <strong>Total Payable:</strong> ${data.report.payables?.reduce((sum, p) => sum + parseFloat(p.balance || 0), 0).toFixed(2)}
+          `;
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function generateRevenueReport() {
+      try {
+        const fromDate = document.getElementById('revenue-from-date').value;
+        const toDate = document.getElementById('revenue-to-date').value;
+        
+        if (!fromDate || !toDate) {
+          alert('Please select date range');
+          return;
+        }
+        
+        const data = await apiCall(`/reports/platform-revenue?tenantId=${TENANT_ID}&fromDate=${fromDate}&toDate=${toDate}`);
+        
+        if (data.success) {
+          const result = document.getElementById('revenueReportResult');
+          result.style.display = 'block';
+          result.innerHTML = `
+            <strong>Period:</strong> ${fromDate} to ${toDate}<br>
+            <strong>Revenue Accounts:</strong> ${data.report.revenue?.length || 0}<br>
+            <strong>Total Revenue:</strong> ${data.report.revenue?.reduce((sum, r) => sum + parseFloat(r.total_revenue || 0), 0).toFixed(2)}
+          `;
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function generateSettlementAgingReport() {
+      try {
+        const data = await apiCall(`/reports/settlement-aging?tenantId=${TENANT_ID}`);
+        
+        if (data.success) {
+          const result = document.getElementById('settlementAgingResult');
+          result.style.display = 'block';
+          result.innerHTML = data.report.settlements?.map(s => `
+            <strong>${s.status}:</strong> ${s.count} settlements (${s.total_amount})<br>
+          `).join('') || 'No pending settlements';
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    // Modal functions
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+    
+    // Form submissions
+    document.getElementById('closePeriodForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        await apiCall(`/accounting-periods/${window.currentPeriodId}/close`, {
+          method: 'POST',
+          body: JSON.stringify({
+            tenantId: TENANT_ID,
+            ...data
+          })
+        });
+        alert('Period closed successfully');
+        closeModal('closePeriodModal');
+        loadAccountingPeriods();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+    
+    document.getElementById('applyLockForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        await apiCall('/ledger-locks', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenantId: TENANT_ID,
+            ...data
+          })
+        });
+        alert('Lock applied successfully');
+        closeModal('applyLockModal');
+        loadLedgerLocks();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+    
+    document.getElementById('requestOverrideForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      // Parse affected transaction IDs
+      data.affectedTransactionIds = data.affectedTransactionIds 
+        ? data.affectedTransactionIds.split(',').map(s => s.trim()).filter(s => s)
+        : [];
+      
+      try {
+        await apiCall('/overrides/request', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenantId: TENANT_ID,
+            ...data
+          })
+        });
+        alert('Override request submitted for approval');
+        closeModal('requestOverrideModal');
+        loadOverrides();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+    
+    // Logout
+    function logout() {
+      if (confirm('Are you sure you want to log out?')) {
+        localStorage.clear();
+        window.location.href = '/platform-login.html';
+      }
+    }
+    
+    // Initialize
+    checkAccess();
+    loadDashboard();
+  </script>
+</body>
+</html>

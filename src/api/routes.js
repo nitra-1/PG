@@ -818,4 +818,10 @@ router.use('/merchant', merchantDashboardRoutes);
 const opsConsoleRoutes = require('../ops-console');
 router.use('/ops', opsConsoleRoutes);
 
+// ===== Finance Admin Console Routes =====
+// CRITICAL: RBI-compliant finance operations
+// Requires FINANCE_ADMIN or COMPLIANCE_ADMIN role
+const financeAdminRoutes = require('./finance-admin-routes');
+router.use('/finance-admin', financeAdminRoutes);
+
 module.exports = router;
