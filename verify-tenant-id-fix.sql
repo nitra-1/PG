@@ -70,7 +70,7 @@ ORDER BY created_at DESC;
 SELECT 
     id,
     merchant_code,
-    id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' as is_valid_uuid
+    LOWER(id::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' as is_valid_uuid
 FROM merchants;
 
 -- 8. Summary
