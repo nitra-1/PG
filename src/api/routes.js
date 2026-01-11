@@ -814,4 +814,8 @@ router.use('/merchants', merchantRoutes);
 // ===== Merchant Dashboard Routes =====
 router.use('/merchant', merchantDashboardRoutes);
 
+// ===== Platform Ops Console Routes =====
+const opsConsoleRoutes = require('../ops-console');
+router.use('/ops', opsConsoleRoutes);
+
 module.exports = router;
