@@ -13,13 +13,17 @@ const {
 } = require('./ops-console-middleware');
 
 // Import route modules
+const authRoutes = require('./auth-routes');
 const merchantManagementRoutes = require('./merchant-management-routes');
 const transactionMonitoringRoutes = require('./transaction-monitoring-routes');
 const gatewayHealthRoutes = require('./gateway-health-routes');
 const userManagementRoutes = require('./user-management-routes');
 const systemConfigRoutes = require('./system-config-routes');
 
-// Apply global ops console security middleware
+// Mount auth routes BEFORE security middleware (login doesn't need authentication)
+router.use('/auth', authRoutes);
+
+// Apply global ops console security middleware to all other routes
 router.use(requireOpsConsoleAccess);
 router.use(blockFinanceOperations);
 
