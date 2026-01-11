@@ -15,7 +15,6 @@
 const requireOpsConsoleAccess = (req, res, next) => {
   const userRole = req.headers['x-user-role'];
   const userId = req.headers['x-user-id'];
-  
   // Only PLATFORM_ADMIN and OPS_ADMIN can access Ops Console
   if (!userRole || !['PLATFORM_ADMIN', 'OPS_ADMIN'].includes(userRole)) {
     return res.status(403).json({
