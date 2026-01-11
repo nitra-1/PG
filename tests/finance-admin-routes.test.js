@@ -195,6 +195,38 @@ describe('Finance Admin Routes - UUID Validation', () => {
       expect(response.body.error).toContain('FINANCE_ADMIN or COMPLIANCE_ADMIN role required');
     });
   });
+
+  describe('Merchants endpoint', () => {
+    test('should list merchants for FINANCE_ADMIN', async () => {
+      const response = await request(app)
+        .get('/api/finance-admin/merchants')
+        .set(authHeaders);
+
+      // Should not return 400 or 403 for auth/permissions
+      expect(response.status).not.toBe(400);
+      expect(response.status).not.toBe(403);
+    });
+
+    test('should require authentication', async () => {
+      const response = await request(app)
+        .get('/api/finance-admin/merchants');
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toContain('Authentication required');
+    });
+
+    test('should require FINANCE_ADMIN or COMPLIANCE_ADMIN role', async () => {
+      const response = await request(app)
+        .get('/api/finance-admin/merchants')
+        .set({
+          'x-user-role': 'CUSTOMER',
+          'x-user-id': validUUID
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain('FINANCE_ADMIN or COMPLIANCE_ADMIN role required');
+    });
+  });
 });
 
 describe('UUID Validation Function', () => {
