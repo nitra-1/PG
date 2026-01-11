@@ -11,15 +11,58 @@
  * - Settlement state machine with bank confirmation
  * - Ledger locking for audit periods
  * - Complete audit trail for all control actions
+ * 
+ * IMPORTANT: This migration handles both fresh installs and upgrades from
+ * a previous version that had a constraint name exceeding PostgreSQL's
+ * 63-character limit. If the table already exists with the old truncated
+ * constraint name, it will be replaced with a properly named constraint.
  */
 
-exports.up = function(knex) {
-  return knex.schema
-    // =================================================================
-    // ACCOUNTING PERIODS TABLE
-    // Manages financial posting windows and period close discipline
-    // =================================================================
-    .createTable('accounting_periods', function(table) {
+// Constants for constraint names (to avoid typos and improve maintainability)
+const OLD_TRUNCATED_NAME = 'accounting_periods_tenant_id_period_type_period_start_period_en';
+const NEW_CONSTRAINT_NAME = 'uq_acct_period_tenant_type_dates';
+
+exports.up = async function(knex) {
+  // Check if the table already exists (from a failed previous migration)
+  const tableExists = await knex.schema.hasTable('accounting_periods');
+  
+  if (tableExists) {
+    // Handle upgrade case: table exists with old truncated constraint/index name
+    // Drop the old constraint if it exists, and any index with the old truncated name
+    await knex.raw(`
+      DO $$ 
+      BEGIN
+        -- Drop old auto-generated constraint with truncated name (if it exists)
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint 
+          WHERE conname = '${OLD_TRUNCATED_NAME}'
+        ) THEN
+          ALTER TABLE accounting_periods 
+          DROP CONSTRAINT ${OLD_TRUNCATED_NAME};
+        END IF;
+        
+        -- Drop old index with truncated name (if it exists) 
+        IF EXISTS (
+          SELECT 1 FROM pg_indexes 
+          WHERE indexname = '${OLD_TRUNCATED_NAME}'
+        ) THEN
+          DROP INDEX ${OLD_TRUNCATED_NAME};
+        END IF;
+        
+        -- Add new constraint with explicit short name if it doesn't exist
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint 
+          WHERE conname = '${NEW_CONSTRAINT_NAME}'
+        ) THEN
+          ALTER TABLE accounting_periods 
+          ADD CONSTRAINT ${NEW_CONSTRAINT_NAME} 
+          UNIQUE (tenant_id, period_type, period_start, period_end);
+        END IF;
+      END $$;
+    `);
+  } else {
+    // Fresh install case: create table normally
+    await knex.schema.createTable('accounting_periods', function(table) {
       table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
       table.uuid('tenant_id').notNullable().index();
       
@@ -52,11 +95,17 @@ exports.up = function(knex) {
       // Indexes for performance and constraint enforcement
       table.index(['tenant_id', 'period_type', 'status']);
       table.index(['period_start', 'period_end']);
-      table.index(['tenant_id', 'period_type', 'period_start', 'period_end']);
+      // Note: Unique constraint below will create its own index, so no need for a separate index
       
       // Unique constraint: No overlapping periods of same type for same tenant
-      table.unique(['tenant_id', 'period_type', 'period_start', 'period_end']);
-    })
+      // Use explicit short name to avoid PostgreSQL 63-char identifier limit
+      table.unique(['tenant_id', 'period_type', 'period_start', 'period_end'], {
+        indexName: NEW_CONSTRAINT_NAME
+      });
+    });
+  }
+  
+  return knex.schema
     
     // =================================================================
     // Enhance existing SETTLEMENTS table with state machine
