@@ -9,7 +9,8 @@ const router = express.Router();
 // Import middleware
 const { 
   requireOpsConsoleAccess, 
-  blockFinanceOperations 
+  blockFinanceOperations,
+  logOpsAction
 } = require('./ops-console-middleware');
 
 // Import route modules
@@ -23,8 +24,8 @@ const systemConfigRoutes = require('./system-config-routes');
 // Mount auth routes BEFORE security middleware (login doesn't need authentication)
 router.use('/auth', authRoutes);
 
-// Apply global ops console security middleware to all other routes
-router.use(requireOpsConsoleAccess);
+// Apply global finance operations blocker to all other routes
+// NOTE: requireOpsConsoleAccess is applied at individual route level, not globally
 router.use(blockFinanceOperations);
 
 // Mount route modules
@@ -35,7 +36,7 @@ router.use('/users', userManagementRoutes);
 router.use('/system-config', systemConfigRoutes);
 
 // Dashboard overview endpoint
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', requireOpsConsoleAccess, logOpsAction('GET_DASHBOARD'), async (req, res) => {
   try {
     const db = require('../database');
     
