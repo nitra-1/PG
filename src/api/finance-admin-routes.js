@@ -969,4 +969,31 @@ router.get('/reports/settlement-aging', requireFinanceRole, async (req, res) => 
   }
 });
 
+// ============================================================
+// MERCHANT/TENANT MANAGEMENT
+// ============================================================
+
+/**
+ * GET /api/finance-admin/merchants
+ * List all merchants/tenants for FINANCE_ADMIN to select from
+ */
+router.get('/merchants', requireFinanceRole, async (req, res) => {
+  try {
+    const merchants = await db.knex('merchants')
+      .select('id', 'merchant_code', 'merchant_name', 'status', 'email')
+      .orderBy('merchant_name', 'asc');
+    
+    res.json({
+      success: true,
+      merchants
+    });
+  } catch (error) {
+    console.error('Error fetching merchants:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

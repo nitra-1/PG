@@ -369,6 +369,14 @@
       <h1>🏦 Finance Admin Console</h1>
       <div class="role-indicator" id="roleIndicator">Loading...</div>
       
+      <!-- Merchant Selector -->
+      <div style="margin: 15px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+        <label for="merchantSelector" style="color: white; font-size: 12px; margin-bottom: 5px; display: block;">Select Merchant/Tenant:</label>
+        <select id="merchantSelector" onchange="onMerchantChange()" style="width: 100%; padding: 8px; border-radius: 4px; font-size: 14px;">
+          <option value="">Loading merchants...</option>
+        </select>
+      </div>
+      
       <ul class="nav-menu">
         <li><a href="#" data-tab="dashboard" class="active">📊 Dashboard</a></li>
         <li><a href="#" data-tab="accounting-periods">📅 Accounting Periods</a></li>
@@ -807,7 +815,9 @@
 
   <script>
     const API_BASE = '/api/finance-admin';
-    const TENANT_ID = 'default'; // TODO: Get from session
+    
+    // Global state for selected tenant
+    let currentTenantId = null;
     
     // Check user access on load
     async function checkAccess() {
@@ -834,6 +844,69 @@
       }
       
       window.currentUser = { role, userId };
+      
+      // Load merchants after access check
+      await loadMerchants();
+    }
+    
+    // Load available merchants/tenants
+    async function loadMerchants() {
+      try {
+        const data = await apiCall('/merchants');
+        
+        if (data.success && data.merchants?.length > 0) {
+          const selector = document.getElementById('merchantSelector');
+          selector.innerHTML = '<option value="">Select a merchant...</option>';
+          
+          data.merchants.forEach(merchant => {
+            const option = document.createElement('option');
+            option.value = merchant.id;
+            option.textContent = `${merchant.merchant_name} (${merchant.merchant_code})`;
+            if (merchant.status !== 'active') {
+              option.textContent += ` [${merchant.status}]`;
+            }
+            selector.appendChild(option);
+          });
+          
+          // Try to restore previously selected merchant
+          const savedTenantId = localStorage.getItem('selectedTenantId');
+          if (savedTenantId && data.merchants.some(m => m.id === savedTenantId)) {
+            selector.value = savedTenantId;
+            currentTenantId = savedTenantId;
+            // Auto-load dashboard for previously selected merchant
+            loadDashboard();
+          } else if (data.merchants.length === 1) {
+            // Auto-select if only one merchant exists
+            selector.value = data.merchants[0].id;
+            currentTenantId = data.merchants[0].id;
+            localStorage.setItem('selectedTenantId', currentTenantId);
+            // Auto-load dashboard
+            loadDashboard();
+          }
+        } else {
+          const selector = document.getElementById('merchantSelector');
+          selector.innerHTML = '<option value="">No merchants available</option>';
+          alert('No merchants found. Please contact your administrator.');
+        }
+      } catch (error) {
+        console.error('Error loading merchants:', error);
+        alert('Error loading merchants: ' + error.message);
+      }
+    }
+    
+    // Handle merchant selection change
+    function onMerchantChange() {
+      const selector = document.getElementById('merchantSelector');
+      currentTenantId = selector.value;
+      
+      if (currentTenantId) {
+        localStorage.setItem('selectedTenantId', currentTenantId);
+        // Reload current tab data with new tenant
+        const activeTab = document.querySelector('.nav-menu a.active');
+        if (activeTab) {
+          loadTabData(activeTab.dataset.tab);
+        }
+      }
     }
     
     // API helper
@@ -911,8 +984,17 @@
     
     // Dashboard
     async function loadDashboard() {
+      if (!currentTenantId) {
+        document.getElementById('stat-period').textContent = 'Select merchant';
+        document.getElementById('stat-locks').textContent = '-';
+        document.getElementById('stat-settlements').textContent = '-';
+        document.getElementById('stat-approvals').textContent = '-';
+        document.getElementById('recentOverrides').innerHTML = '<p>Please select a merchant from the dropdown above.</p>';
+        return;
+      }
+      
       try {
-        const data = await apiCall(`/dashboard?tenantId=${TENANT_ID}`);
+        const data = await apiCall(`/dashboard?tenantId=${currentTenantId}`);
         
         if (data.success) {
           const dash = data.dashboard;
@@ -945,10 +1027,21 @@
       }
     }
     
+    // Helper to check if tenant is selected
+    function requireTenant() {
+      if (!currentTenantId) {
+        alert('Please select a merchant/tenant from the dropdown first.');
+        return false;
+      }
+      return true;
+    }
+    
     // Accounting Periods
     async function loadAccountingPeriods() {
+      if (!requireTenant()) return;
+      
       try {
-        const data = await apiCall(`/accounting-periods?tenantId=${TENANT_ID}&limit=50`);
+        const data = await apiCall(`/accounting-periods?tenantId=${currentTenantId}&limit=50`);
         
         if (data.success) {
           const tbody = document.getElementById('periodsTableBody');
@@ -983,9 +1076,11 @@
     
     // Settlements
     async function loadSettlements() {
+      if (!requireTenant()) return;
+      
       try {
         const status = document.getElementById('settlement-status')?.value || '';
-        const params = `tenantId=${TENANT_ID}${status ? '&status=' + status : ''}`;
+        const params = `tenantId=${currentTenantId}${status ? '&status=' + status : ''}`;
         const data = await apiCall(`/settlements?${params}`);
         
         if (data.success) {
@@ -1021,8 +1116,10 @@
     
     // Ledger Locks
     async function loadLedgerLocks() {
+      if (!requireTenant()) return;
+      
       try {
-        const data = await apiCall(`/ledger-locks?tenantId=${TENANT_ID}`);
+        const data = await apiCall(`/ledger-locks?tenantId=${currentTenantId}`);
         
         if (data.success) {
           const container = document.getElementById('activeLocksContainer');
@@ -1042,7 +1139,7 @@
         }
         
         // Load history
-        const histData = await apiCall(`/ledger-locks/history?tenantId=${TENANT_ID}`);
+        const histData = await apiCall(`/ledger-locks/history?tenantId=${currentTenantId}`);
         if (histData.success) {
           const tbody = document.getElementById('locksHistoryTableBody');
           if (histData.data?.length > 0) {
@@ -1078,7 +1175,7 @@
         await apiCall(`/ledger-locks/${lockId}/release`, {
           method: 'POST',
           body: JSON.stringify({
-            tenantId: TENANT_ID,
+            tenantId: currentTenantId,
             releaseNotes
           })
         });
@@ -1120,7 +1217,7 @@
         }
         
         // Load history
-        const histData = await apiCall(`/overrides/history?tenantId=${TENANT_ID}`);
+        const histData = await apiCall(`/overrides/history?tenantId=${currentTenantId}`);
         if (histData.success) {
           const tbody = document.getElementById('overrideHistoryTableBody');
           if (histData.data?.length > 0) {
@@ -1181,8 +1278,10 @@
     
     // Reconciliation
     async function loadReconciliation() {
+      if (!requireTenant()) return;
+      
       try {
-        const data = await apiCall(`/reconciliation/batches?tenantId=${TENANT_ID}`);
+        const data = await apiCall(`/reconciliation/batches?tenantId=${currentTenantId}`);
         
         if (data.success) {
           const tbody = document.getElementById('reconciliationBatchesTableBody');
@@ -1226,13 +1325,15 @@
     }
     
     async function loadLedgerTransactions() {
+      if (!requireTenant()) return;
+      
       try {
         const fromDate = document.getElementById('ledger-from-date')?.value || '';
         const toDate = document.getElementById('ledger-to-date')?.value || '';
         const eventType = document.getElementById('ledger-event-type')?.value || '';
         
         const params = new URLSearchParams({
-          tenantId: TENANT_ID,
+          tenantId: currentTenantId,
           limit: 50
         });
         if (fromDate) params.append('fromDate', fromDate);
@@ -1273,6 +1374,8 @@
     }
     
     async function exportLedger() {
+      if (!requireTenant()) return;
+      
       const fromDate = document.getElementById('ledger-from-date')?.value;
       const toDate = document.getElementById('ledger-to-date')?.value;
       
@@ -1281,14 +1384,16 @@
         return;
       }
       
-      window.location.href = `${API_BASE}/ledger/export?tenantId=${TENANT_ID}&fromDate=${fromDate}&toDate=${toDate}`;
+      window.location.href = `${API_BASE}/ledger/export?tenantId=${currentTenantId}&fromDate=${fromDate}&toDate=${toDate}`;
     }
     
     // Financial Reports
     async function generateEscrowReport() {
+      if (!requireTenant()) return;
+      
       try {
         const reportDate = new Date().toISOString().split('T')[0];
-        const data = await apiCall(`/reports/daily-escrow-balance?tenantId=${TENANT_ID}&reportDate=${reportDate}`);
+        const data = await apiCall(`/reports/daily-escrow-balance?tenantId=${currentTenantId}&reportDate=${reportDate}`);
         
         if (data.success) {
           const result = document.getElementById('escrowReportResult');
@@ -1306,8 +1411,10 @@
     }
     
     async function generateMerchantPayablesReport() {
+      if (!requireTenant()) return;
+      
       try {
-        const data = await apiCall(`/reports/merchant-payables?tenantId=${TENANT_ID}`);
+        const data = await apiCall(`/reports/merchant-payables?tenantId=${currentTenantId}`);
         
         if (data.success) {
           const result = document.getElementById('merchantPayablesResult');
@@ -1323,6 +1430,8 @@
     }
     
     async function generateRevenueReport() {
+      if (!requireTenant()) return;
+      
       try {
         const fromDate = document.getElementById('revenue-from-date').value;
         const toDate = document.getElementById('revenue-to-date').value;
@@ -1332,7 +1441,7 @@
           return;
         }
         
-        const data = await apiCall(`/reports/platform-revenue?tenantId=${TENANT_ID}&fromDate=${fromDate}&toDate=${toDate}`);
+        const data = await apiCall(`/reports/platform-revenue?tenantId=${currentTenantId}&fromDate=${fromDate}&toDate=${toDate}`);
         
         if (data.success) {
           const result = document.getElementById('revenueReportResult');
@@ -1349,8 +1458,10 @@
     }
     
     async function generateSettlementAgingReport() {
+      if (!requireTenant()) return;
+      
       try {
-        const data = await apiCall(`/reports/settlement-aging?tenantId=${TENANT_ID}`);
+        const data = await apiCall(`/reports/settlement-aging?tenantId=${currentTenantId}`);
         
         if (data.success) {
           const result = document.getElementById('settlementAgingResult');
@@ -1379,7 +1490,7 @@
         await apiCall(`/accounting-periods/${window.currentPeriodId}/close`, {
           method: 'POST',
           body: JSON.stringify({
-            tenantId: TENANT_ID,
+            tenantId: currentTenantId,
             ...data
           })
         });
@@ -1400,7 +1511,7 @@
         await apiCall('/ledger-locks', {
           method: 'POST',
           body: JSON.stringify({
-            tenantId: TENANT_ID,
+            tenantId: currentTenantId,
             ...data
           })
         });
@@ -1426,7 +1537,7 @@
         await apiCall('/overrides/request', {
           method: 'POST',
           body: JSON.stringify({
-            tenantId: TENANT_ID,
+            tenantId: currentTenantId,
             ...data
           })
         });
@@ -1446,9 +1557,8 @@
       }
     }
     
-    // Initialize
+    // Initialize - checkAccess will load merchants and then auto-load dashboard if a tenant is selected
     checkAccess();
-    loadDashboard();
   </script>
 </body>
 </html>
