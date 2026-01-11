@@ -824,4 +824,11 @@ router.use('/ops', opsConsoleRoutes);
 const financeAdminRoutes = require('./finance-admin-routes');
 router.use('/finance-admin', financeAdminRoutes);
 
+// ===== Audit Portal Routes =====
+// CRITICAL: STRICTLY READ-ONLY audit access
+// Requires AUDITOR role with time-boxed access
+// Zero write capability - all mutations blocked
+const auditPortalRoutes = require('./audit-portal-routes');
+router.use('/audit-portal', auditPortalRoutes);
+
 module.exports = router;
