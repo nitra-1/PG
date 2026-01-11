@@ -57,7 +57,7 @@ router.get('/', requireOpsConsoleAccess, logOpsAction('LIST_TRANSACTIONS'), asyn
     
     let query = `
       SELECT 
-        id, merchant_id, amount, currency, status, 
+        id, tenant_id as merchant_id, amount, currency, status, 
         payment_method, gateway, created_at 
       FROM transactions 
       WHERE 1=1
@@ -66,7 +66,7 @@ router.get('/', requireOpsConsoleAccess, logOpsAction('LIST_TRANSACTIONS'), asyn
     let paramIndex = 1;
     
     if (merchantId) {
-      query += ` AND merchant_id = $${paramIndex}`;
+      query += ` AND tenant_id = $${paramIndex}`;
       params.push(merchantId);
       paramIndex++;
     }
@@ -106,7 +106,7 @@ router.get('/', requireOpsConsoleAccess, logOpsAction('LIST_TRANSACTIONS'), asyn
     let countIndex = 1;
     
     if (merchantId) {
-      countQuery += ` AND merchant_id = $${countIndex}`;
+      countQuery += ` AND tenant_id = $${countIndex}`;
       countParams.push(merchantId);
       countIndex++;
     }
@@ -167,7 +167,7 @@ router.get('/:id', requireOpsConsoleAccess, logOpsAction('GET_TRANSACTION'), asy
     
     const result = await db.query(
       `SELECT 
-        id, merchant_id, amount, currency, status, 
+        id, tenant_id as merchant_id, amount, currency, status, 
         payment_method, gateway, created_at, updated_at,
         gateway_transaction_id, description
       FROM transactions 

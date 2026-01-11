@@ -22,12 +22,12 @@ router.get('/', requireOpsConsoleAccess, logOpsAction('LIST_MERCHANTS'), async (
     const { search, status, page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
     
-    let query = 'SELECT id, business_name, email, status, created_at, last_active_at FROM merchants WHERE 1=1';
+    let query = 'SELECT id, merchant_name as business_name, email, status, created_at, last_active_at FROM merchants WHERE 1=1';
     const params = [];
     let paramIndex = 1;
     
     if (search) {
-      query += ` AND (business_name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
+      query += ` AND (merchant_name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
     }
@@ -49,7 +49,7 @@ router.get('/', requireOpsConsoleAccess, logOpsAction('LIST_MERCHANTS'), async (
     let countIndex = 1;
     
     if (search) {
-      countQuery += ` AND (business_name ILIKE $${countIndex} OR email ILIKE $${countIndex})`;
+      countQuery += ` AND (merchant_name ILIKE $${countIndex} OR email ILIKE $${countIndex})`;
       countParams.push(`%${search}%`);
       countIndex++;
     }
@@ -97,10 +97,10 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_MERCHANT'), async
     }
     
     const result = await db.query(
-      `INSERT INTO merchants (business_name, email, contact_name, contact_phone, status) 
-       VALUES ($1, $2, $3, $4, 'pending') 
-       RETURNING id, business_name, email, status, created_at`,
-      [business_name, email, contact_name, contact_phone]
+      `INSERT INTO merchants (merchant_name, email, phone, status) 
+       VALUES ($1, $2, $3, 'pending') 
+       RETURNING id, merchant_name as business_name, email, status, created_at`,
+      [business_name, email, contact_phone]
     );
     
     res.json({
@@ -161,7 +161,7 @@ router.put('/:id/activate', requireOpsConsoleAccess, logOpsAction('ACTIVATE_MERC
     const result = await db.query(
       `UPDATE merchants SET status = 'active', updated_at = NOW() 
        WHERE id = $1 
-       RETURNING id, business_name, status`,
+       RETURNING id, merchant_name as business_name, status`,
       [id]
     );
     
@@ -213,7 +213,7 @@ router.put('/:id/suspend', requireOpsConsoleAccess, logOpsAction('SUSPEND_MERCHA
     const result = await db.query(
       `UPDATE merchants SET status = 'suspended', updated_at = NOW() 
        WHERE id = $1 
-       RETURNING id, business_name, status`,
+       RETURNING id, merchant_name as business_name, status`,
       [id]
     );
     
