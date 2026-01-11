@@ -375,6 +375,7 @@
         <select id="merchantSelector" onchange="onMerchantChange()" style="width: 100%; padding: 8px; border-radius: 4px; font-size: 14px;">
           <option value="">Loading merchants...</option>
         </select>
+        <div id="merchantSelectorError" style="color: #ff6b6b; font-size: 11px; margin-top: 5px; display: none;"></div>
       </div>
       
       <ul class="nav-menu">
@@ -885,12 +886,18 @@
           }
         } else {
           const selector = document.getElementById('merchantSelector');
+          const errorDiv = document.getElementById('merchantSelectorError');
           selector.innerHTML = '<option value="">No merchants available</option>';
-          alert('No merchants found. Please contact your administrator.');
+          errorDiv.textContent = 'No merchants found. Please contact your administrator.';
+          errorDiv.style.display = 'block';
         }
       } catch (error) {
         console.error('Error loading merchants:', error);
-        alert('Error loading merchants: ' + error.message);
+        const selector = document.getElementById('merchantSelector');
+        const errorDiv = document.getElementById('merchantSelectorError');
+        selector.innerHTML = '<option value="">Error loading merchants</option>';
+        errorDiv.textContent = 'Error loading merchants: ' + error.message;
+        errorDiv.style.display = 'block';
       }
     }
     
@@ -1030,7 +1037,15 @@
     // Helper to check if tenant is selected
     function requireTenant() {
       if (!currentTenantId) {
-        alert('Please select a merchant/tenant from the dropdown first.');
+        const errorDiv = document.getElementById('merchantSelectorError');
+        errorDiv.textContent = '⚠️ Please select a merchant/tenant first';
+        errorDiv.style.display = 'block';
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          errorDiv.style.display = 'none';
+        }, 5000);
+        
         return false;
       }
       return true;
