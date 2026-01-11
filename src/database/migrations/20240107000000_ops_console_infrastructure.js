@@ -6,7 +6,12 @@
  * System configs marked with is_financial=true are BLOCKED from ops console access
  */
 
-exports.up = function(knex) {
+exports.up = async function(knex) {
+  // Create the platform_users_role enum type explicitly
+  await knex.raw(`
+    CREATE TYPE platform_users_role AS ENUM ('PLATFORM_ADMIN', 'OPS_ADMIN', 'FINANCE_ADMIN', 'MERCHANT');
+  `);
+  
   return knex.schema
     // Create platform_users table - Platform user management
     .createTable('platform_users', function(table) {
@@ -14,7 +19,7 @@ exports.up = function(knex) {
       table.string('username', 100).notNullable().unique();
       table.string('email', 255).notNullable().unique();
       table.string('password_hash', 255).notNullable();
-      table.enum('role', ['PLATFORM_ADMIN', 'OPS_ADMIN', 'FINANCE_ADMIN', 'MERCHANT']).notNullable();
+      table.specificType('role', 'platform_users_role').notNullable();
       table.enum('status', ['active', 'disabled', 'pending']).defaultTo('active');
       table.timestamp('last_login_at');
       // created_by references platform_users.id but is nullable for bootstrapping the first admin user
@@ -85,10 +90,13 @@ exports.up = function(knex) {
     });
 };
 
-exports.down = function(knex) {
-  return knex.schema
+exports.down = async function(knex) {
+  await knex.schema
     .dropTableIfExists('approval_requests')
     .dropTableIfExists('config_history')
     .dropTableIfExists('system_config')
     .dropTableIfExists('platform_users');
+  
+  // Drop the enum type
+  await knex.raw('DROP TYPE IF EXISTS platform_users_role;');
 };
