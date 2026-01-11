@@ -192,16 +192,28 @@
     const loginBtn = document.getElementById('loginBtn');
     const errorMessage = document.getElementById('errorMessage');
     
+    /**
+     * Redirect user to appropriate console based on role
+     * @param {string} role - User's role
+     */
+    function redirectToConsole(role) {
+      if (role === 'PLATFORM_ADMIN' || role === 'OPS_ADMIN') {
+        window.location.href = '/ops-console.html';
+      } else if (role === 'FINANCE_ADMIN' || role === 'COMPLIANCE_ADMIN') {
+        window.location.href = '/finance-admin-console.html';
+      } else {
+        // Clear invalid session data
+        localStorage.clear();
+        showError('Access denied: Invalid role for platform access');
+      }
+    }
+    
     // Check if already logged in
     const existingRole = localStorage.getItem('userRole');
     const existingUserId = localStorage.getItem('userId');
     if (existingRole && existingUserId) {
       // Already logged in, redirect to appropriate console
-      if (existingRole === 'PLATFORM_ADMIN' || existingRole === 'OPS_ADMIN') {
-        window.location.href = '/ops-console.html';
-      } else if (existingRole === 'FINANCE_ADMIN' || existingRole === 'COMPLIANCE_ADMIN') {
-        window.location.href = '/finance-admin-console.html';
-      }
+      redirectToConsole(existingRole);
     }
     
     form.addEventListener('submit', async (e) => {
@@ -234,14 +246,7 @@
           localStorage.setItem('userEmail', data.user.email);
           
           // Redirect to appropriate console based on role
-          const role = data.user.role;
-          if (role === 'PLATFORM_ADMIN' || role === 'OPS_ADMIN') {
-            window.location.href = '/ops-console.html';
-          } else if (role === 'FINANCE_ADMIN' || role === 'COMPLIANCE_ADMIN') {
-            window.location.href = '/finance-admin-console.html';
-          } else {
-            showError('Access denied: Invalid role for platform access');
-          }
+          redirectToConsole(data.user.role);
         } else {
           // Show error message
           showError(data.error || 'Login failed. Please try again.');
