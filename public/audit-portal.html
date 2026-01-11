@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Portal - READ-ONLY COMPLIANCE ACCESS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Courier New', monospace;
+      background: #f8f9fa;
+      color: #212529;
+    }
+    
+    /* ============================================================
+       CRITICAL: MANDATORY WATERMARK - PREVENTS SCREENSHOT MISUSE
+       ============================================================ */
+    .watermark {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+      color: white;
+      padding: 12px;
+      text-align: center;
+      font-weight: bold;
+      z-index: 9999;
+      font-size: 14px;
+      letter-spacing: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    
+    .watermark-text {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    .watermark-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      letter-spacing: 2px;
+    }
+    
+    /* Fixed watermark on content for printing/screenshots */
+    .content::before {
+      content: 'READ-ONLY AUDIT MODE';
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 120px;
+      color: rgba(192, 57, 43, 0.05);
+      z-index: 0;
+      pointer-events: none;
+      white-space: nowrap;
+      font-weight: bold;
+      letter-spacing: 20px;
+    }
+    
+    .container {
+      display: flex;
+      height: 100vh;
+      padding-top: 48px; /* Space for watermark */
+    }
+    
+    .sidebar {
+      width: 280px;
+      background: #2c3e50;
+      color: white;
+      padding: 20px;
+      overflow-y: auto;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .sidebar h1 {
+      font-size: 16px;
+      margin-bottom: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .auditor-info {
+      background: rgba(192, 57, 43, 0.3);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      border-left: 4px solid #e74c3c;
+    }
+    
+    .auditor-info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    
+    .auditor-info-label {
+      color: rgba(255,255,255,0.7);
+      font-weight: 500;
+    }
+    
+    .auditor-info-value {
+      color: white;
+      font-weight: 600;
+    }
+    
+    .access-expiry {
+      background: rgba(231, 76, 60, 0.8);
+      padding: 8px;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 11px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    
+    .nav-menu {
+      list-style: none;
+    }
+    
+    .nav-menu li {
+      margin-bottom: 4px;
+    }
+    
+    .nav-menu a {
+      color: white;
+      text-decoration: none;
+      display: block;
+      padding: 10px 12px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .nav-menu a:hover {
+      background: rgba(255,255,255,0.1);
+      transform: translateX(4px);
+    }
+    
+    .nav-menu a.active {
+      background: #c0392b;
+      font-weight: 600;
+    }
+    
+    .nav-icon {
+      font-size: 16px;
+    }
+    
+    .content {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .page-header {
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    .page-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 8px;
+    }
+    
+    .page-subtitle {
+      font-size: 14px;
+      color: #6c757d;
+      font-style: italic;
+    }
+    
+    .readonly-notice {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .readonly-notice-icon {
+      font-size: 24px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .card-header {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #2c3e50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .filter-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #495057;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    select, input[type="date"], input[type="text"] {
+      padding: 8px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 13px;
+      min-width: 150px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+    
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+    
+    .table-container {
+      overflow-x: auto;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    thead {
+      background: #f8f9fa;
+      position: sticky;
+      top: 0;
+    }
+    
+    th {
+      text-align: left;
+      padding: 12px;
+      font-weight: 600;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+      white-space: nowrap;
+    }
+    
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .badge-open { background: #d4edda; color: #155724; }
+    .badge-closed { background: #f8d7da; color: #721c24; }
+    .badge-soft-closed { background: #fff3cd; color: #856404; }
+    .badge-hard-closed { background: #721c24; color: white; }
+    .badge-created { background: #e7f3ff; color: #004085; }
+    .badge-settled { background: #d4edda; color: #155724; }
+    .badge-failed { background: #f8d7da; color: #721c24; }
+    .badge-active { background: #cfe2ff; color: #052c65; }
+    .badge-pending { background: #fff3cd; color: #856404; }
+    .badge-approved { background: #d1e7dd; color: #0a3622; }
+    .badge-rejected { background: #f8d7da; color: #58151c; }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+      align-items: center;
+    }
+    
+    .pagination button {
+      padding: 6px 12px;
+      border: 1px solid #dee2e6;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    
+    .pagination button:hover:not(:disabled) {
+      background: #e9ecef;
+    }
+    
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .pagination-info {
+      font-size: 13px;
+      color: #6c757d;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6c757d;
+      font-size: 14px;
+    }
+    
+    .error-message {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+      padding: 16px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6c757d;
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+    
+    .timestamp {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    
+    .detail-row {
+      display: flex;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .detail-label {
+      font-weight: 600;
+      width: 200px;
+      color: #495057;
+    }
+    
+    .detail-value {
+      flex: 1;
+      color: #212529;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+    
+    .report-section {
+      margin-bottom: 30px;
+    }
+    
+    .report-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+    
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    
+    @media print {
+      .watermark {
+        background: #000 !important;
+      }
+      .sidebar {
+        display: none;
+      }
+      .content {
+        padding: 20px;
+      }
+      .content::before {
+        opacity: 0.1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- MANDATORY WATERMARK -->
+  <div class="watermark">
+    <div class="watermark-text">
+      <span>🔒 READ-ONLY / AUDIT MODE</span>
+      <span class="watermark-badge" id="auditorName">AUDITOR</span>
+      <span class="watermark-badge" id="auditCase">CASE: N/A</span>
+      <span class="watermark-badge" id="currentTimestamp">--</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+      <h1>Audit Portal</h1>
+      
+      <div class="auditor-info" id="auditorInfo">
+        <div class="auditor-info-row">
+          <span class="auditor-info-label">Auditor:</span>
+          <span class="auditor-info-value" id="sidebarAuditorName">--</span>
+        </div>
+        <div class="auditor-info-row">
+          <span class="auditor-info-label">Case:</span>
+          <span class="auditor-info-value" id="sidebarAuditCase">--</span>
+        </div>
+        <div class="auditor-info-row">
+          <span class="auditor-info-label">Type:</span>
+          <span class="auditor-info-value" id="sidebarAuditType">--</span>
+        </div>
+        <div class="access-expiry">
+          Access Expires: <span id="accessExpiry">--</span>
+        </div>
+      </div>
+      
+      <ul class="nav-menu">
+        <li><a href="#overview" class="nav-link active" data-tab="overview">
+          <span class="nav-icon">📊</span> Overview
+        </a></li>
+        <li><a href="#accounting-periods" class="nav-link" data-tab="accounting-periods">
+          <span class="nav-icon">📅</span> Accounting Periods
+        </a></li>
+        <li><a href="#settlements" class="nav-link" data-tab="settlements">
+          <span class="nav-icon">💰</span> Settlements
+        </a></li>
+        <li><a href="#admin-overrides" class="nav-link" data-tab="admin-overrides">
+          <span class="nav-icon">⚠️</span> Admin Overrides
+        </a></li>
+        <li><a href="#ledger-locks" class="nav-link" data-tab="ledger-locks">
+          <span class="nav-icon">🔒</span> Ledger Locks
+        </a></li>
+        <li><a href="#audit-trail" class="nav-link" data-tab="audit-trail">
+          <span class="nav-icon">📝</span> Audit Trail
+        </a></li>
+        <li><a href="#compliance-reports" class="nav-link" data-tab="compliance-reports">
+          <span class="nav-icon">📈</span> Compliance Reports
+        </a></li>
+      </ul>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="content">
+      <!-- Overview Tab -->
+      <div id="overview" class="tab-content active">
+        <div class="page-header">
+          <h2 class="page-title">Audit Portal Overview</h2>
+          <p class="page-subtitle">Read-only compliance and audit access for RBI/Bank/Statutory auditors</p>
+        </div>
+        
+        <div class="readonly-notice">
+          <span class="readonly-notice-icon">🚫</span>
+          <div>
+            <strong>STRICTLY READ-ONLY ACCESS</strong><br>
+            This portal provides transparent access to compliance data without any write capability. 
+            All attempted write operations are blocked and logged.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Tenant Selection</div>
+          <div class="filters">
+            <div class="filter-group">
+              <label class="filter-label">Select Tenant</label>
+              <select id="tenantSelector">
+                <option value="">Loading tenants...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="overviewStats" style="display: none;">
+          <div class="card-header">Data Summary</div>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Accounting Periods</div>
+              <div class="stat-value" id="statPeriodsCount">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Settlements</div>
+              <div class="stat-value" id="statSettlementsCount">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Ledger Locks</div>
+              <div class="stat-value" id="statLocksCount">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Admin Overrides</div>
+              <div class="stat-value" id="statOverridesCount">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accounting Periods Tab -->
+      <div id="accounting-periods" class="tab-content">
+        <div class="page-header">
+          <h2 class="page-title">Accounting Period History</h2>
+          <p class="page-subtitle">Answers: "When were the books closed, and by whom?"</p>
+        </div>
+        
+        <div class="readonly-notice">
+          <span class="readonly-notice-icon">🚫</span>
+          <div>
+            <strong>NO CREATE | NO REOPEN | NO EDIT</strong><br>
+            View-only access to period closure history. All period management operations are blocked.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Filters</div>
+          <div class="filters">
+            <div class="filter-group">
+              <label class="filter-label">Period Type</label>
+              <select id="periodTypeFilter">
+                <option value="">All Types</option>
+                <option value="DAILY">Daily</option>
+                <option value="MONTHLY">Monthly</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Status</label>
+              <select id="periodStatusFilter">
+                <option value="">All Status</option>
+                <option value="OPEN">Open</option>
+                <option value="SOFT_CLOSED">Soft Closed</option>
+                <option value="HARD_CLOSED">Hard Closed</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="loadAccountingPeriods()">Apply Filters</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Accounting Periods</div>
+          <div id="periodsTableContainer">
+            <div class="loading">Loading accounting periods...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settlements Tab -->
+      <div id="settlements" class="tab-content">
+        <div class="page-header">
+          <h2 class="page-title">Settlement Status Viewer</h2>
+          <p class="page-subtitle">Answers: "Was this settlement actually completed at the bank?"</p>
+        </div>
+        
+        <div class="readonly-notice">
+          <span class="readonly-notice-icon">🚫</span>
+          <div>
+            <strong>NO RETRIES | NO CONFIRMATIONS | NO EDITS</strong><br>
+            View-only access to settlement state machine. State: CREATED → FUNDS_RESERVED → SENT_TO_BANK → BANK_CONFIRMED → SETTLED
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Filters</div>
+          <div class="filters">
+            <div class="filter-group">
+              <label class="filter-label">Status</label>
+              <select id="settlementStatusFilter">
+                <option value="">All Status</option>
+                <option value="CREATED">Created</option>
+                <option value="FUNDS_RESERVED">Funds Reserved</option>
+                <option value="SENT_TO_BANK">Sent to Bank</option>
+                <option value="BANK_CONFIRMED">Bank Confirmed</option>
+                <option value="SETTLED">Settled</option>
+                <option value="FAILED">Failed</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="loadSettlements()">Apply Filters</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Settlements</div>
+          <div id="settlementsTableContainer">
+            <div class="loading">Loading settlements...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Overrides Tab -->
+      <div id="admin-overrides" class="tab-content">
+        <div class="page-header">
+          <h2 class="page-title">Admin Override Log</h2>
+          <p class="page-subtitle">Answers: "Were exceptional overrides used, and were they approved correctly?"</p>
+        </div>
+        
+        <div class="readonly-notice">
+          <span class="readonly-notice-icon">🚫</span>
+          <div>
+            <strong>NO APPROVAL | NO REJECTION | NO EDITS</strong><br>
+            View-only access to override approval workflow. All override operations are blocked.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Admin Overrides</div>
+          <div id="overridesTableContainer">
+            <div class="loading">Loading admin overrides...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ledger Locks Tab -->
+      <div id="ledger-locks" class="tab-content">
+        <div class="page-header">
+          <h2 class="page-title">Ledger Lock History</h2>
+          <p class="page-subtitle">Answers: "Was the ledger frozen during audit or month close?"</p>
+        </div>
+        
+        <div class="readonly-notice">
+          <span class="readonly-notice-icon">🚫</span>
+          <div>
+            <strong>NO LOCK | NO UNLOCK</strong><br>
+            View-only access to ledger lock history. All lock management operations are blocked.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Ledger Locks</div>
+          <div id="locksTableContainer">
+            <div class="loading">Loading ledger locks...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit Trail Tab -->
+      <div id="audit-trail" class="tab-content">
+        <div class="page-header">
+          <h2 class="page-title">Complete Audit Trail</h2>
+          <p class="page-subtitle">Answers: "Who did what, when, and why?"</p>
+        </div>
+        
+        <div class="readonly-notice">
+          <span class="readonly-notice-icon">🚫</span>
+          <div>
+            <strong>NO FILTERING THAT HIDES DATA | NO DELETION</strong><br>
+            Complete, unfiltered audit trail. All actions are logged and immutable.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Filters</div>
+          <div class="filters">
+            <div class="filter-group">
+              <label class="filter-label">Event Type</label>
+              <select id="auditEventTypeFilter">
+                <option value="">All Events</option>
+                <option value="DATA_ACCESS">Data Access</option>
+                <option value="AUTHENTICATION">Authentication</option>
+                <option value="TRANSACTION">Transaction</option>
+                <option value="CONFIGURATION_CHANGE">Configuration Change</option>
+                <option value="SECURITY_EVENT">Security Event</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Start Date</label>
+              <input type="date" id="auditStartDate">
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">End Date</label>
+              <input type="date" id="auditEndDate">
+            </div>
+            <button class="btn btn-primary" onclick="loadAuditTrail()">Apply Filters</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Audit Trail</div>
+          <div id="auditTrailTableContainer">
+            <div class="loading">Loading audit trail...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compliance Reports Tab -->
+      <div id="compliance-reports" class="tab-content">
+        <div class="page-header">
+          <h2 class="page-title">Compliance Reports</h2>
+          <p class="page-subtitle">Predefined, regulator-friendly reports derived from ledger</p>
+        </div>
+        
+        <div class="readonly-notice">
+          <span class="readonly-notice-icon">📊</span>
+          <div>
+            <strong>DERIVED FROM LEDGER | TIME-BOUNDED | REPRODUCIBLE</strong><br>
+            All reports are generated from the single source of truth (ledger) and are fully reproducible.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Select Report Type</div>
+          <div class="filters">
+            <div class="filter-group">
+              <label class="filter-label">Report Type</label>
+              <select id="reportTypeSelector">
+                <option value="">Select a report...</option>
+                <option value="escrow-balance">Escrow Balance (Daily Snapshot)</option>
+                <option value="merchant-outstanding">Merchant Outstanding</option>
+                <option value="platform-revenue">Platform Revenue</option>
+                <option value="settlement-aging">Settlement Aging</option>
+              </select>
+            </div>
+            <div class="filter-group" id="reportDateGroup">
+              <label class="filter-label">Report Date</label>
+              <input type="date" id="reportDate">
+            </div>
+            <div class="filter-group" id="periodStartGroup" style="display: none;">
+              <label class="filter-label">Period Start</label>
+              <input type="date" id="periodStart">
+            </div>
+            <div class="filter-group" id="periodEndGroup" style="display: none;">
+              <label class="filter-label">Period End</label>
+              <input type="date" id="periodEnd">
+            </div>
+            <button class="btn btn-primary" onclick="generateComplianceReport()">Generate Report</button>
+          </div>
+        </div>
+
+        <div class="card" id="reportResultCard" style="display: none;">
+          <div class="card-header">
+            Report Results
+            <button class="btn btn-primary" onclick="downloadReport()">Download as JSON</button>
+          </div>
+          <div id="reportResultContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // AUDIT PORTAL CLIENT LOGIC
+    // ============================================================
+    
+    // Configuration
+    const API_BASE = '/api/audit-portal';
+    let currentTenantId = null;
+    let currentPage = 1;
+    let currentReportData = null;
+    
+    // Authentication headers (in production, these would come from login)
+    const authHeaders = {
+      'X-User-Role': 'AUDITOR',
+      'X-User-Id': 'auditor-001',
+      'X-User-Name': 'Jane Doe - RBI Inspector'
+    };
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Update timestamp every second
+      setInterval(updateTimestamp, 1000);
+      updateTimestamp();
+      
+      // Setup navigation
+      setupNavigation();
+      
+      // Load tenants
+      loadTenants();
+      
+      // Setup tenant selector
+      document.getElementById('tenantSelector').addEventListener('change', function(e) {
+        currentTenantId = e.target.value;
+        if (currentTenantId) {
+          loadOverview();
+        }
+      });
+      
+      // Setup report type selector
+      document.getElementById('reportTypeSelector').addEventListener('change', function(e) {
+        const reportType = e.target.value;
+        if (reportType === 'platform-revenue') {
+          document.getElementById('reportDateGroup').style.display = 'none';
+          document.getElementById('periodStartGroup').style.display = 'flex';
+          document.getElementById('periodEndGroup').style.display = 'flex';
+        } else {
+          document.getElementById('reportDateGroup').style.display = 'flex';
+          document.getElementById('periodStartGroup').style.display = 'none';
+          document.getElementById('periodEndGroup').style.display = 'none';
+        }
+      });
+    });
+    
+    // Update timestamp in watermark
+    function updateTimestamp() {
+      const now = new Date();
+      const timestamp = now.toISOString().substring(0, 19).replace('T', ' ');
+      document.getElementById('currentTimestamp').textContent = timestamp;
+    }
+    
+    // Setup navigation
+    function setupNavigation() {
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          const tabId = this.getAttribute('data-tab');
+          
+          // Update active nav link
+          document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+          this.classList.add('active');
+          
+          // Show corresponding tab
+          document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+          document.getElementById(tabId).classList.add('active');
+          
+          // Load data for the tab
+          loadTabData(tabId);
+        });
+      });
+    }
+    
+    // Load data when tab is activated
+    function loadTabData(tabId) {
+      if (!currentTenantId) return;
+      
+      switch(tabId) {
+        case 'accounting-periods':
+          loadAccountingPeriods();
+          break;
+        case 'settlements':
+          loadSettlements();
+          break;
+        case 'admin-overrides':
+          loadAdminOverrides();
+          break;
+        case 'ledger-locks':
+          loadLedgerLocks();
+          break;
+        case 'audit-trail':
+          loadAuditTrail();
+          break;
+      }
+    }
+    
+    // Load tenants
+    async function loadTenants() {
+      try {
+        const response = await fetch(`${API_BASE}/tenants`, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          const selector = document.getElementById('tenantSelector');
+          selector.innerHTML = '<option value="">Select a tenant...</option>';
+          
+          result.data.tenants.forEach(tenant => {
+            const option = document.createElement('option');
+            option.value = tenant.id;
+            option.textContent = tenant.name;
+            selector.appendChild(option);
+          });
+          
+          // Auto-select first tenant if available
+          if (result.data.tenants.length > 0) {
+            selector.value = result.data.tenants[0].id;
+            currentTenantId = result.data.tenants[0].id;
+            loadOverview();
+          }
+        }
+      } catch (error) {
+        console.error('Error loading tenants:', error);
+      }
+    }
+    
+    // Load overview
+    async function loadOverview() {
+      try {
+        const response = await fetch(`${API_BASE}/overview?tenantId=${currentTenantId}`, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // Update auditor info
+          const auditor = result.overview.auditor;
+          document.getElementById('auditorName').textContent = auditor.name;
+          document.getElementById('auditCase').textContent = `CASE: ${auditor.auditCaseNumber || 'N/A'}`;
+          document.getElementById('sidebarAuditorName').textContent = auditor.name;
+          document.getElementById('sidebarAuditCase').textContent = auditor.auditCaseNumber || 'N/A';
+          document.getElementById('sidebarAuditType').textContent = auditor.auditType || 'N/A';
+          
+          if (auditor.accessEndDate) {
+            const expiry = new Date(auditor.accessEndDate);
+            document.getElementById('accessExpiry').textContent = expiry.toLocaleString();
+          }
+          
+          // Update stats
+          const summary = result.overview.dataSummary;
+          document.getElementById('statPeriodsCount').textContent = summary.accountingPeriodsCount;
+          document.getElementById('statSettlementsCount').textContent = summary.settlementsCount;
+          document.getElementById('statLocksCount').textContent = summary.ledgerLocksCount;
+          document.getElementById('statOverridesCount').textContent = summary.adminOverridesCount;
+          
+          document.getElementById('overviewStats').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error loading overview:', error);
+      }
+    }
+    
+    // Load accounting periods
+    async function loadAccountingPeriods() {
+      if (!currentTenantId) return;
+      
+      const periodType = document.getElementById('periodTypeFilter').value;
+      const status = document.getElementById('periodStatusFilter').value;
+      
+      const container = document.getElementById('periodsTableContainer');
+      container.innerHTML = '<div class="loading">Loading accounting periods...</div>';
+      
+      try {
+        let url = `${API_BASE}/accounting-periods?tenantId=${currentTenantId}`;
+        if (periodType) url += `&periodType=${periodType}`;
+        if (status) url += `&status=${status}`;
+        
+        const response = await fetch(url, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data.periods.length > 0) {
+          let html = `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Period Type</th>
+                    <th>Period Start</th>
+                    <th>Period End</th>
+                    <th>Status</th>
+                    <th>Closed By</th>
+                    <th>Closed At</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          
+          result.data.periods.forEach(period => {
+            const statusClass = period.status === 'OPEN' ? 'badge-open' : 
+                               period.status === 'SOFT_CLOSED' ? 'badge-soft-closed' : 'badge-hard-closed';
+            
+            html += `
+              <tr>
+                <td><span class="badge badge-active">${period.periodType}</span></td>
+                <td class="timestamp">${new Date(period.periodStart).toLocaleString()}</td>
+                <td class="timestamp">${new Date(period.periodEnd).toLocaleString()}</td>
+                <td><span class="badge ${statusClass}">${period.status}</span></td>
+                <td>${period.closedBy || '--'}</td>
+                <td class="timestamp">${period.closedAt ? new Date(period.closedAt).toLocaleString() : '--'}</td>
+                <td>${period.closureNotes || '--'}</td>
+              </tr>
+            `;
+          });
+          
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+          
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📅</div>
+              <p>No accounting periods found</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading accounting periods:', error);
+        container.innerHTML = `
+          <div class="error-message">
+            Error loading accounting periods: ${error.message}
+          </div>
+        `;
+      }
+    }
+    
+    // Load settlements
+    async function loadSettlements() {
+      if (!currentTenantId) return;
+      
+      const status = document.getElementById('settlementStatusFilter').value;
+      
+      const container = document.getElementById('settlementsTableContainer');
+      container.innerHTML = '<div class="loading">Loading settlements...</div>';
+      
+      try {
+        let url = `${API_BASE}/settlements?tenantId=${currentTenantId}`;
+        if (status) url += `&status=${status}`;
+        
+        const response = await fetch(url, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data.settlements.length > 0) {
+          let html = `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Settlement Ref</th>
+                    <th>Merchant</th>
+                    <th>Amount</th>
+                    <th>Current State</th>
+                    <th>Bank Reference</th>
+                    <th>UTR Number</th>
+                    <th>Bank Confirmed At</th>
+                    <th>Settled At</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          
+          result.data.settlements.forEach(settlement => {
+            const statusClass = settlement.currentState === 'SETTLED' ? 'badge-settled' : 
+                               settlement.currentState === 'FAILED' ? 'badge-failed' : 'badge-created';
+            
+            html += `
+              <tr>
+                <td class="timestamp">${settlement.settlementRef}</td>
+                <td>${settlement.merchantName || settlement.merchantId}</td>
+                <td>₹${parseFloat(settlement.amount).toFixed(2)}</td>
+                <td><span class="badge ${statusClass}">${settlement.currentState}</span></td>
+                <td class="timestamp">${settlement.bankReferenceNumber || '--'}</td>
+                <td class="timestamp">${settlement.utrNumber || '--'}</td>
+                <td class="timestamp">${settlement.bankConfirmedAt ? new Date(settlement.bankConfirmedAt).toLocaleString() : '--'}</td>
+                <td class="timestamp">${settlement.settledAt ? new Date(settlement.settledAt).toLocaleString() : '--'}</td>
+              </tr>
+            `;
+          });
+          
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+          
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">💰</div>
+              <p>No settlements found</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading settlements:', error);
+        container.innerHTML = `
+          <div class="error-message">
+            Error loading settlements: ${error.message}
+          </div>
+        `;
+      }
+    }
+    
+    // Load admin overrides
+    async function loadAdminOverrides() {
+      if (!currentTenantId) return;
+      
+      const container = document.getElementById('overridesTableContainer');
+      container.innerHTML = '<div class="loading">Loading admin overrides...</div>';
+      
+      try {
+        const response = await fetch(`${API_BASE}/admin-overrides?tenantId=${currentTenantId}`, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data.overrides.length > 0) {
+          let html = `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Override ID</th>
+                    <th>Requested By</th>
+                    <th>Approved By</th>
+                    <th>Justification</th>
+                    <th>Override Type</th>
+                    <th>Status</th>
+                    <th>Approved At</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          
+          result.data.overrides.forEach(override => {
+            const statusClass = override.status === 'APPROVED' ? 'badge-approved' : 
+                               override.status === 'REJECTED' ? 'badge-rejected' : 'badge-pending';
+            
+            html += `
+              <tr>
+                <td class="timestamp">${override.overrideRequestId || override.id}</td>
+                <td>${override.requestedBy} (${override.requestedByRole})</td>
+                <td>${override.approvedBy || '--'} ${override.approvedByRole ? `(${override.approvedByRole})` : ''}</td>
+                <td>${override.justification || '--'}</td>
+                <td><span class="badge badge-active">${override.overrideType}</span></td>
+                <td><span class="badge ${statusClass}">${override.status}</span></td>
+                <td class="timestamp">${override.approvedAt ? new Date(override.approvedAt).toLocaleString() : '--'}</td>
+              </tr>
+            `;
+          });
+          
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+          
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">⚠️</div>
+              <p>No admin overrides found</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading admin overrides:', error);
+        container.innerHTML = `
+          <div class="error-message">
+            Error loading admin overrides: ${error.message}
+          </div>
+        `;
+      }
+    }
+    
+    // Load ledger locks
+    async function loadLedgerLocks() {
+      if (!currentTenantId) return;
+      
+      const container = document.getElementById('locksTableContainer');
+      container.innerHTML = '<div class="loading">Loading ledger locks...</div>';
+      
+      try {
+        const response = await fetch(`${API_BASE}/ledger-locks?tenantId=${currentTenantId}`, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data.locks.length > 0) {
+          let html = `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Lock Type</th>
+                    <th>Status</th>
+                    <th>Lock Period</th>
+                    <th>Reason</th>
+                    <th>Locked By</th>
+                    <th>Locked At</th>
+                    <th>Released At</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          
+          result.data.locks.forEach(lock => {
+            const statusClass = lock.lockStatus === 'ACTIVE' ? 'badge-active' : 'badge-closed';
+            
+            html += `
+              <tr>
+                <td><span class="badge badge-pending">${lock.lockType}</span></td>
+                <td><span class="badge ${statusClass}">${lock.lockStatus}</span></td>
+                <td class="timestamp">${new Date(lock.lockStartDate).toLocaleDateString()} - ${new Date(lock.lockEndDate).toLocaleDateString()}</td>
+                <td>${lock.reason}</td>
+                <td>${lock.lockedBy} (${lock.lockedByRole || '--'})</td>
+                <td class="timestamp">${new Date(lock.lockedAt).toLocaleString()}</td>
+                <td class="timestamp">${lock.releasedAt ? new Date(lock.releasedAt).toLocaleString() : '--'}</td>
+              </tr>
+            `;
+          });
+          
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+          
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🔒</div>
+              <p>No ledger locks found</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading ledger locks:', error);
+        container.innerHTML = `
+          <div class="error-message">
+            Error loading ledger locks: ${error.message}
+          </div>
+        `;
+      }
+    }
+    
+    // Load audit trail
+    async function loadAuditTrail() {
+      const eventType = document.getElementById('auditEventTypeFilter').value;
+      const startDate = document.getElementById('auditStartDate').value;
+      const endDate = document.getElementById('auditEndDate').value;
+      
+      const container = document.getElementById('auditTrailTableContainer');
+      container.innerHTML = '<div class="loading">Loading audit trail...</div>';
+      
+      try {
+        let url = `${API_BASE}/audit-trail?`;
+        if (eventType) url += `&eventType=${eventType}`;
+        if (startDate) url += `&startDate=${startDate}`;
+        if (endDate) url += `&endDate=${endDate}`;
+        
+        const response = await fetch(url, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data.entries.length > 0) {
+          let html = `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Event Type</th>
+                    <th>User ID</th>
+                    <th>Action</th>
+                    <th>Resource</th>
+                    <th>Success</th>
+                    <th>IP Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          
+          result.data.entries.forEach(entry => {
+            const successBadge = entry.success ? 'badge-approved' : 'badge-rejected';
+            
+            html += `
+              <tr>
+                <td class="timestamp">${new Date(entry.timestamp).toLocaleString()}</td>
+                <td><span class="badge badge-active">${entry.eventType}</span></td>
+                <td class="timestamp">${entry.userId}</td>
+                <td>${entry.action || '--'}</td>
+                <td>${entry.resource || '--'}</td>
+                <td><span class="badge ${successBadge}">${entry.success ? 'YES' : 'NO'}</span></td>
+                <td class="timestamp">${entry.ipAddress || '--'}</td>
+              </tr>
+            `;
+          });
+          
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+          
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📝</div>
+              <p>No audit trail entries found</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading audit trail:', error);
+        container.innerHTML = `
+          <div class="error-message">
+            Error loading audit trail: ${error.message}
+          </div>
+        `;
+      }
+    }
+    
+    // Generate compliance report
+    async function generateComplianceReport() {
+      if (!currentTenantId) {
+        alert('Please select a tenant first');
+        return;
+      }
+      
+      const reportType = document.getElementById('reportTypeSelector').value;
+      if (!reportType) {
+        alert('Please select a report type');
+        return;
+      }
+      
+      const container = document.getElementById('reportResultContainer');
+      container.innerHTML = '<div class="loading">Generating report...</div>';
+      document.getElementById('reportResultCard').style.display = 'block';
+      
+      try {
+        let url = `${API_BASE}/compliance-reports/${reportType}?tenantId=${currentTenantId}`;
+        
+        if (reportType === 'platform-revenue') {
+          const periodStart = document.getElementById('periodStart').value;
+          const periodEnd = document.getElementById('periodEnd').value;
+          if (!periodStart || !periodEnd) {
+            alert('Please select period start and end dates');
+            return;
+          }
+          url += `&periodStart=${periodStart}&periodEnd=${periodEnd}`;
+        } else {
+          const reportDate = document.getElementById('reportDate').value;
+          if (reportDate) {
+            url += `&reportDate=${reportDate}`;
+          }
+        }
+        
+        const response = await fetch(url, {
+          headers: authHeaders
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          currentReportData = result.data;
+          container.innerHTML = `<pre>${JSON.stringify(result.data, null, 2)}</pre>`;
+        } else {
+          container.innerHTML = `
+            <div class="error-message">
+              Error generating report: ${result.error}
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error generating report:', error);
+        container.innerHTML = `
+          <div class="error-message">
+            Error generating report: ${error.message}
+          </div>
+        `;
+      }
+    }
+    
+    // Download report
+    function downloadReport() {
+      if (!currentReportData) return;
+      
+      const dataStr = JSON.stringify(currentReportData, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      
+      const exportFileDefaultName = `compliance-report-${Date.now()}.json`;
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+    }
+  </script>
+</body>
+</html>
