@@ -8,8 +8,14 @@
 
 exports.up = async function(knex) {
   // Create the platform_users_role enum type explicitly
+  // Using DO block for idempotency since CREATE TYPE doesn't support IF NOT EXISTS in older PostgreSQL versions
   await knex.raw(`
-    CREATE TYPE platform_users_role AS ENUM ('PLATFORM_ADMIN', 'OPS_ADMIN', 'FINANCE_ADMIN', 'MERCHANT');
+    DO $$ 
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'platform_users_role') THEN
+        CREATE TYPE platform_users_role AS ENUM ('PLATFORM_ADMIN', 'OPS_ADMIN', 'FINANCE_ADMIN', 'MERCHANT');
+      END IF;
+    END $$;
   `);
   
   return knex.schema
@@ -91,12 +97,13 @@ exports.up = async function(knex) {
 };
 
 exports.down = async function(knex) {
+  // Drop tables first (in reverse order of dependencies)
   await knex.schema
     .dropTableIfExists('approval_requests')
     .dropTableIfExists('config_history')
     .dropTableIfExists('system_config')
     .dropTableIfExists('platform_users');
   
-  // Drop the enum type
+  // Drop the enum type after dropping all tables that use it
   await knex.raw('DROP TYPE IF EXISTS platform_users_role;');
 };
