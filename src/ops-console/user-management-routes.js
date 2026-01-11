@@ -116,6 +116,11 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
 /**
  * PUT /api/ops/users/:id/role
  * Update user role with security checks
+ * 
+ * NOTE: The x-user-id header should be validated against a JWT token
+ * in production. This prevents header manipulation attacks.
+ * The main application should use JWT middleware to extract and validate
+ * user identity before reaching this endpoint.
  */
 router.put('/:id/role', requireOpsConsoleAccess, logOpsAction('UPDATE_USER_ROLE'), async (req, res) => {
   try {
@@ -123,6 +128,7 @@ router.put('/:id/role', requireOpsConsoleAccess, logOpsAction('UPDATE_USER_ROLE'
     const { role } = req.body;
     
     // RULE 1: Prevent self-role escalation
+    // In production, req.opsUser.userId should be extracted from validated JWT
     if (id === req.opsUser.userId) {
       return res.status(403).json({
         success: false,

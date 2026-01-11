@@ -17,7 +17,9 @@ exports.up = function(knex) {
       table.enum('role', ['PLATFORM_ADMIN', 'OPS_ADMIN', 'FINANCE_ADMIN', 'MERCHANT']).notNullable();
       table.enum('status', ['active', 'disabled', 'pending']).defaultTo('active');
       table.timestamp('last_login_at');
-      table.uuid('created_by'); // References platform_users.id but nullable for first user
+      // created_by references platform_users.id but is nullable for bootstrapping the first admin user
+      // After initial setup, this should always be populated
+      table.uuid('created_by').references('id').inTable('platform_users').onDelete('SET NULL');
       table.timestamps(true, true);
       
       // Indexes

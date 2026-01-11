@@ -55,14 +55,24 @@ const requireOpsConsoleAccess = (req, res, next) => {
  * - ledger-lock: Ledger locking operations
  */
 const blockFinanceOperations = (req, res, next) => {
-  const forbiddenOperations = [
-    'settlement', 'ledger', 'accounting-period', 
-    'reconciliation', 'financial-report', 'money-movement',
-    'override-approval', 'accounting', 'ledger-lock'
+  // Use regex patterns for more robust matching that can't be bypassed with URL encoding
+  const forbiddenPatterns = [
+    /\/settlement/i,
+    /\/ledger/i,
+    /\/accounting-period/i,
+    /\/reconciliation/i,
+    /\/financial-report/i,
+    /\/money-movement/i,
+    /\/override-approval/i,
+    /\/accounting/i,
+    /\/ledger-lock/i
   ];
   
-  const isForbidden = forbiddenOperations.some(op => 
-    req.path.toLowerCase().includes(op)
+  // Normalize path by decoding and removing duplicate slashes
+  const normalizedPath = decodeURIComponent(req.path).replace(/\/+/g, '/').toLowerCase();
+  
+  const isForbidden = forbiddenPatterns.some(pattern => 
+    pattern.test(normalizedPath)
   );
   
   if (isForbidden) {

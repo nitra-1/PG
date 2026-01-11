@@ -665,8 +665,15 @@
     
     // Check user access on load
     async function checkAccess() {
-      const role = localStorage.getItem('userRole') || 'PLATFORM_ADMIN'; // For demo
-      const userId = localStorage.getItem('userId') || 'demo-admin-id';
+      const role = localStorage.getItem('userRole');
+      const userId = localStorage.getItem('userId');
+      
+      // Require proper authentication - no defaults allowed
+      if (!role || !userId) {
+        alert('Authentication required: Please log in first');
+        window.location.href = '/';
+        return;
+      }
       
       if (!['PLATFORM_ADMIN', 'OPS_ADMIN'].includes(role)) {
         alert('Access denied: Ops Console requires PLATFORM_ADMIN or OPS_ADMIN role');
@@ -682,10 +689,15 @@
     
     // API helper
     async function apiCall(endpoint, options = {}) {
+      // Require authenticated user - no defaults
+      if (!window.currentUser?.role || !window.currentUser?.userId) {
+        throw new Error('Authentication required');
+      }
+      
       const headers = {
         'Content-Type': 'application/json',
-        'x-user-role': window.currentUser?.role || 'PLATFORM_ADMIN',
-        'x-user-id': window.currentUser?.userId || 'demo-admin-id',
+        'x-user-role': window.currentUser.role,
+        'x-user-id': window.currentUser.userId,
         ...options.headers
       };
       

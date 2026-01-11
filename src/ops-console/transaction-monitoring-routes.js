@@ -19,8 +19,11 @@ const { requireOpsConsoleAccess, logOpsAction } = require('./ops-console-middlew
 /**
  * Block all non-GET methods on transaction monitoring
  * Transaction monitoring is READ-ONLY
+ * 
+ * This middleware is applied to all routes in this module to ensure
+ * read-only access regardless of the specific endpoint
  */
-router.all('*', (req, res, next) => {
+const enforceReadOnly = (req, res, next) => {
   if (req.method !== 'GET') {
     return res.status(403).json({
       success: false,
@@ -29,7 +32,10 @@ router.all('*', (req, res, next) => {
     });
   }
   next();
-});
+};
+
+// Apply read-only enforcement to all routes in this module
+router.use(enforceReadOnly);
 
 /**
  * GET /api/ops/transactions

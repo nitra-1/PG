@@ -57,30 +57,24 @@ router.get('/:key', requireOpsConsoleAccess, logOpsAction('GET_CONFIG'), async (
   try {
     const { key } = req.params;
     
+    // Filter financial configs at query level to prevent timing attacks
     const result = await db.query(
       `SELECT id, config_key, config_value, category, is_financial, version, description, updated_at 
        FROM system_config 
-       WHERE config_key = $1`,
+       WHERE config_key = $1 AND is_financial = false`,
       [key]
     );
     
     if (result.rows.length === 0) {
+      // Return same error whether config doesn't exist or is financial
+      // This prevents information leakage about financial config existence
       return res.status(404).json({
         success: false,
-        error: 'Configuration not found'
+        error: 'Configuration not found or not accessible'
       });
     }
     
     const config = result.rows[0];
-    
-    // Block access to financial configs
-    if (config.is_financial) {
-      return res.status(403).json({
-        success: false,
-        error: 'Cannot access financial configuration',
-        message: 'Financial configs require FINANCE_ADMIN role'
-      });
-    }
     
     res.json({
       success: true,
