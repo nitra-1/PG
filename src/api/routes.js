@@ -741,6 +741,37 @@ router.post('/security/aml-check', authenticate, async (req, res) => {
 // ===== Demo/Testing Routes =====
 
 /**
+ * GET /api/checkout/config
+ * Get checkout configuration
+ */
+router.get('/checkout/config', async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      config: {
+        mode: config.checkout?.mode || 'hosted',
+        hostedUrl: config.checkout?.hostedUrl || '/checkout-hosted.html',
+        embeddedSdkUrl: config.checkout?.embeddedSdkUrl || '/sdk/checkout.js',
+        threeDSEnabled: config.checkout?.threeDSEnabled !== false,
+        otpEnabled: config.checkout?.otpEnabled !== false,
+        supportedMethods: {
+          upi: config.features.upi !== false,
+          card: config.features.cards !== false,
+          netbanking: config.features.netbanking !== false,
+          wallet: config.features.wallets !== false,
+          qr: config.features.qr !== false,
+          bnpl: config.features.bnpl !== false,
+          emi: config.features.emi !== false,
+          biometric: config.features.biometric !== false
+        }
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
  * POST /api/demo/token
  * Generate demo authentication token for testing
  */

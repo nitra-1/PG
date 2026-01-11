@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Status</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .status-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+            animation: scaleIn 0.5s ease;
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .status-title {
+            font-size: 2em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .status-message {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .transaction-details {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: left;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #666;
+            border: 2px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-retry {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-retry:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .status-success {
+            color: #10b981;
+        }
+
+        .status-failed {
+            color: #ef4444;
+        }
+
+        .status-pending {
+            color: #f59e0b;
+        }
+
+        .status-timeout {
+            color: #f97316;
+        }
+
+        .status-cancelled {
+            color: #6b7280;
+        }
+
+        .error-details {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .error-details h4 {
+            color: #991b1b;
+            margin-bottom: 10px;
+        }
+
+        .error-details p {
+            color: #7f1d1d;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        .alternate-methods {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .alternate-methods h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .payment-methods-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .payment-method-chip {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .payment-method-chip:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .help-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .help-section h4 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .help-links {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .help-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .help-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .status-card {
+                padding: 30px 20px;
+            }
+
+            .status-icon {
+                font-size: 4em;
+            }
+
+            .status-title {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-card" id="status-card">
+            <!-- Content will be dynamically loaded -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = window.location.origin;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            displayPaymentStatus();
+        });
+
+        // Display payment status based on URL params
+        function displayPaymentStatus() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status') || 'pending';
+            const txnId = urlParams.get('txn') || '';
+            const orderId = urlParams.get('order') || '';
+            const error = urlParams.get('error') || '';
+            const amount = urlParams.get('amount') || '';
+
+            const statusCard = document.getElementById('status-card');
+
+            switch (status) {
+                case 'success':
+                    statusCard.innerHTML = generateSuccessView(txnId, orderId, amount);
+                    break;
+                case 'failed':
+                    statusCard.innerHTML = generateFailureView(txnId, orderId, error, amount);
+                    break;
+                case 'pending':
+                    statusCard.innerHTML = generatePendingView(txnId, orderId, amount);
+                    break;
+                case 'timeout':
+                    statusCard.innerHTML = generateTimeoutView(orderId, amount);
+                    break;
+                case 'cancelled':
+                    statusCard.innerHTML = generateCancelledView(orderId, amount);
+                    break;
+                default:
+                    statusCard.innerHTML = generateUnknownView();
+            }
+        }
+
+        // Generate success view
+        function generateSuccessView(txnId, orderId, amount) {
+            return `
+                <div class="status-icon status-success">✅</div>
+                <h1 class="status-title status-success">Payment Successful!</h1>
+                <p class="status-message">
+                    Your payment has been processed successfully. 
+                    A confirmation email has been sent to your registered email address.
+                </p>
+                
+                <div class="transaction-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Transaction ID:</span>
+                        <span class="detail-value">${txnId || 'TXN_' + Date.now()}</span>
+                    </div>
+                    ${orderId ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Order ID:</span>
+                        <span class="detail-value">${orderId}</span>
+                    </div>
+                    ` : ''}
+                    ${amount ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Amount Paid:</span>
+                        <span class="detail-value">₹${amount}</span>
+                    </div>
+                    ` : ''}
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Date:</span>
+                        <span class="detail-value">${new Date().toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value status-success">SUCCESS</span>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="downloadReceipt()">📄 Download Receipt</button>
+                    <a href="/checkout.html" class="btn btn-secondary">← Back to Home</a>
+                </div>
+
+                <div class="help-section">
+                    <h4>Need Help?</h4>
+                    <div class="help-links">
+                        <a href="#" class="help-link" onclick="contactSupport()">Contact Support</a>
+                        <a href="#" class="help-link" onclick="viewTransactionHistory()">View History</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate failure view
+        function generateFailureView(txnId, orderId, error, amount) {
+            const errorMessages = {
+                'insufficient_funds': 'Your account has insufficient funds to complete this transaction.',
+                'invalid_card': 'The card details provided are invalid. Please check and try again.',
+                'card_expired': 'Your card has expired. Please use a different card.',
+                'transaction_declined': 'Your bank has declined this transaction. Please contact your bank.',
+                'max_otp_attempts': 'You have exceeded the maximum OTP attempts. Please try again later.',
+                'network_error': 'A network error occurred. Please check your connection and try again.',
+                'gateway_timeout': 'The payment gateway timed out. Your account has not been charged.',
+                'default': 'An error occurred while processing your payment. Please try again.'
+            };
+
+            const errorMessage = errorMessages[error] || errorMessages['default'];
+            const userFriendlyError = decodeURIComponent(error).replace(/_/g, ' ');
+
+            return `
+                <div class="status-icon status-failed">❌</div>
+                <h1 class="status-title status-failed">Payment Failed</h1>
+                <p class="status-message">
+                    We couldn't process your payment. Don't worry, your account has not been charged.
+                </p>
+
+                <div class="error-details">
+                    <h4>⚠️ Error Details</h4>
+                    <p>${errorMessage}</p>
+                    ${error && error !== 'default' ? `<p style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">Error Code: ${userFriendlyError}</p>` : ''}
+                </div>
+
+                ${orderId || txnId ? `
+                <div class="transaction-details">
+                    ${orderId ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Order ID:</span>
+                        <span class="detail-value">${orderId}</span>
+                    </div>
+                    ` : ''}
+                    ${txnId ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Reference ID:</span>
+                        <span class="detail-value">${txnId}</span>
+                    </div>
+                    ` : ''}
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value status-failed">FAILED</span>
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="alternate-methods">
+                    <h4>💡 Try an alternate payment method</h4>
+                    <p style="color: #666; font-size: 0.95em; margin-top: 5px;">
+                        Sometimes using a different payment method can help complete your transaction successfully.
+                    </p>
+                    <div class="payment-methods-list">
+                        <div class="payment-method-chip" onclick="retryWithMethod('upi')">
+                            <div style="font-size: 1.5em;">📱</div>
+                            <div style="font-size: 0.8em; margin-top: 5px;">UPI</div>
+                        </div>
+                        <div class="payment-method-chip" onclick="retryWithMethod('netbanking')">
+                            <div style="font-size: 1.5em;">🏦</div>
+                            <div style="font-size: 0.8em; margin-top: 5px;">Net Banking</div>
+                        </div>
+                        <div class="payment-method-chip" onclick="retryWithMethod('wallet')">
+                            <div style="font-size: 1.5em;">👛</div>
+                            <div style="font-size: 0.8em; margin-top: 5px;">Wallet</div>
+                        </div>
+                        <div class="payment-method-chip" onclick="retryWithMethod('card')">
+                            <div style="font-size: 1.5em;">💳</div>
+                            <div style="font-size: 0.8em; margin-top: 5px;">Other Card</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-retry" onclick="retryPayment()">🔄 Retry Payment</button>
+                    <a href="/checkout.html" class="btn btn-secondary">← Back to Checkout</a>
+                </div>
+
+                <div class="help-section">
+                    <h4>Need Help?</h4>
+                    <div class="help-links">
+                        <a href="#" class="help-link" onclick="contactSupport()">Contact Support</a>
+                        <a href="#" class="help-link" onclick="viewFAQ()">View FAQs</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate pending view
+        function generatePendingView(txnId, orderId, amount) {
+            return `
+                <div class="status-icon status-pending">⏳</div>
+                <h1 class="status-title status-pending">Payment Pending</h1>
+                <p class="status-message">
+                    Your payment is being processed. This may take a few moments.
+                    Please do not close this window or press the back button.
+                </p>
+
+                ${orderId || txnId ? `
+                <div class="transaction-details">
+                    ${orderId ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Order ID:</span>
+                        <span class="detail-value">${orderId}</span>
+                    </div>
+                    ` : ''}
+                    ${txnId ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Reference ID:</span>
+                        <span class="detail-value">${txnId}</span>
+                    </div>
+                    ` : ''}
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value status-pending">PENDING</span>
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="checkStatus()">🔍 Check Status</button>
+                    <a href="/checkout.html" class="btn btn-secondary">← Back to Home</a>
+                </div>
+
+                <div class="help-section">
+                    <h4>Need Help?</h4>
+                    <div class="help-links">
+                        <a href="#" class="help-link" onclick="contactSupport()">Contact Support</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate timeout view
+        function generateTimeoutView(orderId, amount) {
+            return `
+                <div class="status-icon status-timeout">⏱️</div>
+                <h1 class="status-title status-timeout">Session Timeout</h1>
+                <p class="status-message">
+                    Your payment session has expired. Don't worry, your account has not been charged.
+                    Please try again.
+                </p>
+
+                <div class="action-buttons">
+                    <button class="btn btn-retry" onclick="retryPayment()">🔄 Try Again</button>
+                    <a href="/checkout.html" class="btn btn-secondary">← Back to Checkout</a>
+                </div>
+
+                <div class="help-section">
+                    <h4>Need Help?</h4>
+                    <div class="help-links">
+                        <a href="#" class="help-link" onclick="contactSupport()">Contact Support</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate cancelled view
+        function generateCancelledView(orderId, amount) {
+            return `
+                <div class="status-icon status-cancelled">🚫</div>
+                <h1 class="status-title status-cancelled">Payment Cancelled</h1>
+                <p class="status-message">
+                    You have cancelled this payment. Your account has not been charged.
+                </p>
+
+                <div class="action-buttons">
+                    <button class="btn btn-retry" onclick="retryPayment()">🔄 Try Again</button>
+                    <a href="/checkout.html" class="btn btn-secondary">← Back to Home</a>
+                </div>
+            `;
+        }
+
+        // Generate unknown status view
+        function generateUnknownView() {
+            return `
+                <div class="status-icon">❓</div>
+                <h1 class="status-title">Unknown Status</h1>
+                <p class="status-message">
+                    We couldn't determine the status of your payment.
+                    Please contact support for assistance.
+                </p>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="contactSupport()">📞 Contact Support</button>
+                    <a href="/checkout.html" class="btn btn-secondary">← Back to Home</a>
+                </div>
+            `;
+        }
+
+        // Retry payment
+        function retryPayment() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const amount = urlParams.get('amount') || '2499';
+            const orderId = urlParams.get('order') || '';
+            window.location.href = `/checkout-hosted.html?amount=${amount}&order_id=${orderId}`;
+        }
+
+        // Retry with specific method
+        function retryWithMethod(method) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const amount = urlParams.get('amount') || '2499';
+            window.location.href = `/checkout-hosted.html?amount=${amount}&method=${method}`;
+        }
+
+        // Check payment status
+        function checkStatus() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const txnId = urlParams.get('txn') || '';
+            if (txnId) {
+                // Simulate status check
+                alert('Checking payment status...\nTransaction ID: ' + txnId);
+                // In production, call API to check status
+            }
+        }
+
+        // Download receipt
+        function downloadReceipt() {
+            alert('Receipt download functionality will be implemented here.\nIn production, this would generate and download a PDF receipt.');
+        }
+
+        // Contact support
+        function contactSupport() {
+            alert('Support Contact:\nEmail: support@paymentgateway.com\nPhone: 1800-XXX-XXXX\n\nIn production, this would open a support chat or contact form.');
+        }
+
+        // View transaction history
+        function viewTransactionHistory() {
+            alert('Transaction history view coming soon!\nIn production, this would show all past transactions.');
+        }
+
+        // View FAQ
+        function viewFAQ() {
+            alert('FAQ section coming soon!\nIn production, this would show frequently asked questions.');
+        }
+    </script>
+</body>
+</html>

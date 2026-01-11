@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Payment - Hosted Checkout</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            padding: 30px 0;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            color: #4ade80;
+        }
+
+        .payment-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .payment-method-btn {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .payment-method-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateY(-2px);
+        }
+
+        .payment-method-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .payment-method-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .payment-method-btn .icon {
+            font-size: 2em;
+        }
+
+        .payment-method-btn .label {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .payment-form {
+            display: none;
+        }
+
+        .payment-form.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .order-summary {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .order-item:last-child {
+            border-bottom: none;
+        }
+
+        .order-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #667eea;
+            border-top: 2px solid #667eea;
+            margin-top: 15px;
+        }
+
+        /* Card iframe container for embedded mode */
+        .card-iframe-container {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .payment-methods {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Secure Payment</h1>
+            <p>Hosted Checkout - PCI-DSS Compliant</p>
+            <div class="security-badge">
+                <span>🛡️ Bank-Level Security</span>
+                <span>✅ SSL Encrypted</span>
+            </div>
+        </div>
+
+        <div class="payment-section">
+            <div class="info-box">
+                <strong>ℹ️ Secure Hosted Checkout:</strong> Your payment information is processed on our PCI-DSS certified servers. We never store your card details.
+            </div>
+
+            <div class="order-summary" id="order-summary">
+                <h3>Order Summary</h3>
+                <div class="order-item">
+                    <span>Amount</span>
+                    <span id="order-amount">₹0.00</span>
+                </div>
+                <div class="order-total">
+                    <span>Total</span>
+                    <span id="order-total">₹0.00</span>
+                </div>
+            </div>
+
+            <h2 class="section-title">Select Payment Method</h2>
+
+            <div class="payment-methods">
+                <div class="payment-method-btn active" data-method="upi">
+                    <div class="icon">📱</div>
+                    <div class="label">UPI</div>
+                </div>
+                <div class="payment-method-btn" data-method="card" title="Card payments redirect to secure 3DS authentication">
+                    <div class="icon">💳</div>
+                    <div class="label">Card</div>
+                </div>
+                <div class="payment-method-btn" data-method="netbanking">
+                    <div class="icon">🏦</div>
+                    <div class="label">Net Banking</div>
+                </div>
+                <div class="payment-method-btn" data-method="wallet">
+                    <div class="icon">👛</div>
+                    <div class="label">Wallets</div>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <strong>⚠️ Card Payments:</strong> For PCI-DSS compliance, card payments will redirect you to your bank's secure 3D Secure authentication page. Your card details are never shared with this website.
+            </div>
+
+            <!-- UPI Payment Form -->
+            <div id="upi-form" class="payment-form active">
+                <div class="info-box">
+                    <strong>UPI Payment:</strong> Pay securely using your UPI ID
+                </div>
+                <form id="upi-payment-form">
+                    <div class="form-group">
+                        <label>UPI ID / VPA</label>
+                        <input type="text" id="upi-vpa" placeholder="yourname@bank" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Customer Name</label>
+                        <input type="text" id="upi-customer-name" placeholder="Enter your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="tel" id="upi-mobile" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Pay via UPI</button>
+                </form>
+            </div>
+
+            <!-- Card Payment Form (Redirect Notice) -->
+            <div id="card-form" class="payment-form">
+                <div class="info-box">
+                    <strong>🔒 Secure Card Payment:</strong> When you click "Continue", you'll be redirected to your bank's secure payment page for 3D Secure authentication.
+                </div>
+                <form id="card-payment-form">
+                    <div class="form-group">
+                        <label>Cardholder Name</label>
+                        <input type="text" id="card-holder-name" placeholder="Name as on card" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="card-email" placeholder="your@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="tel" id="card-mobile" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Continue to Secure Payment</button>
+                </form>
+            </div>
+
+            <!-- Net Banking Form -->
+            <div id="netbanking-form" class="payment-form">
+                <div class="info-box">
+                    <strong>Net Banking:</strong> You will be redirected to your bank's website
+                </div>
+                <form id="netbanking-payment-form">
+                    <div class="form-group">
+                        <label>Select Your Bank</label>
+                        <select id="bank-code" required>
+                            <option value="">-- Select Bank --</option>
+                            <option value="SBIN">State Bank of India</option>
+                            <option value="HDFC">HDFC Bank</option>
+                            <option value="ICIC">ICICI Bank</option>
+                            <option value="AXIS">Axis Bank</option>
+                            <option value="PUNB">Punjab National Bank</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Customer Name</label>
+                        <input type="text" id="netbanking-customer-name" placeholder="Enter your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="netbanking-email" placeholder="your@email.com" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Pay via Net Banking</button>
+                </form>
+            </div>
+
+            <!-- Wallet Payment Form -->
+            <div id="wallet-form" class="payment-form">
+                <div class="info-box">
+                    <strong>Digital Wallets:</strong> Pay using your preferred wallet
+                </div>
+                <form id="wallet-payment-form">
+                    <div class="form-group">
+                        <label>Select Wallet</label>
+                        <select id="wallet-provider" required>
+                            <option value="">-- Select Wallet --</option>
+                            <option value="paytm">Paytm</option>
+                            <option value="phonepe">PhonePe</option>
+                            <option value="googlepay">Google Pay</option>
+                            <option value="amazonpay">Amazon Pay</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="tel" id="wallet-mobile" placeholder="Registered mobile number" pattern="[0-9]{10}" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Pay via Wallet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE_URL = window.location.origin;
+        let authToken = '';
+        let orderData = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializeCheckout();
+            setupPaymentMethodButtons();
+            setupFormSubmissions();
+        });
+
+        // Initialize checkout
+        async function initializeCheckout() {
+            // Get order data from URL params or session storage
+            const urlParams = new URLSearchParams(window.location.search);
+            const orderId = urlParams.get('order_id');
+            const amount = urlParams.get('amount') || '2499';
+            const token = urlParams.get('token');
+
+            if (token) {
+                authToken = token;
+            } else {
+                // Generate demo token
+                await generateDemoToken();
+            }
+
+            // Update order summary
+            document.getElementById('order-amount').textContent = `₹${parseFloat(amount).toFixed(2)}`;
+            document.getElementById('order-total').textContent = `₹${parseFloat(amount).toFixed(2)}`;
+
+            orderData = {
+                orderId: orderId || `ORDER_${Date.now()}`,
+                amount: parseFloat(amount),
+                currency: 'INR'
+            };
+        }
+
+        // Generate demo token
+        async function generateDemoToken() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/demo/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: 'demo-user',
+                        name: 'Demo Customer',
+                        merchantId: '04a8baae-3e0a-467e-aa5a-83d7b12c6b61'
+                    })
+                });
+                const data = await response.json();
+                authToken = data.token;
+            } catch (error) {
+                console.error('Failed to generate token:', error);
+                showError('Failed to initialize payment. Please refresh the page.');
+            }
+        }
+
+        // Payment method button handling
+        function setupPaymentMethodButtons() {
+            const buttons = document.querySelectorAll('.payment-method-btn');
+            const forms = document.querySelectorAll('.payment-form');
+
+            buttons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const method = button.dataset.method;
+
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    forms.forEach(form => form.classList.remove('active'));
+                    document.getElementById(`${method}-form`).classList.add('active');
+                });
+            });
+        }
+
+        // Form submissions
+        function setupFormSubmissions() {
+            // UPI Form
+            document.getElementById('upi-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await processPayment('upi', {
+                    paymentMethod: 'upi',
+                    vpa: document.getElementById('upi-vpa').value,
+                    customerName: document.getElementById('upi-customer-name').value,
+                    mobile: document.getElementById('upi-mobile').value,
+                    ...orderData
+                });
+            });
+
+            // Card Form - Redirect to 3DS
+            document.getElementById('card-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                // Redirect to 3DS page
+                const params = new URLSearchParams({
+                    amount: orderData.amount,
+                    orderId: orderData.orderId,
+                    cardHolderName: document.getElementById('card-holder-name').value,
+                    email: document.getElementById('card-email').value,
+                    mobile: document.getElementById('card-mobile').value,
+                    token: authToken
+                });
+                window.location.href = `/3ds-auth.html?${params.toString()}`;
+            });
+
+            // Net Banking Form
+            document.getElementById('netbanking-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await processPayment('netbanking', {
+                    paymentMethod: 'netbanking',
+                    bankCode: document.getElementById('bank-code').value,
+                    customerName: document.getElementById('netbanking-customer-name').value,
+                    email: document.getElementById('netbanking-email').value,
+                    ...orderData
+                });
+            });
+
+            // Wallet Form
+            document.getElementById('wallet-payment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await processPayment('wallet', {
+                    paymentMethod: 'wallet',
+                    walletProvider: document.getElementById('wallet-provider').value,
+                    mobile: document.getElementById('wallet-mobile').value,
+                    ...orderData
+                });
+            });
+        }
+
+        // Process payment
+        async function processPayment(method, data) {
+            try {
+                showLoading(true);
+
+                const response = await fetch(`${API_BASE_URL}/api/payments/process`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success || result.status === 'success' || result.transactionId) {
+                    // Redirect to success page
+                    window.location.href = `/payment-status.html?status=success&txn=${result.transactionId}`;
+                } else {
+                    // Redirect to failure page
+                    window.location.href = `/payment-status.html?status=failed&error=${encodeURIComponent(result.error || 'Payment failed')}`;
+                }
+            } catch (error) {
+                showLoading(false);
+                showError(error.message);
+            }
+        }
+
+        // Show loading
+        function showLoading(show) {
+            const overlay = document.getElementById('loading-overlay');
+            if (show) {
+                overlay.classList.add('active');
+            } else {
+                overlay.classList.remove('active');
+            }
+        }
+
+        // Show error
+        function showError(message) {
+            alert('Error: ' + message);
+        }
+    </script>
+</body>
+</html>
