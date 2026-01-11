@@ -679,7 +679,7 @@
       }
       
       if (!['PLATFORM_ADMIN', 'OPS_ADMIN'].includes(role)) {
-        alert('Access denied: Ops Console requires PLATFORM_ADMIN or OPS_ADMIN role');
+        alert('Access denied: Ops Console requires PLATFORM_ADMIN or OPS_ADMIN role. Finance users should use the Finance Admin Console.');
         localStorage.clear();
         window.location.href = '/platform-login.html';
         return;

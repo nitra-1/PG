@@ -182,8 +182,8 @@
     </form>
     
     <div class="info-box">
-      <strong>Note:</strong> This is the platform operations console. 
-      Access requires PLATFORM_ADMIN or OPS_ADMIN role.
+      <strong>Note:</strong> Platform login for administrative users.
+      Supported roles: PLATFORM_ADMIN, OPS_ADMIN, FINANCE_ADMIN, COMPLIANCE_ADMIN.
     </div>
   </div>
   
@@ -196,8 +196,12 @@
     const existingRole = localStorage.getItem('userRole');
     const existingUserId = localStorage.getItem('userId');
     if (existingRole && existingUserId) {
-      // Already logged in, redirect to console
-      window.location.href = '/ops-console.html';
+      // Already logged in, redirect to appropriate console
+      if (existingRole === 'PLATFORM_ADMIN' || existingRole === 'OPS_ADMIN') {
+        window.location.href = '/ops-console.html';
+      } else if (existingRole === 'FINANCE_ADMIN' || existingRole === 'COMPLIANCE_ADMIN') {
+        window.location.href = '/finance-admin-console.html';
+      }
     }
     
     form.addEventListener('submit', async (e) => {
@@ -229,8 +233,15 @@
           localStorage.setItem('username', data.user.username);
           localStorage.setItem('userEmail', data.user.email);
           
-          // Redirect to ops console
-          window.location.href = '/ops-console.html';
+          // Redirect to appropriate console based on role
+          const role = data.user.role;
+          if (role === 'PLATFORM_ADMIN' || role === 'OPS_ADMIN') {
+            window.location.href = '/ops-console.html';
+          } else if (role === 'FINANCE_ADMIN' || role === 'COMPLIANCE_ADMIN') {
+            window.location.href = '/finance-admin-console.html';
+          } else {
+            showError('Access denied: Invalid role for platform access');
+          }
         } else {
           // Show error message
           showError(data.error || 'Login failed. Please try again.');
