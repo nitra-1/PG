@@ -1121,11 +1121,11 @@
         // Continue with logout even if API call fails
       }
       
-      // Clear localStorage
+      // Clear localStorage immediately
       localStorage.clear();
       
-      // Redirect to login page
-      window.location.href = '/platform-login.html';
+      // Use replace to prevent back button issues and add logout flag to prevent auto-login
+      window.location.replace('/platform-login.html?logout=true');
     }
     
     // Initialize
