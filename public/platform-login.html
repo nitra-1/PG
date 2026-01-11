@@ -182,8 +182,8 @@
     </form>
     
     <div class="info-box">
-      <strong>Note:</strong> This is the platform operations console. 
-      Access requires PLATFORM_ADMIN or OPS_ADMIN role.
+      <strong>Note:</strong> Platform login for administrative users.
+      Supported roles: PLATFORM_ADMIN, OPS_ADMIN, FINANCE_ADMIN, COMPLIANCE_ADMIN.
     </div>
   </div>
   
@@ -192,12 +192,28 @@
     const loginBtn = document.getElementById('loginBtn');
     const errorMessage = document.getElementById('errorMessage');
     
+    /**
+     * Redirect user to appropriate console based on role
+     * @param {string} role - User's role
+     */
+    function redirectToConsole(role) {
+      if (role === 'PLATFORM_ADMIN' || role === 'OPS_ADMIN') {
+        window.location.href = '/ops-console.html';
+      } else if (role === 'FINANCE_ADMIN' || role === 'COMPLIANCE_ADMIN') {
+        window.location.href = '/finance-admin-console.html';
+      } else {
+        // Clear invalid session data
+        localStorage.clear();
+        showError('Access denied: Your role does not have platform access. Please contact your administrator.');
+      }
+    }
+    
     // Check if already logged in
     const existingRole = localStorage.getItem('userRole');
     const existingUserId = localStorage.getItem('userId');
     if (existingRole && existingUserId) {
-      // Already logged in, redirect to console
-      window.location.href = '/ops-console.html';
+      // Already logged in, redirect to appropriate console
+      redirectToConsole(existingRole);
     }
     
     form.addEventListener('submit', async (e) => {
@@ -229,8 +245,8 @@
           localStorage.setItem('username', data.user.username);
           localStorage.setItem('userEmail', data.user.email);
           
-          // Redirect to ops console
-          window.location.href = '/ops-console.html';
+          // Redirect to appropriate console based on role
+          redirectToConsole(data.user.role);
         } else {
           // Show error message
           showError(data.error || 'Login failed. Please try again.');
