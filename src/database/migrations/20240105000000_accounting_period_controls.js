@@ -23,18 +23,26 @@ exports.up = async function(knex) {
   const tableExists = await knex.schema.hasTable('accounting_periods');
   
   if (tableExists) {
-    // Handle upgrade case: table exists with old truncated constraint name
-    // Drop the old constraint if it exists
+    // Handle upgrade case: table exists with old truncated constraint/index name
+    // Drop the old constraint if it exists, and any index with the old truncated name
     await knex.raw(`
       DO $$ 
       BEGIN
-        -- Drop old auto-generated constraint with truncated name
+        -- Drop old auto-generated constraint with truncated name (if it exists)
         IF EXISTS (
           SELECT 1 FROM pg_constraint 
           WHERE conname = 'accounting_periods_tenant_id_period_type_period_start_period_en'
         ) THEN
           ALTER TABLE accounting_periods 
           DROP CONSTRAINT accounting_periods_tenant_id_period_type_period_start_period_en;
+        END IF;
+        
+        -- Drop old index with truncated name (if it exists) 
+        IF EXISTS (
+          SELECT 1 FROM pg_indexes 
+          WHERE indexname = 'accounting_periods_tenant_id_period_type_period_start_period_en'
+        ) THEN
+          DROP INDEX accounting_periods_tenant_id_period_type_period_start_period_en;
         END IF;
         
         -- Add new constraint with explicit short name if it doesn't exist
@@ -83,7 +91,7 @@ exports.up = async function(knex) {
       // Indexes for performance and constraint enforcement
       table.index(['tenant_id', 'period_type', 'status']);
       table.index(['period_start', 'period_end']);
-      table.index(['tenant_id', 'period_type', 'period_start', 'period_end']);
+      // Note: Unique constraint below will create its own index, so no need for a separate index
       
       // Unique constraint: No overlapping periods of same type for same tenant
       // Use explicit short name to avoid PostgreSQL 63-char identifier limit
