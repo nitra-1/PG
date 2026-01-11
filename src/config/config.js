@@ -177,11 +177,11 @@ module.exports = {
     hostedUrl: process.env.HOSTED_CHECKOUT_URL || '/checkout-hosted.html',
     embeddedSdkUrl: process.env.EMBEDDED_SDK_URL || '/sdk/checkout.js',
     returnUrl: process.env.CHECKOUT_RETURN_URL || '/payment-status.html',
-    cancelUrl: process.env.CHECKOUT_CANCEL_URL || '/payment-cancel.html',
+    cancelUrl: process.env.CHECKOUT_CANCEL_URL || '/payment-status.html?status=cancelled',
     webhookUrl: process.env.CHECKOUT_WEBHOOK_URL || '/api/payments/webhook',
     // 3DS Configuration
     threeDSEnabled: process.env.THREE_DS_ENABLED !== 'false',
-    threeDSReturnUrl: process.env.THREE_DS_RETURN_URL || '/3ds-return.html',
+    threeDSReturnUrl: process.env.THREE_DS_RETURN_URL || '/payment-status.html',
     threeDSTimeout: parseInt(process.env.THREE_DS_TIMEOUT) || 300000, // 5 minutes
     // OTP Configuration
     otpEnabled: process.env.OTP_ENABLED !== 'false',

@@ -305,7 +305,7 @@
                     <div class="icon">📱</div>
                     <div class="label">UPI</div>
                 </div>
-                <div class="payment-method-btn disabled" data-method="card" title="For card payments, we'll redirect you to your bank's secure page">
+                <div class="payment-method-btn" data-method="card" title="Card payments redirect to secure 3DS authentication">
                     <div class="icon">💳</div>
                     <div class="label">Card</div>
                 </div>
@@ -483,7 +483,7 @@
 
         // Payment method button handling
         function setupPaymentMethodButtons() {
-            const buttons = document.querySelectorAll('.payment-method-btn:not(.disabled)');
+            const buttons = document.querySelectorAll('.payment-method-btn');
             const forms = document.querySelectorAll('.payment-form');
 
             buttons.forEach(button => {

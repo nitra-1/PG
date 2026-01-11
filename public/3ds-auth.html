@@ -321,7 +321,7 @@
                 <div class="warning-box">
                     <strong>⚠️ Bank Authentication:</strong> You are being redirected to your bank's secure page. Do not close this window.
                 </div>
-                <iframe id="bank-iframe" class="bank-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation"></iframe>
+                <iframe id="bank-iframe" class="bank-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation-by-user-activation"></iframe>
             </div>
         </div>
     </div>
@@ -584,7 +584,20 @@
 
         // Listen for postMessage from bank iframe (for iframe-based 3DS)
         window.addEventListener('message', (event) => {
-            // Verify origin in production
+            // SECURITY: Verify origin in production
+            // Only accept messages from trusted bank/gateway domains
+            const trustedOrigins = [
+                window.location.origin,
+                // Add your bank/gateway origins here in production
+                // 'https://bank.example.com',
+                // 'https://gateway.razorpay.com'
+            ];
+            
+            if (!trustedOrigins.includes(event.origin)) {
+                console.warn('Rejected postMessage from untrusted origin:', event.origin);
+                return;
+            }
+            
             if (event.data.type === '3DS_COMPLETE') {
                 clearInterval(timerInterval);
                 if (event.data.status === 'success') {
