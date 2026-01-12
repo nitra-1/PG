@@ -38,6 +38,9 @@ class ComplianceReportsService {
       SETTLEMENT_AGING: 30,       // 30 minutes
       OPEN_DISPUTES: 15           // 15 minutes
     };
+    
+    // Default currency for reports
+    this.DEFAULT_CURRENCY = 'INR';
   }
   
   /**
@@ -64,29 +67,21 @@ class ComplianceReportsService {
     const startTime = Date.now();
     
     try {
-      // Get escrow account balances from ledger
-      const escrowAccounts = await db.knex('ledger_accounts')
+      // Get escrow account balances from the account_balances view
+      // The view already calculates balances and includes currency from ledger_entries
+      const escrowAccounts = await db.knex('account_balances')
         .where('tenant_id', tenantId)
-        .where('account_type', 'ESCROW')
-        .select('id', 'account_code', 'account_name', 'currency');
+        .where('account_type', 'escrow')
+        .where('balance', '>', 0)
+        .select('account_id', 'account_code', 'account_name', 'balance', 'currency');
       
-      const balances = [];
-      
-      for (const account of escrowAccounts) {
-        // Calculate balance as of report date
-        const balance = await this.calculateAccountBalance(
-          account.id,
-          reportDate
-        );
-        
-        balances.push({
-          accountCode: account.account_code,
-          accountName: account.account_name,
-          currency: account.currency,
-          balance: balance.toString(),
-          asOfDate: reportDate
-        });
-      }
+      const balances = escrowAccounts.map(account => ({
+        accountCode: account.account_code,
+        accountName: account.account_name,
+        currency: account.currency || this.DEFAULT_CURRENCY,
+        balance: (account.balance || 0).toString(),
+        asOfDate: reportDate
+      }));
       
       // Calculate total escrow balance
       const totalBalance = balances.reduce((sum, acc) => 
@@ -99,7 +94,7 @@ class ComplianceReportsService {
         tenantId,
         escrowAccounts: balances,
         totalEscrowBalance: totalBalance.toString(),
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString(),
         note: 'This report shows escrow balances as required by RBI guidelines'
       };
@@ -143,32 +138,41 @@ class ComplianceReportsService {
     const startTime = Date.now();
     
     try {
-      // Get all merchants
-      const merchants = await db.knex('merchants')
-        .where('tenant_id', tenantId)
-        .where('status', 'active')
-        .select('id', 'merchant_id', 'business_name');
+      // Get all merchants with pending settlements for this tenant
+      // Note: merchants table doesn't have tenant_id, so we filter via settlements
+      const merchantsWithSettlements = await db.knex('settlements')
+        .where('settlements.tenant_id', tenantId)
+        .whereIn('settlements.status', ['pending', 'processing'])
+        .where('settlements.created_at', '<=', asOfDate)
+        .join('merchants', 'settlements.merchant_id', 'merchants.id')
+        .where('merchants.status', 'active')
+        .groupBy('merchants.id', 'merchants.merchant_code', 'merchants.merchant_name')
+        .select(
+          'merchants.id',
+          'merchants.merchant_code',
+          'merchants.merchant_name'
+        );
       
       const outstanding = [];
       
-      for (const merchant of merchants) {
-        // Get unsettled transactions
-        const unsettled = await db.knex('transactions')
+      for (const merchant of merchantsWithSettlements) {
+        // Get pending settlements for this merchant
+        const unsettled = await db.knex('settlements')
+          .where('tenant_id', tenantId)
           .where('merchant_id', merchant.id)
-          .where('status', 'SUCCESS')
-          .where('settlement_status', 'PENDING')
+          .whereIn('status', ['pending', 'processing'])
           .where('created_at', '<=', asOfDate)
-          .sum('amount as total_amount')
-          .count('* as transaction_count')
+          .sum('net_amount as total_amount')
+          .count('* as settlement_count')
           .first();
         
         if (unsettled && parseFloat(unsettled.total_amount || 0) > 0) {
           outstanding.push({
-            merchantId: merchant.merchant_id,
-            businessName: merchant.business_name,
+            merchantId: merchant.merchant_code,
+            businessName: merchant.merchant_name,
             outstandingAmount: (unsettled.total_amount || 0).toString(),
-            transactionCount: parseInt(unsettled.transaction_count || 0),
-            currency: 'INR'
+            transactionCount: parseInt(unsettled.settlement_count || 0),
+            currency: this.DEFAULT_CURRENCY
           });
         }
       }
@@ -184,7 +188,7 @@ class ComplianceReportsService {
         merchants: outstanding,
         totalOutstanding: totalOutstanding.toString(),
         merchantCount: outstanding.length,
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString()
       };
       
@@ -232,19 +236,25 @@ class ComplianceReportsService {
     const startTime = Date.now();
     
     try {
-      // Get fee entries from ledger
+      // Get fee revenue from ledger entries joined with transactions
+      // Revenue is recorded as credits to platform_revenue accounts
       const feeRevenue = await db.knex('ledger_entries')
-        .where('tenant_id', tenantId)
-        .whereBetween('entry_date', [periodStart, periodEnd])
-        .whereIn('entry_type', ['PLATFORM_FEE', 'GATEWAY_FEE', 'PROCESSING_FEE'])
-        .select('entry_type')
-        .sum('credit_amount as total')
-        .groupBy('entry_type');
+        .join('ledger_transactions', 'ledger_entries.transaction_id', 'ledger_transactions.id')
+        .join('ledger_accounts', 'ledger_entries.account_id', 'ledger_accounts.id')
+        .where('ledger_entries.tenant_id', tenantId)
+        .whereBetween('ledger_transactions.created_at', [periodStart, periodEnd])
+        .where('ledger_accounts.account_type', 'platform_revenue')
+        .where('ledger_entries.entry_type', 'credit')
+        .whereNotNull('ledger_transactions.event_type')
+        .whereIn('ledger_transactions.event_type', ['platform_fee', 'gateway_fee'])
+        .select('ledger_transactions.event_type')
+        .sum('ledger_entries.amount as total')
+        .groupBy('ledger_transactions.event_type');
       
       const breakdown = feeRevenue.map(fee => ({
-        feeType: fee.entry_type,
+        feeType: fee.event_type.toUpperCase(), // Safe now due to whereNotNull filter
         amount: (fee.total || 0).toString(),
-        currency: 'INR'
+        currency: this.DEFAULT_CURRENCY
       }));
       
       const totalRevenue = breakdown.reduce((sum, fee) => 
@@ -258,7 +268,7 @@ class ComplianceReportsService {
         tenantId,
         revenueBreakdown: breakdown,
         totalRevenue: totalRevenue.toString(),
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString()
       };
       
@@ -349,7 +359,7 @@ class ComplianceReportsService {
         totalPendingAmount: pendingSettlements.reduce((sum, s) => 
           sum + parseFloat(s.net_amount || 0), 0
         ).toString(),
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString()
       };
       
@@ -379,10 +389,10 @@ class ComplianceReportsService {
     try {
       const result = await db.knex('ledger_entries')
         .where('account_id', accountId)
-        .where('entry_date', '<=', asOfDate)
+        .where('created_at', '<=', asOfDate)
         .select(
-          db.knex.raw('COALESCE(SUM(debit_amount), 0) as total_debits'),
-          db.knex.raw('COALESCE(SUM(credit_amount), 0) as total_credits')
+          db.knex.raw('COALESCE(SUM(CASE WHEN entry_type = \'debit\' THEN amount ELSE 0 END), 0) as total_debits'),
+          db.knex.raw('COALESCE(SUM(CASE WHEN entry_type = \'credit\' THEN amount ELSE 0 END), 0) as total_credits')
         )
         .first();
       
