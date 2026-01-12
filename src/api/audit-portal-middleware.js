@@ -16,6 +16,10 @@
 
 const db = require('../database');
 
+// Endpoints that don't require access window (basic navigation)
+// These endpoints only require AUDITOR role, not database access window
+const ENDPOINTS_WITHOUT_ACCESS_WINDOW = ['/tenants'];
+
 /**
  * Require AUDITOR role and validate time-boxed access
  * 
@@ -73,11 +77,12 @@ const requireAuditorRole = async (req, res, next) => {
   });
   
   // Check time-boxed access window
-  // Exception: /tenants endpoint doesn't require access window (basic tenant selection)
-  const requiresAccessWindow = req.path !== '/tenants';
+  // Exception: Some endpoints don't require access window (basic tenant selection)
+  // Query params and trailing slashes are not part of req.path (Express handles normalization)
+  const requiresAccessWindow = !ENDPOINTS_WITHOUT_ACCESS_WINDOW.includes(req.path);
   
   if (!requiresAccessWindow) {
-    // For /tenants endpoint, skip access window check
+    // For endpoints without access window requirement, skip database check
     req.auditor = createAuditorContext();
     return next();
   }
