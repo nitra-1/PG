@@ -183,7 +183,7 @@
     
     <div class="info-box">
       <strong>Note:</strong> Platform login for administrative users.
-      Supported roles: PLATFORM_ADMIN, OPS_ADMIN, FINANCE_ADMIN, COMPLIANCE_ADMIN.
+      Supported roles: PLATFORM_ADMIN, OPS_ADMIN, FINANCE_ADMIN, COMPLIANCE_ADMIN, AUDITOR.
     </div>
   </div>
   
@@ -201,6 +201,8 @@
         window.location.href = '/ops-console.html';
       } else if (role === 'FINANCE_ADMIN' || role === 'COMPLIANCE_ADMIN') {
         window.location.href = '/finance-admin-console.html';
+      } else if (role === 'AUDITOR') {
+        window.location.href = '/audit-portal.html';
       } else {
         // Clear invalid session data
         localStorage.clear();
