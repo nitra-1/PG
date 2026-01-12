@@ -16,6 +16,10 @@
 
 const db = require('../database');
 
+// Endpoints that don't require access window (basic navigation)
+// These endpoints only require AUDITOR role, not database access window
+const ENDPOINTS_WITHOUT_ACCESS_WINDOW = ['/tenants'];
+
 /**
  * Require AUDITOR role and validate time-boxed access
  * 
@@ -59,7 +63,30 @@ const requireAuditorRole = async (req, res, next) => {
     });
   }
   
+  // Helper function to create auditor context
+  const createAuditorContext = (accessWindow = null) => ({
+    userId,
+    userName,
+    role: userRole,
+    accessWindowId: accessWindow?.id || null,
+    auditCaseNumber: accessWindow?.audit_case_number || null,
+    auditType: accessWindow?.audit_type || null,
+    accessEndDate: accessWindow?.access_end_date || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent')
+  });
+  
   // Check time-boxed access window
+  // Exception: Some endpoints don't require access window (basic tenant selection)
+  // Query params and trailing slashes are not part of req.path (Express handles normalization)
+  const requiresAccessWindow = !ENDPOINTS_WITHOUT_ACCESS_WINDOW.includes(req.path);
+  
+  if (!requiresAccessWindow) {
+    // For endpoints without access window requirement, skip database check
+    req.auditor = createAuditorContext();
+    return next();
+  }
+  
   try {
     const accessWindow = await db.knex('auditor_access_windows')
       .where('auditor_user_id', userId)
@@ -83,17 +110,7 @@ const requireAuditorRole = async (req, res, next) => {
       .update({ last_access_at: db.knex.fn.now() });
     
     // Store auditor context for logging
-    req.auditor = {
-      userId,
-      userName,
-      role: userRole,
-      accessWindowId: accessWindow.id,
-      auditCaseNumber: accessWindow.audit_case_number,
-      auditType: accessWindow.audit_type,
-      accessEndDate: accessWindow.access_end_date,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    };
+    req.auditor = createAuditorContext(accessWindow);
     
     next();
   } catch (error) {
