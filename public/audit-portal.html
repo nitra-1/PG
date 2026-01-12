@@ -879,6 +879,12 @@
       setInterval(updateTimestamp, 1000);
       updateTimestamp();
       
+      // Populate auditor name from localStorage immediately
+      // This shows basic info even before tenant selection or access window
+      if (username) {
+        document.getElementById('sidebarAuditorName').textContent = username;
+      }
+      
       // Setup navigation
       setupNavigation();
       

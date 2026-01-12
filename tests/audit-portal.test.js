@@ -178,7 +178,15 @@ describe('Audit Portal Security Tests', () => {
             first: jest.fn().mockResolvedValue(null) // No active window
           };
         }
-        return { where: jest.fn().mockReturnThis() };
+        if (table === 'audit_portal_access_log') {
+          return {
+            insert: jest.fn().mockResolvedValue({})
+          };
+        }
+        return { 
+          where: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockResolvedValue({})
+        };
       });
       
       const response = await request(app)
@@ -189,6 +197,55 @@ describe('Audit Portal Security Tests', () => {
       
       // /compliance-reports/available should be accessible without access window
       expect(response.status).toBe(200);
+    });
+    
+    test('should allow /overview access without active window', async () => {
+      db.knex.mockImplementation((table) => {
+        if (table === 'auditor_access_windows') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue(null) // No active window
+          };
+        }
+        if (table === 'merchants') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue({
+              id: 'tenant-1',
+              merchant_name: 'Test Merchant'
+            })
+          };
+        }
+        if (table === 'accounting_periods' || table === 'settlements' || 
+            table === 'ledger_locks' || table === 'admin_overrides_log') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            count: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue({ count: '5' })
+          };
+        }
+        if (table === 'audit_portal_access_log') {
+          return {
+            insert: jest.fn().mockResolvedValue({})
+          };
+        }
+        return { 
+          where: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockResolvedValue({})
+        };
+      });
+      
+      const response = await request(app)
+        .get('/api/audit-portal/overview?tenantId=tenant-1')
+        .set('X-User-Role', 'AUDITOR')
+        .set('X-User-Id', 'auditor-123')
+        .set('X-User-Name', 'Test Auditor');
+      
+      // /overview should be accessible without access window
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.overview.auditor.name).toBe('Test Auditor');
+      expect(response.body.overview.auditor.auditCaseNumber).toBeUndefined();
     });
     
     test('should reject /compliance-reports/escrow-balance without active window', async () => {
