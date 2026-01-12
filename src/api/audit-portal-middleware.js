@@ -60,6 +60,25 @@ const requireAuditorRole = async (req, res, next) => {
   }
   
   // Check time-boxed access window
+  // Exception: /tenants endpoint doesn't require access window (basic tenant selection)
+  const requiresAccessWindow = req.path !== '/tenants';
+  
+  if (!requiresAccessWindow) {
+    // For /tenants endpoint, skip access window check
+    req.auditor = {
+      userId,
+      userName,
+      role: userRole,
+      accessWindowId: null,
+      auditCaseNumber: null,
+      auditType: null,
+      accessEndDate: null,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    };
+    return next();
+  }
+  
   try {
     const accessWindow = await db.knex('auditor_access_windows')
       .where('auditor_user_id', userId)
