@@ -18,7 +18,7 @@ const db = require('../database');
 
 // Endpoints that don't require access window (basic navigation)
 // These endpoints only require AUDITOR role, not database access window
-const ENDPOINTS_WITHOUT_ACCESS_WINDOW = ['/tenants'];
+const ENDPOINTS_WITHOUT_ACCESS_WINDOW = ['/tenants', '/compliance-reports/available'];
 
 /**
  * Require AUDITOR role and validate time-boxed access

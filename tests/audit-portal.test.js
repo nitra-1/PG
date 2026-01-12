@@ -53,9 +53,15 @@ describe('Audit Portal Security Tests', () => {
             ])
           };
         }
+        if (table === 'audit_portal_access_log') {
+          return {
+            insert: jest.fn().mockResolvedValue({})
+          };
+        }
         return {
           where: jest.fn().mockReturnThis(),
-          update: jest.fn().mockResolvedValue({})
+          update: jest.fn().mockResolvedValue({}),
+          insert: jest.fn().mockResolvedValue({})
         };
       });
       
@@ -134,12 +140,21 @@ describe('Audit Portal Security Tests', () => {
       expect(response.status).toBe(200);
     });
     
-    test('should reject access with no active window', async () => {
+    test('should allow /tenants access without active window', async () => {
       db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
             first: jest.fn().mockResolvedValue(null) // No active window
+          };
+        }
+        if (table === 'merchants') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockResolvedValue([
+              { id: 'tenant-1', name: 'Test Tenant' }
+            ])
           };
         }
         return { where: jest.fn().mockReturnThis() };
@@ -151,6 +166,49 @@ describe('Audit Portal Security Tests', () => {
         .set('X-User-Id', 'auditor-123')
         .set('X-User-Name', 'Test Auditor');
       
+      // /tenants endpoint should be accessible without access window
+      expect(response.status).toBe(200);
+    });
+    
+    test('should allow /compliance-reports/available access without active window', async () => {
+      db.knex.mockImplementation((table) => {
+        if (table === 'auditor_access_windows') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue(null) // No active window
+          };
+        }
+        return { where: jest.fn().mockReturnThis() };
+      });
+      
+      const response = await request(app)
+        .get('/api/audit-portal/compliance-reports/available')
+        .set('X-User-Role', 'AUDITOR')
+        .set('X-User-Id', 'auditor-123')
+        .set('X-User-Name', 'Test Auditor');
+      
+      // /compliance-reports/available should be accessible without access window
+      expect(response.status).toBe(200);
+    });
+    
+    test('should reject /compliance-reports/escrow-balance without active window', async () => {
+      db.knex.mockImplementation((table) => {
+        if (table === 'auditor_access_windows') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue(null) // No active window
+          };
+        }
+        return { where: jest.fn().mockReturnThis() };
+      });
+      
+      const response = await request(app)
+        .get('/api/audit-portal/compliance-reports/escrow-balance?tenantId=test-tenant')
+        .set('X-User-Role', 'AUDITOR')
+        .set('X-User-Id', 'auditor-123')
+        .set('X-User-Name', 'Test Auditor');
+      
+      // Actual report endpoints should still require access window
       expect(response.status).toBe(403);
       expect(response.body.error).toContain('Access window expired');
     });
