@@ -674,14 +674,14 @@
       
       // Require proper authentication - no defaults allowed
       if (!role || !userId) {
-        window.location.href = '/platform-login.html';
+        window.location.replace('/platform-login.html?logout=true');
         return;
       }
       
       if (!['PLATFORM_ADMIN', 'OPS_ADMIN'].includes(role)) {
         alert('Access denied: Ops Console requires PLATFORM_ADMIN or OPS_ADMIN role.\n\nFinance users should use: /finance-admin-console.html');
         localStorage.clear();
-        window.location.href = '/platform-login.html';
+        window.location.replace('/platform-login.html?logout=true');
         return;
       }
       
@@ -1121,11 +1121,11 @@
         // Continue with logout even if API call fails
       }
       
-      // Clear localStorage
+      // Clear localStorage immediately
       localStorage.clear();
       
-      // Redirect to login page
-      window.location.href = '/platform-login.html';
+      // Use replace to prevent back button issues and add logout flag to prevent auto-login
+      window.location.replace('/platform-login.html?logout=true');
     }
     
     // Initialize

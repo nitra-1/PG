@@ -878,14 +878,14 @@
       const userId = storage.getItem('userId');
       
       if (!role || !userId) {
-        window.location.href = '/platform-login.html';
+        window.location.replace('/platform-login.html?logout=true');
         return;
       }
       
       if (!['FINANCE_ADMIN', 'COMPLIANCE_ADMIN'].includes(role)) {
         alert('Access denied: Finance Admin Console requires FINANCE_ADMIN or COMPLIANCE_ADMIN role');
         storage.clear();
-        window.location.href = '/platform-login.html';
+        window.location.replace('/platform-login.html?logout=true');
         return;
       }
       
@@ -1620,8 +1620,11 @@
     // Logout
     function logout() {
       if (confirm('Are you sure you want to log out?')) {
+        // Clear all localStorage data immediately
         storage.clear();
-        window.location.href = '/platform-login.html';
+        
+        // Use replace to prevent back button issues and add logout flag to prevent auto-login
+        window.location.replace('/platform-login.html?logout=true');
       }
     }
     

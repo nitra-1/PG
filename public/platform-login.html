@@ -208,12 +208,20 @@
       }
     }
     
-    // Check if already logged in
-    const existingRole = localStorage.getItem('userRole');
-    const existingUserId = localStorage.getItem('userId');
-    if (existingRole && existingUserId) {
-      // Already logged in, redirect to appropriate console
-      redirectToConsole(existingRole);
+    // Check if already logged in (but not if we just logged out)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isLogout = urlParams.get('logout') === 'true';
+    
+    if (!isLogout) {
+      const existingRole = localStorage.getItem('userRole');
+      const existingUserId = localStorage.getItem('userId');
+      if (existingRole && existingUserId) {
+        // Already logged in, redirect to appropriate console
+        redirectToConsole(existingRole);
+      }
+    } else {
+      // Clear any remaining data after logout to ensure clean state
+      localStorage.clear();
     }
     
     form.addEventListener('submit', async (e) => {
