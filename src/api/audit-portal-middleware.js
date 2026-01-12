@@ -59,23 +59,26 @@ const requireAuditorRole = async (req, res, next) => {
     });
   }
   
+  // Helper function to create auditor context
+  const createAuditorContext = (accessWindow = null) => ({
+    userId,
+    userName,
+    role: userRole,
+    accessWindowId: accessWindow?.id || null,
+    auditCaseNumber: accessWindow?.audit_case_number || null,
+    auditType: accessWindow?.audit_type || null,
+    accessEndDate: accessWindow?.access_end_date || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent')
+  });
+  
   // Check time-boxed access window
   // Exception: /tenants endpoint doesn't require access window (basic tenant selection)
   const requiresAccessWindow = req.path !== '/tenants';
   
   if (!requiresAccessWindow) {
     // For /tenants endpoint, skip access window check
-    req.auditor = {
-      userId,
-      userName,
-      role: userRole,
-      accessWindowId: null,
-      auditCaseNumber: null,
-      auditType: null,
-      accessEndDate: null,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    };
+    req.auditor = createAuditorContext();
     return next();
   }
   
@@ -102,17 +105,7 @@ const requireAuditorRole = async (req, res, next) => {
       .update({ last_access_at: db.knex.fn.now() });
     
     // Store auditor context for logging
-    req.auditor = {
-      userId,
-      userName,
-      role: userRole,
-      accessWindowId: accessWindow.id,
-      auditCaseNumber: accessWindow.audit_case_number,
-      auditType: accessWindow.audit_type,
-      accessEndDate: accessWindow.access_end_date,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    };
+    req.auditor = createAuditorContext(accessWindow);
     
     next();
   } catch (error) {
