@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compliance Admin Portal - RBI MAKER-CHECKER CONTROL</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f7fa;
+      color: #333;
+    }
+    
+    /* CRITICAL: RBI Watermark */
+    .watermark {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #8e44ad;
+      color: white;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+      z-index: 9999;
+      font-size: 14px;
+      letter-spacing: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .container {
+      display: flex;
+      height: 100vh;
+      padding-top: 45px;
+    }
+    
+    .sidebar {
+      width: 280px;
+      background: #2c3e50;
+      color: white;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    .sidebar h1 {
+      font-size: 18px;
+      margin-bottom: 10px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .role-indicator {
+      background: #8e44ad;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    
+    .nav-menu {
+      list-style: none;
+    }
+    
+    .nav-menu li {
+      margin-bottom: 8px;
+    }
+    
+    .nav-menu a {
+      color: white;
+      text-decoration: none;
+      display: block;
+      padding: 12px 14px;
+      border-radius: 4px;
+      transition: background 0.2s;
+      font-size: 14px;
+    }
+    
+    .nav-menu a:hover {
+      background: rgba(255,255,255,0.1);
+    }
+    
+    .nav-menu a.active {
+      background: #8e44ad;
+    }
+    
+    .content {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    h2 {
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+    
+    .alert {
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    
+    .alert-danger {
+      background: #fee;
+      border-left: 4px solid #c0392b;
+      color: #c0392b;
+    }
+    
+    .alert-info {
+      background: #e8f4f8;
+      border-left: 4px solid #3498db;
+      color: #2c3e50;
+    }
+    
+    .alert-warning {
+      background: #fef5e7;
+      border-left: 4px solid #f39c12;
+      color: #7d6608;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .card h3 {
+      margin-bottom: 15px;
+      color: #2c3e50;
+      font-size: 16px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      border-left: 4px solid #8e44ad;
+    }
+    
+    .stat-card h4 {
+      font-size: 13px;
+      color: #7f8c8d;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      font-size: 14px;
+    }
+    
+    table thead {
+      background: #f8f9fa;
+    }
+    
+    table th {
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #2c3e50;
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    table td {
+      padding: 12px;
+      border-bottom: 1px solid #f1f3f5;
+    }
+    
+    table tbody tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .btn {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #8e44ad;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #7d3c98;
+    }
+    
+    .btn-success {
+      background: #27ae60;
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background: #229954;
+    }
+    
+    .btn-danger {
+      background: #c0392b;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #a93226;
+    }
+    
+    .btn-secondary {
+      background: #95a5a6;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #7f8c8d;
+    }
+    
+    .readonly-badge {
+      background: #e74c3c;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      margin-left: 10px;
+    }
+    
+    .status-pending {
+      background: #f39c12;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .status-approved {
+      background: #27ae60;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .status-rejected {
+      background: #c0392b;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f1f3f5;
+    }
+    
+    .modal-header h3 {
+      margin: 0;
+      color: #2c3e50;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #2c3e50;
+    }
+    
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 25px;
+    }
+    
+    .filters {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .filters .form-group {
+      margin-bottom: 0;
+      flex: 1;
+      min-width: 200px;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #95a5a6;
+    }
+    
+    .forbidden-notice {
+      background: rgba(192, 57, 43, 0.1);
+      border: 2px solid #c0392b;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    
+    .forbidden-notice h3 {
+      color: #c0392b;
+      margin-bottom: 15px;
+    }
+    
+    .forbidden-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    
+    .forbidden-list li {
+      padding: 8px 0;
+      padding-left: 25px;
+      position: relative;
+    }
+    
+    .forbidden-list li:before {
+      content: '🚫';
+      position: absolute;
+      left: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="watermark">
+    🔒 COMPLIANCE ADMIN PORTAL - RBI MAKER-CHECKER CONTROL - CHECKER ROLE 🔒
+  </div>
+  
+  <div class="container">
+    <aside class="sidebar">
+      <h1>Compliance Admin</h1>
+      
+      <div class="role-indicator" id="roleIndicator">COMPLIANCE_ADMIN</div>
+      
+      <div style="margin-bottom: 20px;">
+        <label style="font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 5px; display: block;">SELECT MERCHANT</label>
+        <select id="merchantSelector" onchange="selectTenant()" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #34495e; background: #34495e; color: white; font-size: 14px;">
+          <option value="">Loading...</option>
+        </select>
+        <div id="merchantSelectorError" style="color: #e74c3c; margin-top: 5px; font-size: 12px; display: none;"></div>
+      </div>
+      
+      <nav>
+        <ul class="nav-menu">
+          <li><a href="#" class="active" onclick="showTab('dashboard')">📊 Dashboard</a></li>
+          <li><a href="#" onclick="showTab('overrides')">✋ Override Approvals</a></li>
+          <li><a href="#" onclick="showTab('high-risk')">⚠️ High-Risk Actions</a></li>
+          <li><a href="#" onclick="showTab('breaches')">🛡️ Control Breaches</a></li>
+          <li><a href="#" onclick="showTab('audit')">📋 Audit Support</a></li>
+        </ul>
+      </nav>
+      
+      <div class="forbidden-notice" style="margin-top: 30px;">
+        <h3 style="font-size: 13px;">🚫 FORBIDDEN ACTIONS</h3>
+        <ul class="forbidden-list" style="font-size: 11px; line-height: 1.6;">
+          <li>Ledger editing</li>
+          <li>Settlement confirmation</li>
+          <li>Period management</li>
+          <li>Ledger lock execution</li>
+          <li>Reconciliation actions</li>
+          <li>Override requests</li>
+        </ul>
+      </div>
+      
+      <button class="btn btn-secondary" onclick="logout()" style="width: 100%; margin-top: 20px;">
+        🚪 Logout
+      </button>
+    </aside>
+    
+    <main class="content">
+      <!-- Dashboard Tab -->
+      <div id="dashboard-tab" class="tab-content active">
+        <h2>Compliance Dashboard</h2>
+        
+        <div class="alert alert-info">
+          ℹ️ <strong>Compliance Role:</strong> You can review and approve/reject override requests. You cannot perform financial operations or request overrides.
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h4>Pending Approvals</h4>
+            <div class="value" id="stat-pending">-</div>
+          </div>
+          <div class="stat-card">
+            <h4>Recent Overrides</h4>
+            <div class="value" id="stat-overrides">-</div>
+          </div>
+          <div class="stat-card">
+            <h4>High-Risk Actions (30d)</h4>
+            <div class="value" id="stat-high-risk">-</div>
+          </div>
+          <div class="stat-card">
+            <h4>Control Breaches (30d)</h4>
+            <div class="value" id="stat-breaches">-</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Recent Override Actions</h3>
+          <div id="recentOverrides">Loading...</div>
+        </div>
+      </div>
+      
+      <!-- Override Approvals Tab -->
+      <div id="overrides-tab" class="tab-content">
+        <h2>Override Approval Console <span class="readonly-badge">CORE FEATURE</span></h2>
+        
+        <div class="alert alert-danger">
+          🚫 <strong>Compliance Admin Role:</strong> You can ONLY approve or reject override requests. You CANNOT create override requests.
+        </div>
+        
+        <div class="card">
+          <h3>Pending Approval Requests</h3>
+          <table id="pendingApprovalsTable">
+            <thead>
+              <tr>
+                <th>Request ID</th>
+                <th>Type</th>
+                <th>Requested By</th>
+                <th>Justification</th>
+                <th>Requested At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pendingApprovalsTableBody">
+              <tr><td colspan="6" class="no-data">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="card">
+          <h3>Override History</h3>
+          <table id="overrideHistoryTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Justification</th>
+                <th>Requested By</th>
+                <th>Approved By</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="overrideHistoryTableBody">
+              <tr><td colspan="5" class="no-data">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- High-Risk Actions Tab -->
+      <div id="high-risk-tab" class="tab-content">
+        <h2>High-Risk Action Monitor <span class="readonly-badge">READ-ONLY</span></h2>
+        
+        <div class="alert alert-info">
+          ℹ️ <strong>Purpose:</strong> "What exceptional things happened in the system?" - Monitor critical financial operations.
+        </div>
+        
+        <div class="filters">
+          <div class="form-group">
+            <label>From Date</label>
+            <input type="date" id="highrisk-from-date">
+          </div>
+          <div class="form-group">
+            <label>To Date</label>
+            <input type="date" id="highrisk-to-date">
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="loadHighRiskActions()">Search</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Accounting Period Closures</h3>
+          <table id="periodClosuresTable">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Closed By</th>
+                <th>Closed At</th>
+              </tr>
+            </thead>
+            <tbody id="periodClosuresTableBody">
+              <tr><td colspan="5" class="no-data">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="card">
+          <h3>Ledger Locks Applied</h3>
+          <table id="ledgerLocksTable">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Reason</th>
+                <th>Applied By</th>
+                <th>Applied At</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerLocksTableBody">
+              <tr><td colspan="5" class="no-data">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="card">
+          <h3>Settlement Retries After Failure</h3>
+          <table id="settlementRetriesTable">
+            <thead>
+              <tr>
+                <th>Settlement Ref</th>
+                <th>Merchant</th>
+                <th>Amount</th>
+                <th>Retry Count</th>
+                <th>Status</th>
+                <th>Updated At</th>
+              </tr>
+            </thead>
+            <tbody id="settlementRetriesTableBody">
+              <tr><td colspan="6" class="no-data">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="card">
+          <h3>Emergency Overrides</h3>
+          <table id="emergencyOverridesTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Justification</th>
+                <th>Override By</th>
+                <th>Approved By</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="emergencyOverridesTableBody">
+              <tr><td colspan="5" class="no-data">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Control Breaches Tab -->
+      <div id="breaches-tab" class="tab-content">
+        <h2>Control Breach & Violation Viewer <span class="readonly-badge">READ-ONLY</span></h2>
+        
+        <div class="alert alert-warning">
+          ⚠️ <strong>Purpose:</strong> "Did the system prevent improper actions?" - Review blocked operations and violations.
+        </div>
+        
+        <div class="filters">
+          <div class="form-group">
+            <label>From Date</label>
+            <input type="date" id="breaches-from-date">
+          </div>
+          <div class="form-group">
+            <label>To Date</label>
+            <input type="date" id="breaches-to-date">
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="loadControlBreaches()">Search</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Blocked Actions (System Prevented)</h3>
+          <table id="blockedActionsTable">
+            <thead>
+              <tr>
+                <th>Action Type</th>
+                <th>User</th>
+                <th>Resource</th>
+                <th>Reason</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="blockedActionsTableBody">
+              <tr><td colspan="5" class="no-data">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="card">
+          <h3>Failed Override Attempts</h3>
+          <table id="failedOverridesTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Requestor</th>
+                <th>Justification</th>
+                <th>Rejected By</th>
+                <th>Rejection Reason</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="failedOverridesTableBody">
+              <tr><td colspan="6" class="no-data">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Audit Support Tab -->
+      <div id="audit-tab" class="tab-content">
+        <h2>Audit Support View <span class="readonly-badge">READ-ONLY</span></h2>
+        
+        <div class="alert alert-info">
+          ℹ️ <strong>Purpose:</strong> Complete audit trail with internal annotations for RBI auditors.
+        </div>
+        
+        <div class="filters">
+          <div class="form-group">
+            <label>From Date</label>
+            <input type="date" id="audit-from-date">
+          </div>
+          <div class="form-group">
+            <label>To Date</label>
+            <input type="date" id="audit-to-date">
+          </div>
+          <div class="form-group">
+            <label>Action Type</label>
+            <select id="audit-action-type">
+              <option value="">All Actions</option>
+              <option value="APPROVE_OVERRIDE">Approve Override</option>
+              <option value="REJECT_OVERRIDE">Reject Override</option>
+              <option value="VIEW_DASHBOARD">View Dashboard</option>
+              <option value="VIEW_PENDING_OVERRIDES">View Pending Overrides</option>
+              <option value="VIEW_HIGH_RISK_ACTIONS">View High Risk Actions</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="loadAuditSupport()">Search</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Audit Trail</h3>
+          <table id="auditTrailTable">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Role</th>
+                <th>Action</th>
+                <th>Resource</th>
+                <th>Status</th>
+                <th>IP Address</th>
+              </tr>
+            </thead>
+            <tbody id="auditTrailTableBody">
+              <tr><td colspan="7" class="no-data">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Approve Override Modal -->
+  <div id="approveModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Approve Override Request</h3>
+      </div>
+      <div id="approveDetails"></div>
+      <div class="form-group">
+        <label>Approval Reason <span style="color: red;">*</span></label>
+        <textarea id="approvalReason" placeholder="Explain why you are approving this override request..." required></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeApproveModal()">Cancel</button>
+        <button class="btn btn-success" onclick="confirmApprove()">✓ Approve</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Reject Override Modal -->
+  <div id="rejectModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Reject Override Request</h3>
+      </div>
+      <div id="rejectDetails"></div>
+      <div class="form-group">
+        <label>Rejection Reason <span style="color: red;">*</span></label>
+        <textarea id="rejectionReason" placeholder="Explain why you are rejecting this override request..." required></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeRejectModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmReject()">✗ Reject</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = '/api/compliance-admin';
+    let currentTenantId = null;
+    let currentRequest = null;
+    
+    // Safe localStorage wrapper
+    function safeLocalStorage() {
+      try {
+        const test = '__storage_test__';
+        localStorage.setItem(test, test);
+        localStorage.removeItem(test);
+        return localStorage;
+      } catch(e) {
+        console.warn('localStorage not available, using memory storage');
+        const storage = {};
+        return {
+          getItem: (key) => storage[key] || null,
+          setItem: (key, value) => { storage[key] = value; return true; },
+          removeItem: (key) => { delete storage[key]; return true; },
+          clear: () => { Object.keys(storage).forEach(k => delete storage[k]); return true; }
+        };
+      }
+    }
+    
+    const storage = safeLocalStorage();
+    
+    // UUID validation
+    function isValidUUID(uuid) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(uuid);
+    }
+    
+    // Check user access on load
+    async function checkAccess() {
+      const role = storage.getItem('userRole');
+      const userId = storage.getItem('userId');
+      
+      if (!role || !userId) {
+        window.location.replace('/platform-login.html?logout=true');
+        return;
+      }
+      
+      // CRITICAL: Only COMPLIANCE_ADMIN allowed
+      if (role !== 'COMPLIANCE_ADMIN') {
+        alert('Access denied: This portal requires COMPLIANCE_ADMIN role');
+        storage.clear();
+        window.location.replace('/platform-login.html?logout=true');
+        return;
+      }
+      
+      document.getElementById('roleIndicator').textContent = role;
+      window.currentUser = { role, userId };
+      
+      // Load merchants after access check
+      await loadMerchants();
+    }
+    
+    // Load available merchants/tenants
+    async function loadMerchants() {
+      try {
+        const data = await apiCall('/merchants', 'GET', null, '/api');
+        
+        if (data.success && data.merchants?.length > 0) {
+          const selector = document.getElementById('merchantSelector');
+          selector.innerHTML = '<option value="">Select a merchant...</option>';
+          
+          data.merchants.forEach(merchant => {
+            const option = document.createElement('option');
+            option.value = merchant.id;
+            option.textContent = `${merchant.merchant_name} (${merchant.merchant_code})`;
+            if (merchant.status !== 'active') {
+              option.textContent += ` [${merchant.status}]`;
+            }
+            selector.appendChild(option);
+          });
+          
+          // Try to restore previously selected merchant
+          const savedTenantId = storage.getItem('selectedTenantId');
+          if (savedTenantId && isValidUUID(savedTenantId) && data.merchants.some(m => m.id === savedTenantId)) {
+            selector.value = savedTenantId;
+            currentTenantId = savedTenantId;
+            loadDashboard();
+          } else if (data.merchants.length === 1) {
+            selector.value = data.merchants[0].id;
+            currentTenantId = data.merchants[0].id;
+            storage.setItem('selectedTenantId', currentTenantId);
+            loadDashboard();
+          }
+        } else {
+          document.getElementById('merchantSelector').innerHTML = '<option value="">No merchants available</option>';
+          document.getElementById('merchantSelectorError').textContent = 'No merchants found.';
+          document.getElementById('merchantSelectorError').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error loading merchants:', error);
+      }
+    }
+    
+    // Select tenant
+    function selectTenant() {
+      const selector = document.getElementById('merchantSelector');
+      currentTenantId = selector.value;
+      
+      if (currentTenantId) {
+        storage.setItem('selectedTenantId', currentTenantId);
+        loadDashboard();
+      }
+    }
+    
+    // API call helper
+    async function apiCall(endpoint, method = 'GET', body = null, baseUrl = API_BASE) {
+      const url = `${baseUrl}${endpoint}`;
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': storage.getItem('userRole'),
+          'x-user-id': storage.getItem('userId'),
+          'x-user-email': storage.getItem('userEmail') || ''
+        }
+      };
+      
+      if (body && method !== 'GET') {
+        options.body = JSON.stringify(body);
+      }
+      
+      const response = await fetch(url, options);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'API request failed');
+      }
+      
+      return data;
+    }
+    
+    // Show tab
+    function showTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Remove active class from all nav items
+      document.querySelectorAll('.nav-menu a').forEach(link => {
+        link.classList.remove('active');
+      });
+      
+      // Show selected tab
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      
+      // Add active class to clicked nav item
+      event.target.classList.add('active');
+      
+      // Load tab data
+      if (tabName === 'dashboard') {
+        loadDashboard();
+      } else if (tabName === 'overrides') {
+        loadOverrides();
+      } else if (tabName === 'high-risk') {
+        loadHighRiskActions();
+      } else if (tabName === 'breaches') {
+        loadControlBreaches();
+      } else if (tabName === 'audit') {
+        loadAuditSupport();
+      }
+    }
+    
+    // Load dashboard
+    async function loadDashboard() {
+      if (!currentTenantId) return;
+      
+      try {
+        const data = await apiCall(`/dashboard?tenantId=${currentTenantId}`);
+        
+        document.getElementById('stat-pending').textContent = data.data.pendingApprovalsCount;
+        document.getElementById('stat-overrides').textContent = data.data.recentOverrides.length;
+        document.getElementById('stat-high-risk').textContent = data.data.highRiskActionsCount;
+        document.getElementById('stat-breaches').textContent = data.data.controlBreachesCount;
+        
+        // Display recent overrides
+        const container = document.getElementById('recentOverrides');
+        if (data.data.recentOverrides.length === 0) {
+          container.innerHTML = '<p class="no-data">No recent overrides</p>';
+        } else {
+          let html = '<table><thead><tr><th>Type</th><th>Approved By</th><th>Date</th></tr></thead><tbody>';
+          data.data.recentOverrides.forEach(override => {
+            html += `<tr>
+              <td>${override.override_type}</td>
+              <td>${override.approved_by || 'N/A'}</td>
+              <td>${new Date(override.created_at).toLocaleString()}</td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        alert('Error loading dashboard: ' + error.message);
+      }
+    }
+    
+    // Load overrides
+    async function loadOverrides() {
+      if (!currentTenantId) return;
+      
+      try {
+        // Load pending approvals
+        const pendingData = await apiCall('/overrides/pending');
+        const pendingBody = document.getElementById('pendingApprovalsTableBody');
+        
+        if (pendingData.data.length === 0) {
+          pendingBody.innerHTML = '<tr><td colspan="6" class="no-data">No pending approval requests</td></tr>';
+        } else {
+          let html = '';
+          pendingData.data.forEach(req => {
+            const reqData = req.request_data;
+            html += `<tr>
+              <td>${req.id.substring(0, 8)}...</td>
+              <td>${req.request_type}</td>
+              <td>${req.requestor_username} (${req.requestor_email})</td>
+              <td style="max-width: 300px;">${reqData.justification}</td>
+              <td>${new Date(req.requested_at).toLocaleString()}</td>
+              <td>
+                <button class="btn btn-success" style="padding: 6px 12px; margin-right: 5px;" onclick="showApproveModal('${req.id}')">✓ Approve</button>
+                <button class="btn btn-danger" style="padding: 6px 12px;" onclick="showRejectModal('${req.id}')">✗ Reject</button>
+              </td>
+            </tr>`;
+          });
+          pendingBody.innerHTML = html;
+        }
+        
+        // Load history
+        const historyData = await apiCall(`/overrides/history?tenantId=${currentTenantId}&limit=50`);
+        const historyBody = document.getElementById('overrideHistoryTableBody');
+        
+        if (historyData.data.overrides.length === 0) {
+          historyBody.innerHTML = '<tr><td colspan="5" class="no-data">No override history</td></tr>';
+        } else {
+          let html = '';
+          historyData.data.overrides.forEach(override => {
+            html += `<tr>
+              <td>${override.override_type}</td>
+              <td style="max-width: 300px;">${override.justification || 'N/A'}</td>
+              <td>${override.override_by}</td>
+              <td>${override.approved_by || 'N/A'}</td>
+              <td>${new Date(override.created_at).toLocaleString()}</td>
+            </tr>`;
+          });
+          historyBody.innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Error loading overrides:', error);
+        alert('Error loading overrides: ' + error.message);
+      }
+    }
+    
+    // Show approve modal
+    async function showApproveModal(requestId) {
+      try {
+        const data = await apiCall('/overrides/pending');
+        const request = data.data.find(r => r.id === requestId);
+        
+        if (!request) {
+          alert('Request not found');
+          return;
+        }
+        
+        currentRequest = request;
+        const reqData = request.request_data;
+        
+        document.getElementById('approveDetails').innerHTML = `
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+            <p><strong>Type:</strong> ${request.request_type}</p>
+            <p><strong>Requested By:</strong> ${request.requestor_username} (${request.requestor_email})</p>
+            <p><strong>Justification:</strong> ${reqData.justification}</p>
+            <p><strong>Requested At:</strong> ${new Date(request.requested_at).toLocaleString()}</p>
+          </div>
+        `;
+        
+        document.getElementById('approvalReason').value = '';
+        document.getElementById('approveModal').classList.add('active');
+      } catch (error) {
+        console.error('Error showing approve modal:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    // Close approve modal
+    function closeApproveModal() {
+      document.getElementById('approveModal').classList.remove('active');
+      currentRequest = null;
+    }
+    
+    // Confirm approve
+    async function confirmApprove() {
+      const approvalReason = document.getElementById('approvalReason').value.trim();
+      
+      if (!approvalReason) {
+        alert('Approval reason is required');
+        return;
+      }
+      
+      if (!currentRequest) {
+        alert('No request selected');
+        return;
+      }
+      
+      try {
+        await apiCall(`/overrides/${currentRequest.id}/approve`, 'POST', { approvalReason });
+        alert('Override request approved successfully');
+        closeApproveModal();
+        loadOverrides();
+        loadDashboard();
+      } catch (error) {
+        console.error('Error approving override:', error);
+        alert('Error approving override: ' + error.message);
+      }
+    }
+    
+    // Show reject modal
+    async function showRejectModal(requestId) {
+      try {
+        const data = await apiCall('/overrides/pending');
+        const request = data.data.find(r => r.id === requestId);
+        
+        if (!request) {
+          alert('Request not found');
+          return;
+        }
+        
+        currentRequest = request;
+        const reqData = request.request_data;
+        
+        document.getElementById('rejectDetails').innerHTML = `
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+            <p><strong>Type:</strong> ${request.request_type}</p>
+            <p><strong>Requested By:</strong> ${request.requestor_username} (${request.requestor_email})</p>
+            <p><strong>Justification:</strong> ${reqData.justification}</p>
+            <p><strong>Requested At:</strong> ${new Date(request.requested_at).toLocaleString()}</p>
+          </div>
+        `;
+        
+        document.getElementById('rejectionReason').value = '';
+        document.getElementById('rejectModal').classList.add('active');
+      } catch (error) {
+        console.error('Error showing reject modal:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    // Close reject modal
+    function closeRejectModal() {
+      document.getElementById('rejectModal').classList.remove('active');
+      currentRequest = null;
+    }
+    
+    // Confirm reject
+    async function confirmReject() {
+      const rejectionReason = document.getElementById('rejectionReason').value.trim();
+      
+      if (!rejectionReason) {
+        alert('Rejection reason is required');
+        return;
+      }
+      
+      if (!currentRequest) {
+        alert('No request selected');
+        return;
+      }
+      
+      try {
+        await apiCall(`/overrides/${currentRequest.id}/reject`, 'POST', { rejectionReason });
+        alert('Override request rejected');
+        closeRejectModal();
+        loadOverrides();
+        loadDashboard();
+      } catch (error) {
+        console.error('Error rejecting override:', error);
+        alert('Error rejecting override: ' + error.message);
+      }
+    }
+    
+    // Load high-risk actions
+    async function loadHighRiskActions() {
+      if (!currentTenantId) return;
+      
+      const fromDate = document.getElementById('highrisk-from-date').value;
+      const toDate = document.getElementById('highrisk-to-date').value;
+      
+      let url = `/high-risk-actions?tenantId=${currentTenantId}`;
+      if (fromDate) url += `&fromDate=${fromDate}`;
+      if (toDate) url += `&toDate=${toDate}`;
+      
+      try {
+        const data = await apiCall(url);
+        
+        // Period closures
+        const periodBody = document.getElementById('periodClosuresTableBody');
+        if (data.data.periodClosures.length === 0) {
+          periodBody.innerHTML = '<tr><td colspan="5" class="no-data">No period closures</td></tr>';
+        } else {
+          let html = '';
+          data.data.periodClosures.forEach(period => {
+            html += `<tr>
+              <td>${period.period_name}</td>
+              <td>${period.period_type}</td>
+              <td><span class="status-${period.status.toLowerCase().replace('_', '-')}">${period.status}</span></td>
+              <td>${period.closed_by || 'N/A'}</td>
+              <td>${period.closed_at ? new Date(period.closed_at).toLocaleString() : 'N/A'}</td>
+            </tr>`;
+          });
+          periodBody.innerHTML = html;
+        }
+        
+        // Ledger locks
+        const locksBody = document.getElementById('ledgerLocksTableBody');
+        if (data.data.ledgerLocks.length === 0) {
+          locksBody.innerHTML = '<tr><td colspan="5" class="no-data">No ledger locks</td></tr>';
+        } else {
+          let html = '';
+          data.data.ledgerLocks.forEach(lock => {
+            html += `<tr>
+              <td>${lock.period_name || 'N/A'}</td>
+              <td>${lock.reason || 'N/A'}</td>
+              <td>${lock.locked_by || 'N/A'}</td>
+              <td>${new Date(lock.applied_at).toLocaleString()}</td>
+              <td>${lock.is_active ? 'Active' : 'Released'}</td>
+            </tr>`;
+          });
+          locksBody.innerHTML = html;
+        }
+        
+        // Settlement retries
+        const retriesBody = document.getElementById('settlementRetriesTableBody');
+        if (data.data.settlementRetries.length === 0) {
+          retriesBody.innerHTML = '<tr><td colspan="6" class="no-data">No settlement retries</td></tr>';
+        } else {
+          let html = '';
+          data.data.settlementRetries.forEach(settlement => {
+            html += `<tr>
+              <td>${settlement.settlement_ref}</td>
+              <td>${settlement.merchant_code || 'N/A'}</td>
+              <td>${settlement.amount}</td>
+              <td>${settlement.retry_count}</td>
+              <td>${settlement.status}</td>
+              <td>${new Date(settlement.updated_at).toLocaleString()}</td>
+            </tr>`;
+          });
+          retriesBody.innerHTML = html;
+        }
+        
+        // Emergency overrides
+        const emergencyBody = document.getElementById('emergencyOverridesTableBody');
+        if (data.data.emergencyOverrides.length === 0) {
+          emergencyBody.innerHTML = '<tr><td colspan="5" class="no-data">No emergency overrides</td></tr>';
+        } else {
+          let html = '';
+          data.data.emergencyOverrides.forEach(override => {
+            html += `<tr>
+              <td>${override.override_type}</td>
+              <td style="max-width: 300px;">${override.justification || 'N/A'}</td>
+              <td>${override.override_by}</td>
+              <td>${override.approved_by || 'N/A'}</td>
+              <td>${new Date(override.created_at).toLocaleString()}</td>
+            </tr>`;
+          });
+          emergencyBody.innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Error loading high-risk actions:', error);
+        alert('Error loading high-risk actions: ' + error.message);
+      }
+    }
+    
+    // Load control breaches
+    async function loadControlBreaches() {
+      if (!currentTenantId) return;
+      
+      const fromDate = document.getElementById('breaches-from-date').value;
+      const toDate = document.getElementById('breaches-to-date').value;
+      
+      let url = `/control-breaches?tenantId=${currentTenantId}`;
+      if (fromDate) url += `&fromDate=${fromDate}`;
+      if (toDate) url += `&toDate=${toDate}`;
+      
+      try {
+        const data = await apiCall(url);
+        
+        // Blocked actions
+        const blockedBody = document.getElementById('blockedActionsTableBody');
+        if (data.data.blockedActions.length === 0) {
+          blockedBody.innerHTML = '<tr><td colspan="5" class="no-data">No blocked actions</td></tr>';
+        } else {
+          let html = '';
+          data.data.blockedActions.forEach(action => {
+            html += `<tr>
+              <td>${action.action_type}</td>
+              <td>${action.user_id || 'N/A'}</td>
+              <td>${action.resource_type} / ${action.resource_id || 'N/A'}</td>
+              <td style="max-width: 300px;">${action.details ? JSON.parse(action.details).error || 'N/A' : 'N/A'}</td>
+              <td>${new Date(action.created_at).toLocaleString()}</td>
+            </tr>`;
+          });
+          blockedBody.innerHTML = html;
+        }
+        
+        // Failed overrides
+        const failedBody = document.getElementById('failedOverridesTableBody');
+        if (data.data.failedOverrides.length === 0) {
+          failedBody.innerHTML = '<tr><td colspan="6" class="no-data">No failed override attempts</td></tr>';
+        } else {
+          let html = '';
+          data.data.failedOverrides.forEach(override => {
+            const reqData = typeof override.request_data === 'string' ? JSON.parse(override.request_data) : override.request_data;
+            html += `<tr>
+              <td>${override.request_type}</td>
+              <td>${reqData.requestedBy || 'N/A'}</td>
+              <td style="max-width: 250px;">${reqData.justification}</td>
+              <td>${override.approver_id || 'N/A'}</td>
+              <td style="max-width: 250px;">${override.approval_reason || 'N/A'}</td>
+              <td>${new Date(override.updated_at).toLocaleString()}</td>
+            </tr>`;
+          });
+          failedBody.innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Error loading control breaches:', error);
+        alert('Error loading control breaches: ' + error.message);
+      }
+    }
+    
+    // Load audit support
+    async function loadAuditSupport() {
+      if (!currentTenantId) return;
+      
+      const fromDate = document.getElementById('audit-from-date').value;
+      const toDate = document.getElementById('audit-to-date').value;
+      const actionType = document.getElementById('audit-action-type').value;
+      
+      let url = `/audit-support?tenantId=${currentTenantId}`;
+      if (fromDate) url += `&fromDate=${fromDate}`;
+      if (toDate) url += `&toDate=${toDate}`;
+      if (actionType) url += `&actionType=${actionType}`;
+      
+      try {
+        const data = await apiCall(url);
+        
+        const auditBody = document.getElementById('auditTrailTableBody');
+        if (data.data.auditLogs.length === 0) {
+          auditBody.innerHTML = '<tr><td colspan="7" class="no-data">No audit logs</td></tr>';
+        } else {
+          let html = '';
+          data.data.auditLogs.forEach(log => {
+            html += `<tr>
+              <td>${new Date(log.created_at).toLocaleString()}</td>
+              <td>${log.user_id || 'N/A'}</td>
+              <td>${log.user_role || 'N/A'}</td>
+              <td>${log.action_type}</td>
+              <td>${log.resource_type} / ${log.resource_id || 'N/A'}</td>
+              <td>${log.status || 'SUCCESS'}</td>
+              <td>${log.ip_address || 'N/A'}</td>
+            </tr>`;
+          });
+          auditBody.innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Error loading audit support:', error);
+        alert('Error loading audit support: ' + error.message);
+      }
+    }
+    
+    // Logout
+    function logout() {
+      storage.clear();
+      window.location.replace('/platform-login.html?logout=true');
+    }
+    
+    // Set default dates (last 30 days)
+    function setDefaultDates() {
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const formatDate = (date) => date.toISOString().split('T')[0];
+      
+      document.getElementById('highrisk-from-date').value = formatDate(thirtyDaysAgo);
+      document.getElementById('highrisk-to-date').value = formatDate(today);
+      document.getElementById('breaches-from-date').value = formatDate(thirtyDaysAgo);
+      document.getElementById('breaches-to-date').value = formatDate(today);
+      
+      const ninetyDaysAgo = new Date(today);
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      document.getElementById('audit-from-date').value = formatDate(ninetyDaysAgo);
+      document.getElementById('audit-to-date').value = formatDate(today);
+    }
+    
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      checkAccess();
+      setDefaultDates();
+    });
+  </script>
+</body>
+</html>
