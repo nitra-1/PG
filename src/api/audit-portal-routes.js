@@ -67,7 +67,7 @@ router.get('/overview', async (req, res) => {
       .first();
     
     // Get tenant info
-    const tenant = await db.knex('tenants')
+    const tenant = await db.knex('merchants')
       .where('id', tenantId)
       .first();
     
@@ -91,7 +91,7 @@ router.get('/overview', async (req, res) => {
         },
         tenant: {
           id: tenant?.id,
-          name: tenant?.name || 'Unknown'
+          name: tenant?.merchant_name || 'Unknown'
         },
         dataSummary: {
           accountingPeriodsCount: parseInt(periodsCount?.count || 0),
@@ -830,15 +830,15 @@ router.get('/compliance-reports/settlement-aging', async (req, res) => {
  */
 router.get('/tenants', async (req, res) => {
   try {
-    const tenants = await db.knex('tenants')
+    const merchants = await db.knex('merchants')
       .where('status', 'active')
-      .select('id', 'name', 'created_at')
-      .orderBy('name', 'asc');
+      .select('id', 'merchant_name as name', 'created_at')
+      .orderBy('merchant_name', 'asc');
     
     res.json({
       success: true,
       data: {
-        tenants
+        tenants: merchants
       }
     });
   } catch (error) {
