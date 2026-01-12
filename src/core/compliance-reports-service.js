@@ -245,13 +245,14 @@ class ComplianceReportsService {
         .whereBetween('ledger_transactions.created_at', [periodStart, periodEnd])
         .where('ledger_accounts.account_type', 'platform_revenue')
         .where('ledger_entries.entry_type', 'credit')
+        .whereNotNull('ledger_transactions.event_type')
         .whereIn('ledger_transactions.event_type', ['platform_fee', 'gateway_fee'])
         .select('ledger_transactions.event_type')
         .sum('ledger_entries.amount as total')
         .groupBy('ledger_transactions.event_type');
       
       const breakdown = feeRevenue.map(fee => ({
-        feeType: (fee.event_type || '').toUpperCase(),
+        feeType: fee.event_type.toUpperCase(), // Safe now due to whereNotNull filter
         amount: (fee.total || 0).toString(),
         currency: this.DEFAULT_CURRENCY
       }));
