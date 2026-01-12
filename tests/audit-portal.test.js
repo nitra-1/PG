@@ -44,7 +44,7 @@ describe('Audit Portal Security Tests', () => {
             })
           };
         }
-        if (table === 'tenants') {
+        if (table === 'merchants') {
           return {
             where: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
@@ -112,7 +112,7 @@ describe('Audit Portal Security Tests', () => {
             })
           };
         }
-        if (table === 'tenants') {
+        if (table === 'merchants') {
           return {
             where: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
@@ -281,7 +281,7 @@ describe('Audit Portal Security Tests', () => {
             })
           };
         }
-        if (table === 'tenants') {
+        if (table === 'merchants') {
           return {
             where: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
@@ -317,7 +317,7 @@ describe('Audit Portal Security Tests', () => {
             })
           };
         }
-        if (table === 'tenants') {
+        if (table === 'merchants') {
           return {
             where: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
