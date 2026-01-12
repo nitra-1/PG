@@ -162,6 +162,21 @@
       font-size: 16px;
     }
     
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+    
     .content {
       flex: 1;
       padding: 30px;
@@ -530,6 +545,10 @@
           <span class="nav-icon">📈</span> Compliance Reports
         </a></li>
       </ul>
+      
+      <button class="btn btn-secondary" onclick="logout()" style="width: 100%; margin-top: 20px;">
+        🚪 Logout
+      </button>
     </div>
 
     <!-- Main Content Area -->
@@ -835,11 +854,23 @@
     let currentPage = 1;
     let currentReportData = null;
     
-    // Authentication headers (in production, these would come from login)
+    // Check authentication on page load
+    const userId = localStorage.getItem('userId');
+    const userRole = localStorage.getItem('userRole');
+    const username = localStorage.getItem('username');
+    
+    // Redirect to login if not authenticated or not an auditor
+    if (!userId || !userRole || userRole !== 'AUDITOR') {
+      // Clear any invalid session data
+      localStorage.clear();
+      window.location.replace('/platform-login.html');
+    }
+    
+    // Authentication headers from localStorage
     const authHeaders = {
-      'X-User-Role': 'AUDITOR',
-      'X-User-Id': 'auditor-001',
-      'X-User-Name': 'Jane Doe - RBI Inspector'
+      'X-User-Role': userRole,
+      'X-User-Id': userId,
+      'X-User-Name': username || 'Auditor'
     };
     
     // Initialize on page load
@@ -1460,6 +1491,15 @@
       linkElement.setAttribute('href', dataUri);
       linkElement.setAttribute('download', exportFileDefaultName);
       linkElement.click();
+    }
+    
+    // Logout function
+    function logout() {
+      // Clear all session data
+      localStorage.clear();
+      
+      // Redirect to login page with logout flag
+      window.location.replace('/platform-login.html?logout=true');
     }
   </script>
 </body>
