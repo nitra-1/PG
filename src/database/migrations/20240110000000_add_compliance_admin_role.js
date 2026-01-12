@@ -41,8 +41,6 @@ exports.up = async function(knex) {
       END IF;
     END $$;
   `);
-  
-  return knex.schema;
 };
 
 exports.down = async function(knex) {
@@ -51,5 +49,4 @@ exports.down = async function(knex) {
   // If rollback is needed, a new enum type would need to be created and data migrated
   console.warn('Warning: Rollback of COMPLIANCE_ADMIN role addition is not supported.');
   console.warn('Enum values cannot be removed in PostgreSQL without recreating the type.');
-  return knex.schema;
 };
