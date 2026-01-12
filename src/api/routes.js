@@ -824,6 +824,13 @@ router.use('/ops', opsConsoleRoutes);
 const financeAdminRoutes = require('./finance-admin-routes');
 router.use('/finance-admin', financeAdminRoutes);
 
+// ===== Compliance Admin Portal Routes =====
+// CRITICAL: RBI Maker-Checker Control - CHECKER ROLE
+// Requires COMPLIANCE_ADMIN role (independent of FINANCE_ADMIN)
+// NO financial operations - approval/review only
+const complianceAdminRoutes = require('./compliance-admin-routes');
+router.use('/compliance-admin', complianceAdminRoutes);
+
 // ===== Audit Portal Routes =====
 // CRITICAL: STRICTLY READ-ONLY audit access
 // Requires AUDITOR role with time-boxed access

@@ -97,13 +97,20 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
       });
     }
     
-    // RULE 2: Finance roles blocked in Ops Console
+    // RULE 2: Finance and Compliance roles require special handling
+    // Note: Per problem statement, COMPLIANCE_ADMIN can now be created via Ops Console
+    // FINANCE_ADMIN remains blocked for security
     if (role === 'FINANCE_ADMIN') {
       return res.status(403).json({
         success: false,
-        error: 'Cannot assign finance roles',
-        message: 'Finance roles can only be assigned by system administrators through secure channels'
+        error: 'Cannot assign FINANCE_ADMIN role',
+        message: 'Finance Admin role can only be assigned by system administrators through secure channels'
       });
+    }
+    
+    // COMPLIANCE_ADMIN is allowed but logged specially
+    if (role === 'COMPLIANCE_ADMIN') {
+      console.log(`[SECURITY] COMPLIANCE_ADMIN user creation requested by ${req.opsUser.userId}`);
     }
     
     const passwordHash = await bcrypt.hash(password, 10);
@@ -221,12 +228,18 @@ router.put('/:id/role', requireOpsConsoleAccess, logOpsAction('UPDATE_USER_ROLE'
     }
     
     // RULE 2: Finance roles blocked in Ops Console
+    // COMPLIANCE_ADMIN is allowed per requirements
     if (role === 'FINANCE_ADMIN') {
       return res.status(403).json({
         success: false,
-        error: 'Cannot assign finance roles',
-        message: 'Finance roles can only be assigned by system administrators through secure channels'
+        error: 'Cannot assign FINANCE_ADMIN role',
+        message: 'Finance Admin role can only be assigned by system administrators through secure channels'
       });
+    }
+    
+    // Log COMPLIANCE_ADMIN role assignment
+    if (role === 'COMPLIANCE_ADMIN') {
+      console.log(`[SECURITY] COMPLIANCE_ADMIN role assignment requested by ${req.opsUser.userId} for user ${id}`);
     }
     
     // Get current user info
