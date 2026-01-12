@@ -260,8 +260,27 @@ describe('Platform Ops Console - Security Tests', () => {
         .send({ role: 'FINANCE_ADMIN' });
       
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('Cannot assign finance roles');
+      expect(response.body.error).toContain('Cannot assign FINANCE_ADMIN role');
       expect(response.body.message).toContain('system administrators through secure channels');
+    });
+    
+    test('should allow COMPLIANCE_ADMIN role assignment without approval', async () => {
+      db.query.mockResolvedValueOnce({ 
+        rows: [{ id: 'user-456', username: 'testuser', role: 'MERCHANT' }] 
+      }).mockResolvedValueOnce({
+        rows: [{ id: 'user-456', username: 'testuser', email: 'test@test.com', role: 'COMPLIANCE_ADMIN' }]
+      });
+      
+      const response = await request(app)
+        .put('/api/ops/users/user-456/role')
+        .set('x-user-role', 'PLATFORM_ADMIN')
+        .set('x-user-id', 'admin-123')
+        .send({ role: 'COMPLIANCE_ADMIN' });
+      
+      expect(response.status).toBe(200);
+      expect(response.body.message).toContain('updated successfully');
+      expect(response.body.user.role).toBe('COMPLIANCE_ADMIN');
+      expect(response.body).not.toHaveProperty('approvalRequestId');
     });
     
     test('should require approval for PLATFORM_ADMIN role', async () => {
@@ -314,7 +333,34 @@ describe('Platform Ops Console - Security Tests', () => {
         });
       
       expect(response.status).toBe(403);
-      expect(response.body.error).toContain('Cannot assign finance roles');
+      expect(response.body.error).toContain('Cannot assign FINANCE_ADMIN role');
+    });
+    
+    test('should allow COMPLIANCE_ADMIN role creation', async () => {
+      db.query.mockResolvedValueOnce({ 
+        rows: [{ 
+          id: 'compliance-123', 
+          username: 'complianceuser', 
+          email: 'compliance@test.com',
+          role: 'COMPLIANCE_ADMIN',
+          status: 'active'
+        }] 
+      });
+      
+      const response = await request(app)
+        .post('/api/ops/users')
+        .set('x-user-role', 'PLATFORM_ADMIN')
+        .set('x-user-id', 'admin-123')
+        .send({
+          username: 'complianceuser',
+          email: 'compliance@test.com',
+          password: 'password123',
+          role: 'COMPLIANCE_ADMIN'
+        });
+      
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.user.role).toBe('COMPLIANCE_ADMIN');
     });
     
     test('should prevent self-disable', async () => {
