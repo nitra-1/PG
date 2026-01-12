@@ -38,6 +38,9 @@ class ComplianceReportsService {
       SETTLEMENT_AGING: 30,       // 30 minutes
       OPEN_DISPUTES: 15           // 15 minutes
     };
+    
+    // Default currency for reports
+    this.DEFAULT_CURRENCY = 'INR';
   }
   
   /**
@@ -69,13 +72,13 @@ class ComplianceReportsService {
       const escrowAccounts = await db.knex('account_balances')
         .where('tenant_id', tenantId)
         .where('account_type', 'escrow')
-        .select('account_id', 'account_code', 'account_name', 'balance', 'currency')
-        .whereRaw('balance > 0');
+        .where('balance', '>', 0)
+        .select('account_id', 'account_code', 'account_name', 'balance', 'currency');
       
       const balances = escrowAccounts.map(account => ({
         accountCode: account.account_code,
         accountName: account.account_name,
-        currency: account.currency || 'INR',
+        currency: account.currency || this.DEFAULT_CURRENCY,
         balance: (account.balance || 0).toString(),
         asOfDate: reportDate
       }));
@@ -91,7 +94,7 @@ class ComplianceReportsService {
         tenantId,
         escrowAccounts: balances,
         totalEscrowBalance: totalBalance.toString(),
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString(),
         note: 'This report shows escrow balances as required by RBI guidelines'
       };
@@ -135,14 +138,24 @@ class ComplianceReportsService {
     const startTime = Date.now();
     
     try {
-      // Get all merchants
-      const merchants = await db.knex('merchants')
-        .where('status', 'active')
-        .select('id', 'merchant_code', 'merchant_name');
+      // Get all merchants with pending settlements for this tenant
+      // Note: merchants table doesn't have tenant_id, so we filter via settlements
+      const merchantsWithSettlements = await db.knex('settlements')
+        .where('settlements.tenant_id', tenantId)
+        .whereIn('settlements.status', ['pending', 'processing'])
+        .where('settlements.created_at', '<=', asOfDate)
+        .join('merchants', 'settlements.merchant_id', 'merchants.id')
+        .where('merchants.status', 'active')
+        .groupBy('merchants.id', 'merchants.merchant_code', 'merchants.merchant_name')
+        .select(
+          'merchants.id',
+          'merchants.merchant_code',
+          'merchants.merchant_name'
+        );
       
       const outstanding = [];
       
-      for (const merchant of merchants) {
+      for (const merchant of merchantsWithSettlements) {
         // Get pending settlements for this merchant
         const unsettled = await db.knex('settlements')
           .where('tenant_id', tenantId)
@@ -159,7 +172,7 @@ class ComplianceReportsService {
             businessName: merchant.merchant_name,
             outstandingAmount: (unsettled.total_amount || 0).toString(),
             transactionCount: parseInt(unsettled.settlement_count || 0),
-            currency: 'INR'
+            currency: this.DEFAULT_CURRENCY
           });
         }
       }
@@ -175,7 +188,7 @@ class ComplianceReportsService {
         merchants: outstanding,
         totalOutstanding: totalOutstanding.toString(),
         merchantCount: outstanding.length,
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString()
       };
       
@@ -238,9 +251,9 @@ class ComplianceReportsService {
         .groupBy('ledger_transactions.event_type');
       
       const breakdown = feeRevenue.map(fee => ({
-        feeType: fee.event_type.toUpperCase(),
+        feeType: (fee.event_type || '').toUpperCase(),
         amount: (fee.total || 0).toString(),
-        currency: 'INR'
+        currency: this.DEFAULT_CURRENCY
       }));
       
       const totalRevenue = breakdown.reduce((sum, fee) => 
@@ -254,7 +267,7 @@ class ComplianceReportsService {
         tenantId,
         revenueBreakdown: breakdown,
         totalRevenue: totalRevenue.toString(),
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString()
       };
       
@@ -345,7 +358,7 @@ class ComplianceReportsService {
         totalPendingAmount: pendingSettlements.reduce((sum, s) => 
           sum + parseFloat(s.net_amount || 0), 0
         ).toString(),
-        currency: 'INR',
+        currency: this.DEFAULT_CURRENCY,
         generatedAt: new Date().toISOString()
       };
       
