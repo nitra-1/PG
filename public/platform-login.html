@@ -199,8 +199,10 @@
     function redirectToConsole(role) {
       if (role === 'PLATFORM_ADMIN' || role === 'OPS_ADMIN') {
         window.location.href = '/ops-console.html';
-      } else if (role === 'FINANCE_ADMIN' || role === 'COMPLIANCE_ADMIN') {
+      } else if (role === 'FINANCE_ADMIN') {
         window.location.href = '/finance-admin-console.html';
+      }else if (role === 'COMPLIANCE_ADMIN') {
+        window.location.href = '/compliance-admin-portal.html';
       } else if (role === 'AUDITOR') {
         window.location.href = '/audit-portal.html';
       } else {
