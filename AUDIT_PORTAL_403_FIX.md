@@ -14,23 +14,30 @@ The `requireAuditorRole` middleware in `audit-portal-middleware.js` was checking
 Modified the `requireAuditorRole` middleware to create an exception for the `/tenants` endpoint:
 
 ### Changes in `src/api/audit-portal-middleware.js`:
-- Added logic to skip database access window check for `/tenants` endpoint (line 64)
-- For `/tenants`: Validates AUDITOR role but skips database query
+- Added constant array `ENDPOINTS_WITHOUT_ACCESS_WINDOW` for maintainable configuration (line 21)
+- Added helper function `createAuditorContext` to reduce code duplication (lines 66-77)
+- Added logic to skip database access window check for endpoints in the exempt list (line 82)
+- For exempt endpoints: Validates AUDITOR role but skips database query (lines 84-88)
 - For all other endpoints: Maintains existing security requiring both role AND access window
-- Early return for `/tenants` with minimal auditor context (lines 66-80)
 
 ### Code Flow:
 ```javascript
-// Line 64: Check if this endpoint requires access window
-const requiresAccessWindow = req.path !== '/tenants';
+// Line 21: Define endpoints that don't require DB access window
+const ENDPOINTS_WITHOUT_ACCESS_WINDOW = ['/tenants'];
 
-// Lines 66-80: If /tenants, skip DB check and set minimal context
+// Lines 66-77: Helper to create auditor context (with or without access window)
+const createAuditorContext = (accessWindow = null) => ({ ... });
+
+// Line 82: Check if this endpoint requires DB access window
+const requiresAccessWindow = !ENDPOINTS_WITHOUT_ACCESS_WINDOW.includes(req.path);
+
+// Lines 84-88: If exempt endpoint, set context and skip DB check
 if (!requiresAccessWindow) {
-  req.auditor = { userId, userName, role, ... };
+  req.auditor = createAuditorContext();
   return next();
 }
 
-// Lines 82-115: For other endpoints, check access window in DB
+// Lines 90-110: For other endpoints, check access window in DB
 // ... existing validation logic ...
 ```
 
