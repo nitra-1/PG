@@ -121,7 +121,8 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
     // Handle merchant-specific creation
     if (role === 'MERCHANT') {
       try {
-        const generatedMerchantCode = merchant_code || `MERCH${Date.now()}`;
+        // Generate unique merchant code using username and timestamp
+        const generatedMerchantCode = merchant_code || `MERCH_${username.toUpperCase()}_${Date.now().toString(36)}`;
         
         await db.query(
           `INSERT INTO merchants (merchant_code, merchant_name, business_type, email, phone, website_url, callback_url, status) 
@@ -132,14 +133,18 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
         newUser.merchant_code = generatedMerchantCode;
       } catch (merchantError) {
         console.error('Error creating merchant record:', merchantError);
-        // Continue even if merchant creation fails - user is created
-        newUser.merchant_warning = 'User created but merchant record creation failed';
+        // Delete the user if merchant creation fails to maintain consistency
+        await db.query('DELETE FROM platform_users WHERE id = $1', [newUser.id]);
+        throw new Error('Failed to create merchant record. User creation rolled back.');
       }
     }
     
     // Handle auditor-specific creation (time-boxed access window)
     if (role === 'AUDITOR') {
       try {
+        // Generate unique audit case number if not provided
+        const caseNumber = audit_case_number || `AUD_${username.toUpperCase()}_${Date.now().toString(36)}`;
+        
         await db.query(
           `INSERT INTO auditor_access_windows (
             auditor_user_id, access_start_date, access_end_date, status,
@@ -150,7 +155,7 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
             newUser.id, 
             access_start_date, 
             access_end_date,
-            audit_case_number || `AUD-${Date.now()}`,
+            caseNumber,
             audit_type || 'COMPLIANCE_REVIEW',
             audit_purpose || 'Standard compliance review',
             req.opsUser.userId,
@@ -161,12 +166,13 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
         newUser.access_window = {
           start: access_start_date,
           end: access_end_date,
-          audit_case_number: audit_case_number || `AUD-${Date.now()}`
+          audit_case_number: caseNumber
         };
       } catch (auditorError) {
         console.error('Error creating auditor access window:', auditorError);
-        // Continue even if access window creation fails - user is created
-        newUser.auditor_warning = 'User created but access window creation failed';
+        // Delete the user if access window creation fails to maintain consistency
+        await db.query('DELETE FROM platform_users WHERE id = $1', [newUser.id]);
+        throw new Error('Failed to create auditor access window. User creation rolled back.');
       }
     }
     
