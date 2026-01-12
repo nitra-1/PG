@@ -650,12 +650,98 @@
         </div>
         <div class="form-group">
           <label>Role *</label>
-          <select name="role" required>
+          <select name="role" id="userRole" required onchange="toggleRoleSpecificFields()">
             <option value="">Select Role</option>
+            <option value="PLATFORM_ADMIN">Platform Admin</option>
             <option value="OPS_ADMIN">Ops Admin</option>
+            <option value="AUDITOR">Auditor</option>
             <option value="MERCHANT">Merchant</option>
           </select>
         </div>
+        
+        <!-- Common optional fields -->
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" name="full_name" placeholder="First and last name">
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" name="phone" placeholder="+91 XXXXXXXXXX">
+        </div>
+        
+        <!-- Merchant-specific fields -->
+        <div id="merchantFields" style="display:none;">
+          <div class="notice notice-info" style="margin: 15px 0;">
+            ℹ️ Merchant users require additional business information for proper dashboard functionality
+          </div>
+          <div class="form-group">
+            <label>Business Name *</label>
+            <input type="text" name="business_name" id="businessName" placeholder="Legal business name">
+          </div>
+          <div class="form-group">
+            <label>Merchant Code</label>
+            <input type="text" name="merchant_code" placeholder="e.g., MERCH001 (auto-generated if empty)">
+          </div>
+          <div class="form-group">
+            <label>Business Type</label>
+            <select name="business_type">
+              <option value="">Select type</option>
+              <option value="ecommerce">E-Commerce</option>
+              <option value="retail">Retail</option>
+              <option value="services">Services</option>
+              <option value="education">Education</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Website URL</label>
+            <input type="url" name="website_url" placeholder="https://example.com">
+          </div>
+          <div class="form-group">
+            <label>Callback URL</label>
+            <input type="url" name="callback_url" placeholder="https://example.com/payment/callback">
+          </div>
+        </div>
+        
+        <!-- Auditor-specific fields -->
+        <div id="auditorFields" style="display:none;">
+          <div class="notice notice-warning" style="margin: 15px 0;">
+            ⚠️ Auditor users have read-only access and require time-boxed access windows
+          </div>
+          <div class="form-group">
+            <label>Organization *</label>
+            <input type="text" name="organization" id="organization" placeholder="e.g., RBI, Bank Audit Dept">
+          </div>
+          <div class="form-group">
+            <label>Audit Type</label>
+            <select name="audit_type">
+              <option value="">Select type</option>
+              <option value="RBI_INSPECTION">RBI Inspection</option>
+              <option value="BANK_AUDIT">Bank Audit</option>
+              <option value="STATUTORY_AUDIT">Statutory Audit</option>
+              <option value="INTERNAL_AUDIT">Internal Audit</option>
+              <option value="COMPLIANCE_REVIEW">Compliance Review</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Access Start Date</label>
+            <input type="date" name="access_start_date" id="accessStartDate">
+          </div>
+          <div class="form-group">
+            <label>Access End Date</label>
+            <input type="date" name="access_end_date" id="accessEndDate">
+          </div>
+          <div class="form-group">
+            <label>Audit Case Number</label>
+            <input type="text" name="audit_case_number" placeholder="e.g., RBI-AUD-2024-001">
+          </div>
+          <div class="form-group">
+            <label>Audit Purpose</label>
+            <textarea name="audit_purpose" rows="3" placeholder="Purpose and scope of audit"></textarea>
+          </div>
+        </div>
+        
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('createUserModal')">Cancel</button>
           <button type="submit" class="btn btn-primary">Create</button>
@@ -984,10 +1070,48 @@
     
     function showCreateUserModal() {
       document.getElementById('createUserModal').classList.add('active');
+      // Reset role-specific fields
+      toggleRoleSpecificFields();
+    }
+    
+    function toggleRoleSpecificFields() {
+      const role = document.getElementById('userRole').value;
+      const merchantFields = document.getElementById('merchantFields');
+      const auditorFields = document.getElementById('auditorFields');
+      const businessName = document.getElementById('businessName');
+      const organization = document.getElementById('organization');
+      const accessStartDate = document.getElementById('accessStartDate');
+      const accessEndDate = document.getElementById('accessEndDate');
+      
+      // Hide all role-specific fields
+      merchantFields.style.display = 'none';
+      auditorFields.style.display = 'none';
+      
+      // Remove required attributes
+      businessName.removeAttribute('required');
+      organization.removeAttribute('required');
+      accessStartDate.removeAttribute('required');
+      accessEndDate.removeAttribute('required');
+      
+      // Show and set required based on role
+      if (role === 'MERCHANT') {
+        merchantFields.style.display = 'block';
+        businessName.setAttribute('required', 'required');
+      } else if (role === 'AUDITOR') {
+        auditorFields.style.display = 'block';
+        organization.setAttribute('required', 'required');
+        accessStartDate.setAttribute('required', 'required');
+        accessEndDate.setAttribute('required', 'required');
+      }
     }
     
     function closeModal(modalId) {
       document.getElementById(modalId).classList.remove('active');
+      // Reset form when closing
+      if (modalId === 'createUserModal') {
+        document.getElementById('createUserForm').reset();
+        toggleRoleSpecificFields();
+      }
     }
     
     // Merchant actions

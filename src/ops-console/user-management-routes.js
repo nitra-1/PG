@@ -62,16 +62,38 @@ router.get('/', requireOpsConsoleAccess, logOpsAction('LIST_USERS'), async (req,
 
 /**
  * POST /api/ops/users
- * Create new platform user
+ * Create new platform user with role-specific information
  */
 router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { 
+      username, email, password, role, full_name, phone,
+      // Merchant-specific fields
+      business_name, merchant_code, business_type, website_url, callback_url,
+      // Auditor-specific fields
+      organization, audit_type, access_start_date, access_end_date, 
+      audit_case_number, audit_purpose
+    } = req.body;
     
     if (!username || !email || !password || !role) {
       return res.status(400).json({
         success: false,
         error: 'Username, email, password, and role are required'
+      });
+    }
+    
+    // Validate role-specific required fields
+    if (role === 'MERCHANT' && !business_name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Business name is required for merchant users'
+      });
+    }
+    
+    if (role === 'AUDITOR' && (!organization || !access_start_date || !access_end_date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Organization and access dates are required for auditor users'
       });
     }
     
@@ -86,16 +108,77 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
     
     const passwordHash = await bcrypt.hash(password, 10);
     
-    const result = await db.query(
+    // Create platform user
+    const userResult = await db.query(
       `INSERT INTO platform_users (username, email, password_hash, role, status, created_by) 
        VALUES ($1, $2, $3, $4, 'active', $5) 
        RETURNING id, username, email, role, status, created_at`,
       [username, email, passwordHash, role, req.opsUser.userId]
     );
     
+    const newUser = userResult.rows[0];
+    
+    // Handle merchant-specific creation
+    if (role === 'MERCHANT') {
+      try {
+        // Generate unique merchant code using username and timestamp
+        const generatedMerchantCode = merchant_code || `MERCH_${username.toUpperCase()}_${Date.now().toString(36)}`;
+        
+        await db.query(
+          `INSERT INTO merchants (merchant_code, merchant_name, business_type, email, phone, website_url, callback_url, status) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')`,
+          [generatedMerchantCode, business_name, business_type || 'other', email, phone, website_url, callback_url]
+        );
+        
+        newUser.merchant_code = generatedMerchantCode;
+      } catch (merchantError) {
+        console.error('Error creating merchant record:', merchantError);
+        // Delete the user if merchant creation fails to maintain consistency
+        await db.query('DELETE FROM platform_users WHERE id = $1', [newUser.id]);
+        throw new Error('Failed to create merchant record. User creation rolled back.');
+      }
+    }
+    
+    // Handle auditor-specific creation (time-boxed access window)
+    if (role === 'AUDITOR') {
+      try {
+        // Generate unique audit case number if not provided
+        const caseNumber = audit_case_number || `AUD_${username.toUpperCase()}_${Date.now().toString(36)}`;
+        
+        await db.query(
+          `INSERT INTO auditor_access_windows (
+            auditor_user_id, access_start_date, access_end_date, status,
+            audit_case_number, audit_type, audit_purpose,
+            granted_by, granted_by_role
+          ) VALUES ($1, $2, $3, 'ACTIVE', $4, $5, $6, $7, $8)`,
+          [
+            newUser.id, 
+            access_start_date, 
+            access_end_date,
+            caseNumber,
+            audit_type || 'COMPLIANCE_REVIEW',
+            audit_purpose || 'Standard compliance review',
+            req.opsUser.userId,
+            req.opsUser.role
+          ]
+        );
+        
+        newUser.access_window = {
+          start: access_start_date,
+          end: access_end_date,
+          audit_case_number: caseNumber
+        };
+      } catch (auditorError) {
+        console.error('Error creating auditor access window:', auditorError);
+        // Delete the user if access window creation fails to maintain consistency
+        await db.query('DELETE FROM platform_users WHERE id = $1', [newUser.id]);
+        throw new Error('Failed to create auditor access window. User creation rolled back.');
+      }
+    }
+    
     res.json({
       success: true,
-      user: result.rows[0],
+      user: newUser,
       message: 'User created successfully'
     });
   } catch (error) {
