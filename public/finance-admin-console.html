@@ -814,6 +814,38 @@
     </div>
   </div>
 
+  <div id="createPeriodModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Create New Accounting Period</h3>
+      </div>
+      <form id="createPeriodForm">
+        <div class="alert alert-info">
+          ℹ️ New periods must be contiguous and non-overlapping. Only one OPEN period per type is allowed.
+        </div>
+        <div class="form-group">
+          <label>Period Type *</label>
+          <select name="periodType" required>
+            <option value="DAILY">Daily</option>
+            <option value="MONTHLY">Monthly</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Period Start *</label>
+          <input type="datetime-local" name="periodStart" required>
+        </div>
+        <div class="form-group">
+          <label>Period End *</label>
+          <input type="datetime-local" name="periodEnd" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('createPeriodModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Period</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     const API_BASE = '/api/finance-admin';
     
@@ -1140,6 +1172,11 @@
     function closePeriod(periodId) {
       window.currentPeriodId = periodId;
       document.getElementById('closePeriodModal').classList.add('active');
+    }
+    
+    function showCreatePeriodModal() {
+      if (!requireTenant()) return;
+      document.getElementById('createPeriodModal').classList.add('active');
     }
     
     // Settlements
@@ -1612,6 +1649,31 @@
         alert('Override request submitted for approval');
         closeModal('requestOverrideModal');
         loadOverrides();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+    
+    document.getElementById('createPeriodForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        await apiCall('/accounting-periods', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenantId: currentTenantId,
+            periodType: data.periodType,
+            periodStart: data.periodStart,
+            periodEnd: data.periodEnd
+          })
+        });
+        alert('Accounting period created successfully');
+        closeModal('createPeriodModal');
+        loadAccountingPeriods();
+        // Reset form for next use
+        e.target.reset();
       } catch (error) {
         alert('Error: ' + error.message);
       }
