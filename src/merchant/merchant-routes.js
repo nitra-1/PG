@@ -79,10 +79,19 @@ module.exports = (config, securityService) => {
         
         // Check if user has admin role (COMPLIANCE_ADMIN, FINANCE_ADMIN, or platform admin)
         const userRole = req.headers['x-user-role'];
+        const userId = req.headers['x-user-id'];
+        
+        // Require authentication
+        if (!userRole || !userId) {
+          return res.status(401).json({
+            success: false,
+            error: 'Authentication required'
+          });
+        }
         
         // Only allow admin roles to list all merchants
         const allowedRoles = ['COMPLIANCE_ADMIN', 'FINANCE_ADMIN', 'PLATFORM_ADMIN'];
-        if (userRole && !allowedRoles.includes(userRole)) {
+        if (!allowedRoles.includes(userRole)) {
           return res.status(403).json({
             success: false,
             error: 'Forbidden: Admin role required to list merchants'
