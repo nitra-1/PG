@@ -432,7 +432,10 @@ router.post('/overrides/request', requireFinanceRole, async (req, res) => {
  */
 router.get('/overrides/pending', requireFinanceRole, async (req, res) => {
   try {
-    const approvalRequests = await db.knex('approval_requests as ar')
+    const { tenantId } = req.query;
+    
+    // tenantId is optional for finance admin (can see all), but if provided, filter by it
+    let query = db.knex('approval_requests as ar')
       .select(
         'ar.*',
         'pu.username as requestor_username',
@@ -440,8 +443,20 @@ router.get('/overrides/pending', requireFinanceRole, async (req, res) => {
       )
       .leftJoin('platform_users as pu', 'ar.requestor_id', 'pu.id')
       .where('ar.status', 'pending')
-      .whereIn('ar.request_type', ['SOFT_CLOSE_POSTING', 'EXCEPTIONAL_CORRECTION'])
-      .orderBy('ar.requested_at', 'desc');
+      .whereIn('ar.request_type', ['SOFT_CLOSE_POSTING', 'EXCEPTIONAL_CORRECTION']);
+    
+    // If tenantId is provided, filter by it
+    if (tenantId) {
+      if (!isValidUUID(tenantId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'tenantId must be a valid UUID'
+        });
+      }
+      query = query.whereRaw("ar.request_data->>'tenantId' = ?", [tenantId]);
+    }
+    
+    const approvalRequests = await query.orderBy('ar.requested_at', 'desc');
     
     res.json({
       success: true,

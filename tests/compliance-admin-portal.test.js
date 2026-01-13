@@ -108,7 +108,7 @@ async function runTests() {
   // Test 4: View pending overrides
   try {
     console.log('Test 4: View pending override requests...');
-    const response = await axios.get(`${API_URL}/overrides/pending`, {
+    const response = await axios.get(`${API_URL}/overrides/pending?tenantId=${TEST_TENANT_ID}`, {
       headers: complianceAdminHeaders
     });
     

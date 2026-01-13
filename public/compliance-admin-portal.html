@@ -994,7 +994,7 @@
       
       try {
         // Load pending approvals
-        const pendingData = await apiCall('/overrides/pending');
+        const pendingData = await apiCall(`/overrides/pending?tenantId=${currentTenantId}`);
         const pendingBody = document.getElementById('pendingApprovalsTableBody');
         
         if (pendingData.data.length === 0) {
