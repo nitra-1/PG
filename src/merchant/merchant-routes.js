@@ -105,7 +105,7 @@ module.exports = (config, securityService) => {
         
         res.json({
           success: true,
-          merchants: merchants
+          merchants
         });
       } catch (error) {
         res.status(500).json({
