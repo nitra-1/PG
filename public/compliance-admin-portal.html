@@ -1046,7 +1046,11 @@
     // Show approve modal
     async function showApproveModal(requestId) {
       try {
-        const data = await apiCall('/overrides/pending');
+        if (!currentTenantId) {
+          alert('Please select a merchant first');
+          return;
+        }
+        const data = await apiCall(`/overrides/pending?tenantId=${currentTenantId}`);
         const request = data.data.find(r => r.id === requestId);
         
         if (!request) {
@@ -1109,7 +1113,11 @@
     // Show reject modal
     async function showRejectModal(requestId) {
       try {
-        const data = await apiCall('/overrides/pending');
+        if (!currentTenantId) {
+          alert('Please select a merchant first');
+          return;
+        }
+        const data = await apiCall(`/overrides/pending?tenantId=${currentTenantId}`);
         const request = data.data.find(r => r.id === requestId);
         
         if (!request) {
