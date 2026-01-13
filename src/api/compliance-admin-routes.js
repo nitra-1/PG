@@ -193,9 +193,30 @@ router.get('/dashboard', requireComplianceAdmin, logComplianceAction('VIEW_DASHB
 /**
  * GET /api/compliance-admin/overrides/pending
  * Get pending override requests for approval
+ * 
+ * Security Note: COMPLIANCE_ADMIN role has platform-wide access to all tenants
+ * by design (financial compliance oversight). The tenantId filtering is for
+ * UI organization and operational clarity, not access control.
  */
 router.get('/overrides/pending', requireComplianceAdmin, logComplianceAction('VIEW_PENDING_OVERRIDES'), async (req, res) => {
   try {
+    const { tenantId } = req.query;
+    
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId is required'
+      });
+    }
+    
+    if (!isValidUUID(tenantId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tenantId must be a valid UUID'
+      });
+    }
+    
+    // Query with JSONB filter for tenantId
     const approvalRequests = await db.knex('approval_requests as ar')
       .select(
         'ar.*',
@@ -206,6 +227,7 @@ router.get('/overrides/pending', requireComplianceAdmin, logComplianceAction('VI
       .leftJoin('platform_users as pu', 'ar.requestor_id', 'pu.id')
       .where('ar.status', 'pending')
       .whereIn('ar.request_type', ['SOFT_CLOSE_POSTING', 'EXCEPTIONAL_CORRECTION'])
+      .whereRaw("ar.request_data->>'tenantId' = ?", [tenantId])
       .orderBy('ar.requested_at', 'desc');
     
     // Parse request_data JSON for each request
