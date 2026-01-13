@@ -66,6 +66,49 @@ module.exports = (config, securityService) => {
   );
 
   /**
+   * GET /api/merchants
+   * Get list of all merchants
+   * Used by admin portals to populate merchant dropdowns
+   */
+  router.get(
+    '/',
+    async (req, res) => {
+      try {
+        // Import database here to avoid circular dependencies
+        const db = require('../database');
+        
+        // Check if user has admin role (COMPLIANCE_ADMIN, FINANCE_ADMIN, or platform admin)
+        const userRole = req.headers['x-user-role'];
+        
+        // Only allow admin roles to list all merchants
+        const allowedRoles = ['COMPLIANCE_ADMIN', 'FINANCE_ADMIN', 'PLATFORM_ADMIN'];
+        if (userRole && !allowedRoles.includes(userRole)) {
+          return res.status(403).json({
+            success: false,
+            error: 'Forbidden: Admin role required to list merchants'
+          });
+        }
+        
+        // Get all merchants from database
+        const merchants = await db.knex('merchants')
+          .select('id', 'merchant_code', 'merchant_name', 'status', 'email')
+          .orderBy('merchant_name', 'asc');
+        
+        res.json({
+          success: true,
+          merchants: merchants
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch merchants',
+          message: error.message
+        });
+      }
+    }
+  );
+
+  /**
    * GET /api/merchants/:id
    * Get merchant details
    */
