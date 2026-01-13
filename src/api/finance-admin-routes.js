@@ -429,6 +429,10 @@ router.post('/overrides/request', requireFinanceRole, async (req, res) => {
 /**
  * GET /api/finance-admin/overrides/pending
  * Get pending override requests
+ * 
+ * Security Note: FINANCE_ADMIN role has platform-wide access to all tenants
+ * by design (financial operations oversight). The tenantId filtering is optional
+ * for UI organization and operational clarity, not access control.
  */
 router.get('/overrides/pending', requireFinanceRole, async (req, res) => {
   try {

@@ -193,6 +193,10 @@ router.get('/dashboard', requireComplianceAdmin, logComplianceAction('VIEW_DASHB
 /**
  * GET /api/compliance-admin/overrides/pending
  * Get pending override requests for approval
+ * 
+ * Security Note: COMPLIANCE_ADMIN role has platform-wide access to all tenants
+ * by design (financial compliance oversight). The tenantId filtering is for
+ * UI organization and operational clarity, not access control.
  */
 router.get('/overrides/pending', requireComplianceAdmin, logComplianceAction('VIEW_PENDING_OVERRIDES'), async (req, res) => {
   try {
