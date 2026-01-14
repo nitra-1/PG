@@ -41,8 +41,25 @@ exports.up = async function(knex) {
 };
 
 exports.down = async function(knex) {
-  return knex.schema.table('admin_overrides_log', function(table) {
-    table.dropColumn('approval_reason');
-    table.dropColumn('approved_by_role');
-  });
+  // Drop columns using raw SQL with IF EXISTS for safety
+  await knex.raw(`
+    DO $$ 
+    BEGIN
+      -- Drop approval_reason column if it exists
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'admin_overrides_log' AND column_name = 'approval_reason'
+      ) THEN
+        ALTER TABLE admin_overrides_log DROP COLUMN approval_reason;
+      END IF;
+      
+      -- Drop approved_by_role column if it exists
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'admin_overrides_log' AND column_name = 'approved_by_role'
+      ) THEN
+        ALTER TABLE admin_overrides_log DROP COLUMN approved_by_role;
+      END IF;
+    END $$;
+  `);
 };
