@@ -169,12 +169,9 @@ router.get('/dashboard', requireComplianceAdmin, logComplianceAction('VIEW_DASHB
     `, [tenantId, thirtyDaysAgo, tenantId, thirtyDaysAgo, tenantId, thirtyDaysAgo]);
     
     // Get control breaches (attempted violations)
-    const controlBreaches = await db.knex('audit_logs')
-      .where('tenant_id', tenantId)
-      .where('status', 'BLOCKED')
-      .where('created_at', '>=', thirtyDaysAgo)
-      .count('* as count')
-      .first();
+    // Note: Control breach tracking via audit_logs.status is not implemented
+    // Returning 0 until a proper control breach mechanism is added
+    const controlBreaches = { count: 0 };
     
     res.json({
       success: true,
@@ -575,28 +572,19 @@ router.get('/control-breaches', requireComplianceAdmin, logComplianceAction('VIE
     const to = toDate ? new Date(toDate) : new Date();
     
     // Get blocked audit log entries
-    const blockedActions = await db.knex('audit_logs')
-      .select('*')
-      .where('tenant_id', tenantId)
-      .where('status', 'BLOCKED')
-      .whereBetween('created_at', [from, to])
-      .orderBy('created_at', 'desc')
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
+    // Note: Control breach tracking via audit_logs.status is not implemented
+    // Returning empty array until a proper control breach mechanism is added
+    const blockedActions = [];
     
-    // Get failed override attempts
+    // Get failed override attempts (rejected approvals are considered control breaches)
     const failedOverrides = await db.knex('approval_requests')
       .select('*')
       .where('status', 'rejected')
       .whereBetween('updated_at', [from, to])
       .orderBy('updated_at', 'desc');
     
-    // Count total breaches
-    const [{ count }] = await db.knex('audit_logs')
-      .where('tenant_id', tenantId)
-      .where('status', 'BLOCKED')
-      .whereBetween('created_at', [from, to])
-      .count('* as count');
+    // Count total breaches (only counting failed overrides for now)
+    const count = failedOverrides.length;
     
     res.json({
       success: true,
