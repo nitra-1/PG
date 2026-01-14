@@ -282,13 +282,13 @@ exports.up = async function(knex) {
         v_period RECORD;
       BEGIN
         -- Find applicable DAILY period for transaction date
-        SELECT id, status, period_type, period_start, period_end
+        SELECT ap.id, ap.status, ap.period_type, ap.period_start, ap.period_end
         INTO v_period
-        FROM accounting_periods
-        WHERE tenant_id = p_tenant_id
-          AND period_type = 'DAILY'
-          AND p_transaction_date >= period_start
-          AND p_transaction_date <= period_end
+        FROM accounting_periods ap
+        WHERE ap.tenant_id = p_tenant_id
+          AND ap.period_type = 'DAILY'
+          AND p_transaction_date >= ap.period_start
+          AND p_transaction_date <= ap.period_end
         LIMIT 1;
         
         -- If no period found, posting not allowed
