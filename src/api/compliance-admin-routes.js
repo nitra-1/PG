@@ -82,17 +82,23 @@ const logComplianceAction = (action) => {
       let tenantId = req.query.tenantId || req.body.tenantId;
       
       if (!tenantId && req.params.requestId) {
-        // Fetch the approval request to extract tenant_id from request_data
-        const approvalRequest = await db.knex('approval_requests')
-          .where('id', req.params.requestId)
-          .first();
-        
-        if (approvalRequest && approvalRequest.request_data) {
-          // request_data is a JSONB column, already parsed by Knex
-          const requestData = typeof approvalRequest.request_data === 'string' 
-            ? JSON.parse(approvalRequest.request_data) 
-            : approvalRequest.request_data;
-          tenantId = requestData.tenantId;
+        // Validate requestId is a valid UUID before querying database
+        if (isValidUUID(req.params.requestId)) {
+          // Fetch the approval request to extract tenant_id from request_data
+          const approvalRequest = await db.knex('approval_requests')
+            .where('id', req.params.requestId)
+            .first();
+          
+          if (approvalRequest && approvalRequest.request_data) {
+            // request_data is a JSONB column, already parsed by Knex
+            const requestData = typeof approvalRequest.request_data === 'string' 
+              ? JSON.parse(approvalRequest.request_data) 
+              : approvalRequest.request_data;
+            // Extract tenantId if available
+            if (requestData && requestData.tenantId) {
+              tenantId = requestData.tenantId;
+            }
+          }
         }
       }
       
@@ -388,6 +394,12 @@ router.post('/overrides/:requestId/approve', requireComplianceAdmin, logComplian
     const requestData = typeof request.request_data === 'string' 
       ? JSON.parse(request.request_data) 
       : request.request_data;
+    
+    // Validate requestData has required fields before inserting
+    if (!requestData || !requestData.tenantId) {
+      throw new Error('Invalid request data: missing tenantId');
+    }
+    
     await db.knex('admin_overrides_log').insert({
       tenant_id: requestData.tenantId,
       override_type: request.request_type,
