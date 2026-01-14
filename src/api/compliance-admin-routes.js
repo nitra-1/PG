@@ -24,6 +24,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 
+// Dummy UUID for audit logs when no specific entity is being acted upon
+const AUDIT_DUMMY_ENTITY_ID = '00000000-0000-0000-0000-000000000000';
+
 /**
  * Validate UUID format
  */
@@ -73,7 +76,7 @@ const logComplianceAction = (action) => {
   return async (req, res, next) => {
     try {
       // Use a dummy UUID for entity_id when no specific resource is being acted upon
-      const entityId = req.params.requestId || '00000000-0000-0000-0000-000000000000';
+      const entityId = req.params.requestId || AUDIT_DUMMY_ENTITY_ID;
       
       await db.knex('audit_logs').insert({
         tenant_id: req.query.tenantId || req.body.tenantId,
