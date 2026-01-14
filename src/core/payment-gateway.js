@@ -8,6 +8,7 @@ const { ErrorClassifier } = require('./errors/payment-errors');
 const { RetryHandler } = require('./retry/retry-handler');
 const { CircuitBreaker } = require('./circuit-breaker/circuit-breaker');
 const { SmartRouter, RoutingStrategy } = require('./routing/smart-router');
+const { ledgerEventHandlers } = require('./ledger');
 
 class PaymentGateway {
   constructor(config) {
@@ -282,9 +283,10 @@ class PaymentGateway {
     console.log('Transaction logged:', logEntry);
     
     // Store transaction in database
+    let transactionId = null;
     try {
       const db = require('../database');
-      await db.insertWithTenant('transactions', {
+      const result = await db.insertWithTenant('transactions', {
         transaction_ref: response.transactionId,
         order_id: paymentData.orderId || response.transactionId,
         payment_method: paymentData.paymentMethod || 'card',
@@ -302,9 +304,43 @@ class PaymentGateway {
         initiated_at: new Date(),
         completed_at: response.status === 'success' ? new Date() : null
       }, paymentData.tenantId || this.config.defaultTenantId);
+      
+      // Get the transaction ID from the result
+      transactionId = result && result[0] ? result[0].id : null;
     } catch (error) {
       console.error('Failed to store transaction in database:', error);
       // Don't throw - transaction logging should not fail the payment
+    }
+    
+    // Create ledger transaction for successful payments
+    if (response.status === 'success' || response.status === 'completed') {
+      try {
+        // Extract merchant ID from payment data or tenant ID
+        const merchantId = paymentData.merchantId || paymentData.tenantId || this.config.defaultTenantId;
+        
+        // Calculate fees - use provided fees or calculate default (2% platform + 1% gateway)
+        const platformFee = paymentData.platformFee || (paymentData.amount * 0.02);
+        const gatewayFee = paymentData.gatewayFee || (paymentData.amount * 0.01);
+        
+        // Create ledger entries via event handler
+        await ledgerEventHandlers.handlePaymentSuccess({
+          tenantId: paymentData.tenantId || this.config.defaultTenantId,
+          transactionId: transactionId || response.transactionId,
+          orderId: paymentData.orderId || response.transactionId,
+          merchantId: merchantId,
+          gateway: gatewayName || response.gateway,
+          amount: paymentData.amount,
+          platformFee: platformFee,
+          gatewayFee: gatewayFee,
+          createdBy: 'payment_gateway'
+        });
+        
+        console.log('Ledger transaction created for payment:', response.transactionId);
+      } catch (ledgerError) {
+        console.error('Failed to create ledger transaction:', ledgerError);
+        // Don't throw - ledger failure should not fail the payment
+        // The transaction is already stored, ledger can be reconciled later
+      }
     }
   }
 
