@@ -10,6 +10,7 @@
  * - resource_type: Type of resource being acted upon
  * - resource_id: ID of the resource being acted upon
  * - user_role: Role of the user performing the action
+ * - details: Additional details about the action (JSONB)
  */
 
 exports.up = async function(knex) {
@@ -37,6 +38,9 @@ exports.up = async function(knex) {
     
     // user_role: Role of the user (e.g., 'COMPLIANCE_ADMIN', 'FINANCE_ADMIN')
     table.string('user_role', 50);
+    
+    // details: Additional details about the action (stored as JSONB)
+    table.jsonb('details');
   });
   
   // Add indexes for the new columns to improve query performance
@@ -60,5 +64,6 @@ exports.down = function(knex) {
     table.dropColumn('resource_type');
     table.dropColumn('resource_id');
     table.dropColumn('user_role');
+    table.dropColumn('details');
   });
 };
