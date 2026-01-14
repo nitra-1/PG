@@ -51,7 +51,7 @@ exports.up = async function(knex) {
   });
 };
 
-exports.down = function(knex) {
+exports.down = async function(knex) {
   return knex.schema.table('audit_logs', function(table) {
     // Drop indexes first
     table.dropIndex(['action_category', 'action_type']);
