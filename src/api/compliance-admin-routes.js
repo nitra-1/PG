@@ -74,6 +74,9 @@ const logComplianceAction = (action) => {
     try {
       await db.knex('audit_logs').insert({
         tenant_id: req.query.tenantId || req.body.tenantId,
+        entity_type: 'compliance_action',
+        entity_id: req.params.requestId || null,
+        action: 'read',
         user_id: req.complianceUser.userId,
         user_role: req.complianceUser.userRole,
         action_type: action,
@@ -156,7 +159,7 @@ router.get('/dashboard', requireComplianceAdmin, logComplianceAction('VIEW_DASHB
         'SETTLEMENT_RETRY' as action_type,
         COUNT(*) as count
       FROM settlements
-      WHERE tenant_id = ? AND retry_count > 0 AND updated_at >= ?
+      WHERE tenant_id = ? AND retry_count > 0 AND created_at >= ?
     `, [tenantId, thirtyDaysAgo, tenantId, thirtyDaysAgo, tenantId, thirtyDaysAgo]);
     
     // Get control breaches (attempted violations)
@@ -500,8 +503,8 @@ router.get('/high-risk-actions', requireComplianceAdmin, logComplianceAction('VI
       .select('*')
       .where('tenant_id', tenantId)
       .where('retry_count', '>', 0)
-      .whereBetween('updated_at', [from, to])
-      .orderBy('updated_at', 'desc');
+      .whereBetween('created_at', [from, to])
+      .orderBy('created_at', 'desc');
     
     // Get emergency overrides
     const emergencyOverrides = await db.knex('admin_overrides_log')
