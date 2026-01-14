@@ -1426,13 +1426,23 @@
     
     // Ledger Explorer
     async function loadLedgerExplorer() {
+      if (!currentTenantId) {
+        const tbody = document.getElementById('ledgerTransactionsTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Please select a merchant/tenant from the dropdown above to view ledger transactions</td></tr>';
+        return;
+      }
       await loadLedgerTransactions();
     }
     
     async function loadLedgerTransactions() {
       if (!requireTenant()) return;
       
+      const tbody = document.getElementById('ledgerTransactionsTableBody');
+      
       try {
+        // Show loading state
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">🔍 Searching...</td></tr>';
+        
         const fromDate = document.getElementById('ledger-from-date')?.value || '';
         const toDate = document.getElementById('ledger-to-date')?.value || '';
         const eventType = document.getElementById('ledger-event-type')?.value || '';
@@ -1448,7 +1458,6 @@
         const data = await apiCall(`/ledger/transactions?${params.toString()}`);
         
         if (data.success) {
-          const tbody = document.getElementById('ledgerTransactionsTableBody');
           if (data.data?.transactions?.length > 0) {
             tbody.innerHTML = data.data.transactions.map(txn => `
               <tr>
@@ -1464,12 +1473,12 @@
               </tr>
             `).join('');
           } else {
-            tbody.innerHTML = '<tr><td colspan="7">No transactions found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No transactions found for the selected filters</td></tr>';
           }
         }
       } catch (error) {
         console.error('Error loading ledger transactions:', error);
-        alert('Error: ' + error.message);
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #e74c3c;">❌ Error loading transactions: ' + error.message + '</td></tr>';
       }
     }
     
