@@ -409,7 +409,7 @@ router.post('/overrides/:requestId/approve', requireComplianceAdmin, logComplian
       override_by_role: 'FINANCE_ADMIN',
       approved_by: req.complianceUser.userEmail,
       approved_by_role: 'COMPLIANCE_ADMIN',
-      affected_transaction_ids: JSON.stringify(requestData.affectedTransactionIds || []),
+      affected_entities: JSON.stringify(requestData.affectedTransactionIds || []),
       metadata: JSON.stringify(requestData.metadata || {})
     });
     

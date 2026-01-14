@@ -542,7 +542,7 @@ router.post('/overrides/:requestId/approve', requireFinanceRole, requireComplian
       override_by_role: 'FINANCE_ADMIN',
       approved_by: req.financeUser.userEmail,
       approved_by_role: 'COMPLIANCE_ADMIN',
-      affected_transaction_ids: JSON.stringify(requestData.affectedTransactionIds || []),
+      affected_entities: JSON.stringify(requestData.affectedTransactionIds || []),
       metadata: JSON.stringify(requestData.metadata || {})
     });
     
