@@ -72,10 +72,13 @@ const requireComplianceAdmin = (req, res, next) => {
 const logComplianceAction = (action) => {
   return async (req, res, next) => {
     try {
+      // Use a dummy UUID for entity_id when no specific resource is being acted upon
+      const entityId = req.params.requestId || '00000000-0000-0000-0000-000000000000';
+      
       await db.knex('audit_logs').insert({
         tenant_id: req.query.tenantId || req.body.tenantId,
         entity_type: 'compliance_action',
-        entity_id: req.params.requestId || null,
+        entity_id: entityId,
         action: 'read',
         user_id: req.complianceUser.userId,
         user_role: req.complianceUser.userRole,
