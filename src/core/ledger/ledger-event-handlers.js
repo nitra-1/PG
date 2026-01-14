@@ -181,7 +181,10 @@ class LedgerEventHandlers {
     // Create settlement entry for this payment
     // This creates a settlement in CREATED state that will be processed through the state machine
     try {
-      const settlementRef = `SETL-${merchantId.substring(0, 8)}-${transactionId.substring(0, 8)}`;
+      // Generate settlement reference with safe substring handling
+      const merchantIdPart = (merchantId || '').substring(0, 8).padEnd(8, '0');
+      const transactionIdPart = (transactionId || '').substring(0, 8).padEnd(8, '0');
+      const settlementRef = `SETL-${merchantIdPart}-${transactionIdPart}`;
       const settlementDate = new Date();
       
       await settlementService.createSettlement({
