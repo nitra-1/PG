@@ -1426,18 +1426,17 @@
     
     // Ledger Explorer
     async function loadLedgerExplorer() {
-      if (!currentTenantId) {
-        const tbody = document.getElementById('ledgerTransactionsTableBody');
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Please select a merchant/tenant from the dropdown above to view ledger transactions</td></tr>';
-        return;
-      }
       await loadLedgerTransactions();
     }
     
     async function loadLedgerTransactions() {
-      if (!requireTenant()) return;
-      
       const tbody = document.getElementById('ledgerTransactionsTableBody');
+      
+      if (!requireTenant()) {
+        // Show helpful message in table when no tenant is selected
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Please select a merchant/tenant from the dropdown above to view ledger transactions</td></tr>';
+        return;
+      }
       
       try {
         // Show loading state
@@ -1478,7 +1477,17 @@
         }
       } catch (error) {
         console.error('Error loading ledger transactions:', error);
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #e74c3c;">❌ Error loading transactions: ' + error.message + '</td></tr>';
+        // Create error message safely to prevent XSS
+        const errorCell = document.createElement('td');
+        errorCell.colSpan = 7;
+        errorCell.style.cssText = 'text-align: center; padding: 20px; color: #e74c3c;';
+        errorCell.textContent = '❌ Error loading transactions: ' + error.message;
+        
+        const errorRow = document.createElement('tr');
+        errorRow.appendChild(errorCell);
+        
+        tbody.innerHTML = '';
+        tbody.appendChild(errorRow);
       }
     }
     
