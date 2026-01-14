@@ -24,6 +24,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 
+// Dummy UUID for audit logs when no specific entity is being acted upon
+const AUDIT_DUMMY_ENTITY_ID = '00000000-0000-0000-0000-000000000000';
+
 /**
  * Validate UUID format
  */
@@ -72,8 +75,14 @@ const requireComplianceAdmin = (req, res, next) => {
 const logComplianceAction = (action) => {
   return async (req, res, next) => {
     try {
+      // Use a dummy UUID for entity_id when no specific resource is being acted upon
+      const entityId = req.params.requestId || AUDIT_DUMMY_ENTITY_ID;
+      
       await db.knex('audit_logs').insert({
         tenant_id: req.query.tenantId || req.body.tenantId,
+        entity_type: 'compliance_action',
+        entity_id: entityId,
+        action: 'read',
         user_id: req.complianceUser.userId,
         user_role: req.complianceUser.userRole,
         action_type: action,
@@ -156,7 +165,7 @@ router.get('/dashboard', requireComplianceAdmin, logComplianceAction('VIEW_DASHB
         'SETTLEMENT_RETRY' as action_type,
         COUNT(*) as count
       FROM settlements
-      WHERE tenant_id = ? AND retry_count > 0 AND updated_at >= ?
+      WHERE tenant_id = ? AND retry_count > 0 AND created_at >= ?
     `, [tenantId, thirtyDaysAgo, tenantId, thirtyDaysAgo, tenantId, thirtyDaysAgo]);
     
     // Get control breaches (attempted violations)
@@ -500,8 +509,8 @@ router.get('/high-risk-actions', requireComplianceAdmin, logComplianceAction('VI
       .select('*')
       .where('tenant_id', tenantId)
       .where('retry_count', '>', 0)
-      .whereBetween('updated_at', [from, to])
-      .orderBy('updated_at', 'desc');
+      .whereBetween('created_at', [from, to])
+      .orderBy('created_at', 'desc');
     
     // Get emergency overrides
     const emergencyOverrides = await db.knex('admin_overrides_log')
