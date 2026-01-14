@@ -296,8 +296,8 @@ class QRService {
           completed_at: new Date(transaction.processedAt)
         }, this.config.tenantId || this.config.defaultTenantId);
         
-        // Get the transaction ID from the result
-        storedTransactionId = result && result[0] ? result[0].id : null;
+        // Get the transaction ID from the result (result is already the row object)
+        storedTransactionId = result ? result.id : null;
       } catch (error) {
         console.error('Failed to persist QR transaction to database:', error);
         // Continue even if DB persistence fails - in-memory storage is available
@@ -575,8 +575,8 @@ class QRService {
           completed_at: transaction.status === 'success' ? new Date(transaction.processedAt) : null
         }, this.config.tenantId || this.config.defaultTenantId);
         
-        // Get the transaction ID from the result
-        storedTransactionId = result && result[0] ? result[0].id : null;
+        // Get the transaction ID from the result (result is already the row object)
+        storedTransactionId = result ? result.id : null;
         console.log(`QR payment transaction stored via webhook: ${txnId}`);
       } catch (error) {
         console.error('Failed to persist QR transaction to database:', error);

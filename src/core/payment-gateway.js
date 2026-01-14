@@ -305,8 +305,8 @@ class PaymentGateway {
         completed_at: response.status === 'success' ? new Date() : null
       }, paymentData.tenantId || this.config.defaultTenantId);
       
-      // Get the transaction ID from the result
-      transactionId = result && result[0] ? result[0].id : null;
+      // Get the transaction ID from the result (result is already the row object)
+      transactionId = result ? result.id : null;
     } catch (error) {
       console.error('Failed to store transaction in database:', error);
       // Don't throw - transaction logging should not fail the payment
