@@ -150,7 +150,7 @@ router.get('/dashboard', requireComplianceAdmin, logComplianceAction('VIEW_DASHB
         'LEDGER_LOCK' as action_type,
         COUNT(*) as count
       FROM ledger_locks
-      WHERE tenant_id = ? AND is_active = true AND applied_at >= ?
+      WHERE tenant_id = ? AND lock_status = 'ACTIVE' AND locked_at >= ?
       UNION ALL
       SELECT 
         'SETTLEMENT_RETRY' as action_type,
