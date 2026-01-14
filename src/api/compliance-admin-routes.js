@@ -150,7 +150,7 @@ router.get('/dashboard', requireComplianceAdmin, logComplianceAction('VIEW_DASHB
         'LEDGER_LOCK' as action_type,
         COUNT(*) as count
       FROM ledger_locks
-      WHERE tenant_id = ? AND is_active = true AND applied_at >= ?
+      WHERE tenant_id = ? AND lock_status = 'ACTIVE' AND locked_at >= ?
       UNION ALL
       SELECT 
         'SETTLEMENT_RETRY' as action_type,
@@ -492,8 +492,8 @@ router.get('/high-risk-actions', requireComplianceAdmin, logComplianceAction('VI
     const ledgerLocks = await db.knex('ledger_locks')
       .select('*')
       .where('tenant_id', tenantId)
-      .whereBetween('applied_at', [from, to])
-      .orderBy('applied_at', 'desc');
+      .whereBetween('locked_at', [from, to])
+      .orderBy('locked_at', 'desc');
     
     // Get settlement retries (after failure)
     const settlementRetries = await db.knex('settlements')
