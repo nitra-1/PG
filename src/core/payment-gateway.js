@@ -318,9 +318,13 @@ class PaymentGateway {
         // Extract merchant ID from payment data or tenant ID
         const merchantId = paymentData.merchantId || paymentData.tenantId || this.config.defaultTenantId;
         
-        // Calculate fees - use provided fees or calculate default (2% platform + 1% gateway)
-        const platformFee = paymentData.platformFee || (paymentData.amount * 0.02);
-        const gatewayFee = paymentData.gatewayFee || (paymentData.amount * 0.01);
+        // Calculate fees - use provided fees or calculate from config
+        const paymentMethod = paymentData.paymentMethod || 'card';
+        const platformFeeRate = this.config.fees?.platform?.[paymentMethod] || this.config.fees?.platform?.default || 0.02;
+        const gatewayFeeRate = this.config.fees?.gateway?.[paymentMethod] || this.config.fees?.gateway?.default || 0.01;
+        
+        const platformFee = paymentData.platformFee || (paymentData.amount * platformFeeRate);
+        const gatewayFee = paymentData.gatewayFee || (paymentData.amount * gatewayFeeRate);
         
         // Create ledger entries via event handler
         await ledgerEventHandlers.handlePaymentSuccess({

@@ -305,9 +305,14 @@ class QRService {
 
       // Create ledger transaction for the payment
       try {
-        // Calculate fees for QR payments - use provided fees or calculate default
-        const platformFee = paymentData.platformFee || (transaction.amount * 0.015); // 1.5% for QR
-        const gatewayFee = paymentData.gatewayFee || (transaction.amount * 0.005); // 0.5% for QR
+        // Get fee configuration
+        const config = require('../config/config');
+        const platformFeeRate = config.fees?.platform?.qr || 0.015;
+        const gatewayFeeRate = config.fees?.gateway?.qr || 0.005;
+        
+        // Calculate fees for QR payments - use provided fees or calculate from config
+        const platformFee = paymentData.platformFee || (transaction.amount * platformFeeRate);
+        const gatewayFee = paymentData.gatewayFee || (transaction.amount * gatewayFeeRate);
         
         await ledgerEventHandlers.handlePaymentSuccess({
           tenantId: this.config.tenantId || this.config.defaultTenantId,
@@ -586,9 +591,14 @@ class QRService {
       // Create ledger transaction for successful payments
       if (transaction.status === 'success') {
         try {
-          // Calculate fees for QR payments - use provided fees or calculate default
-          const platformFee = callbackData.platformFee || (transaction.amount * 0.015); // 1.5% for QR
-          const gatewayFee = callbackData.gatewayFee || (transaction.amount * 0.005); // 0.5% for QR
+          // Get fee configuration
+          const config = require('../config/config');
+          const platformFeeRate = config.fees?.platform?.qr || 0.015;
+          const gatewayFeeRate = config.fees?.gateway?.qr || 0.005;
+          
+          // Calculate fees for QR payments - use provided fees or calculate from config
+          const platformFee = callbackData.platformFee || (transaction.amount * platformFeeRate);
+          const gatewayFee = callbackData.gatewayFee || (transaction.amount * gatewayFeeRate);
           
           await ledgerEventHandlers.handlePaymentSuccess({
             tenantId: this.config.tenantId || this.config.defaultTenantId,

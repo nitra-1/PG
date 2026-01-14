@@ -227,5 +227,25 @@ module.exports = {
     apiKey: process.env.SMS_API_KEY || '',
     apiSecret: process.env.SMS_API_SECRET || '',
     senderId: process.env.SMS_SENDER_ID || 'PAYMENT'
+  },
+
+  // Fee Configuration for Ledger
+  fees: {
+    // Default platform fees (percentage of transaction amount)
+    platform: {
+      card: parseFloat(process.env.PLATFORM_FEE_CARD) || 0.02, // 2%
+      qr: parseFloat(process.env.PLATFORM_FEE_QR) || 0.015,    // 1.5%
+      upi: parseFloat(process.env.PLATFORM_FEE_UPI) || 0.015,  // 1.5%
+      wallet: parseFloat(process.env.PLATFORM_FEE_WALLET) || 0.02, // 2%
+      default: parseFloat(process.env.PLATFORM_FEE_DEFAULT) || 0.02 // 2%
+    },
+    // Default gateway fees (percentage of transaction amount)
+    gateway: {
+      card: parseFloat(process.env.GATEWAY_FEE_CARD) || 0.01, // 1%
+      qr: parseFloat(process.env.GATEWAY_FEE_QR) || 0.005,    // 0.5%
+      upi: parseFloat(process.env.GATEWAY_FEE_UPI) || 0.005,  // 0.5%
+      wallet: parseFloat(process.env.GATEWAY_FEE_WALLET) || 0.01, // 1%
+      default: parseFloat(process.env.GATEWAY_FEE_DEFAULT) || 0.01 // 1%
+    }
   }
 };
