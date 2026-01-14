@@ -1300,7 +1300,7 @@
           const tbody = document.getElementById('pendingApprovalsTableBody');
           if (pendingData.data?.length > 0) {
             tbody.innerHTML = pendingData.data.map(req => {
-              const requestData = JSON.parse(req.request_data);
+              const requestData = typeof req.request_data === 'string' ? JSON.parse(req.request_data) : req.request_data;
               return `
                 <tr>
                   <td>${req.request_type}</td>
