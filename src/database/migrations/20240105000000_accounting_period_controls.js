@@ -353,7 +353,7 @@ exports.up = async function(knex) {
         SELECT 
           ll.id as lock_id,
           ll.lock_type::TEXT,
-          ll.locked_by,
+          ll.locked_by::TEXT,
           ll.reason,
           TRUE as is_locked
         FROM ledger_locks ll
