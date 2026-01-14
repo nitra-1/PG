@@ -18,6 +18,7 @@
  */
 
 const ledgerService = require('./ledger-service');
+const settlementService = require('./settlement-service');
 const { v4: uuidv4 } = require('uuid');
 
 class LedgerEventHandlers {
@@ -162,7 +163,7 @@ class LedgerEventHandlers {
     }
     
     // Post to ledger
-    return await ledgerService.postTransaction({
+    const ledgerTransaction = await ledgerService.postTransaction({
       tenantId,
       transactionRef: `PAY-${orderId}`,
       idempotencyKey: `payment-success-${transactionId}`,
@@ -176,6 +177,43 @@ class LedgerEventHandlers {
       createdBy,
       sourceEvent: 'payment_success'
     });
+    
+    // Create settlement entry for this payment
+    // This creates a settlement in CREATED state that will be processed through the state machine
+    try {
+      // Generate settlement reference with safe substring handling
+      const merchantIdPart = (merchantId || '').substring(0, 8).padEnd(8, '0');
+      const transactionIdPart = (transactionId || '').substring(0, 8).padEnd(8, '0');
+      const settlementRef = `SETL-${merchantIdPart}-${transactionIdPart}`;
+      const settlementDate = new Date();
+      
+      await settlementService.createSettlement({
+        tenantId,
+        merchantId,
+        settlementRef,
+        settlementDate,
+        periodFrom: settlementDate, // Single transaction settlement
+        periodTo: settlementDate,
+        grossAmount: amount,
+        feesAmount: platformFee + gatewayFee,
+        netAmount: merchantAmount,
+        metadata: {
+          transactionId,
+          orderId,
+          gateway,
+          ledgerTransactionId: ledgerTransaction.id,
+          autoCreated: true,
+          createdReason: 'payment_success'
+        },
+        createdBy: createdBy || 'payment_gateway'
+      });
+    } catch (settlementError) {
+      // Log but don't fail the payment if settlement creation fails
+      // Settlement can be created manually later if needed
+      console.error('Failed to create settlement entry:', settlementError);
+    }
+    
+    return ledgerTransaction;
   }
   
   /**
