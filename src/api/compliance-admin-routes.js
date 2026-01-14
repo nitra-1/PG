@@ -78,8 +78,26 @@ const logComplianceAction = (action) => {
       // Use a dummy UUID for entity_id when no specific resource is being acted upon
       const entityId = req.params.requestId || AUDIT_DUMMY_ENTITY_ID;
       
+      // For approval/reject endpoints, we need to fetch the request to get tenant_id
+      let tenantId = req.query.tenantId || req.body.tenantId;
+      
+      if (!tenantId && req.params.requestId) {
+        // Fetch the approval request to extract tenant_id from request_data
+        const approvalRequest = await db.knex('approval_requests')
+          .where('id', req.params.requestId)
+          .first();
+        
+        if (approvalRequest && approvalRequest.request_data) {
+          // request_data is a JSONB column, already parsed by Knex
+          const requestData = typeof approvalRequest.request_data === 'string' 
+            ? JSON.parse(approvalRequest.request_data) 
+            : approvalRequest.request_data;
+          tenantId = requestData.tenantId;
+        }
+      }
+      
       await db.knex('audit_logs').insert({
-        tenant_id: req.query.tenantId || req.body.tenantId,
+        tenant_id: tenantId,
         entity_type: 'compliance_action',
         entity_id: entityId,
         action: 'read',
@@ -366,7 +384,10 @@ router.post('/overrides/:requestId/approve', requireComplianceAdmin, logComplian
       .returning('*');
     
     // Log the approval in admin_overrides_log
-    const requestData = JSON.parse(request.request_data);
+    // request_data is a JSONB column, already parsed by Knex
+    const requestData = typeof request.request_data === 'string' 
+      ? JSON.parse(request.request_data) 
+      : request.request_data;
     await db.knex('admin_overrides_log').insert({
       tenant_id: requestData.tenantId,
       override_type: request.request_type,
