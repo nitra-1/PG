@@ -403,13 +403,15 @@ router.post('/overrides/:requestId/approve', requireComplianceAdmin, logComplian
     await db.knex('admin_overrides_log').insert({
       tenant_id: requestData.tenantId,
       override_type: request.request_type,
+      entity_type: 'approval_request',
+      entity_id: requestId,
       justification: requestData.justification,
       approval_reason: approvalReason,
       override_by: requestData.requestedBy,
       override_by_role: 'FINANCE_ADMIN',
       approved_by: req.complianceUser.userEmail,
       approved_by_role: 'COMPLIANCE_ADMIN',
-      affected_transaction_ids: JSON.stringify(requestData.affectedTransactionIds || []),
+      affected_entities: JSON.stringify(requestData.affectedTransactionIds || []),
       metadata: JSON.stringify(requestData.metadata || {})
     });
     
