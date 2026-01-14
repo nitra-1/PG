@@ -403,6 +403,8 @@ router.post('/overrides/:requestId/approve', requireComplianceAdmin, logComplian
     await db.knex('admin_overrides_log').insert({
       tenant_id: requestData.tenantId,
       override_type: request.request_type,
+      entity_type: 'approval_request',
+      entity_id: requestId,
       justification: requestData.justification,
       approval_reason: approvalReason,
       override_by: requestData.requestedBy,
