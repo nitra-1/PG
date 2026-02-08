@@ -206,28 +206,30 @@ The platform maintains multiple ledger accounts to track money flow:
 
 ### Escrow Accounts
 ```
-ESC-001  Escrow Bank Account       (Asset - actual bank balance)
-ESC-002  Escrow Liability Account  (Liability - obligation to pay out)
+ESC-001  Escrow Bank Account       (Type: escrow, Asset - actual bank balance)
+ESC-002  Escrow Liability Account  (Type: escrow, Liability - obligation to pay out)
 ```
 
 ### Merchant Accounts
 ```
-MER-001  Merchant Receivables      (What merchant is owed)
-MER-002  Merchant Payables         (Platform's obligation to merchant)
-MER-003  Merchant Settlement       (Actual payouts tracking)
+MER-001  Merchant Receivables      (Type: merchant, What merchant is owed)
+MER-002  Merchant Payables         (Type: merchant, Platform's obligation to merchant)
+MER-003  Merchant Settlement       (Type: merchant, Actual payouts tracking)
 ```
 
 ### Platform Revenue Accounts
 ```
-REV-001  Platform MDR Revenue      (Platform's commission income)
-REV-002  Convenience Fee Revenue   (Additional fees)
+REV-001  Platform MDR Revenue      (Type: platform_revenue, Platform's commission income)
+REV-002  Convenience Fee Revenue   (Type: platform_revenue, Additional fees)
 ```
 
 ### Gateway Accounts
 ```
-GTW-001  Gateway Collections       (Payments via gateway)
-GTW-PAY-001  Gateway Payables     (Fees owed to gateway)
+GTW-001-RZP  Gateway Collections - Razorpay  (Type: gateway, Payments via gateway)
+GTW-PAY-001  Gateway Payables                (Type: gateway, Fees owed to gateway)
 ```
+
+**Note:** Each account has an `account_code` (e.g., ESC-001) and an `account_type` (e.g., escrow, merchant, gateway, platform_revenue) for categorization.
 
 **Code Reference:** `src/services/ledger-service.js` and database schema
 
@@ -261,12 +263,15 @@ Let's trace a complete ₹1,000 payment:
 **Query 1: Check Escrow Balance**
 ```sql
 SELECT 
-    account_type,
-    SUM(CASE WHEN entry_type = 'debit' THEN amount ELSE -amount END) as balance
+    la.account_code,
+    la.account_name,
+    la.account_type,
+    SUM(CASE WHEN le.entry_type = 'debit' THEN le.amount ELSE -le.amount END) as balance
 FROM ledger_entries le
 JOIN ledger_accounts la ON le.account_id = la.account_id
-WHERE la.account_type IN ('escrow_bank', 'escrow_liability')
-GROUP BY account_type;
+WHERE la.account_code IN ('ESC-001', 'ESC-002')
+  AND la.tenant_id = 'YOUR_TENANT_ID'
+GROUP BY la.account_code, la.account_name, la.account_type;
 ```
 
 **Query 2: Check Unsettled Merchant Payables**
@@ -276,12 +281,14 @@ SELECT
     SUM(amount) as pending_settlement
 FROM settlements
 WHERE status NOT IN ('BANK_CONFIRMED', 'SETTLED')
+  AND tenant_id = 'YOUR_TENANT_ID'
 GROUP BY merchant_id;
 ```
 
 **Query 3: Check Money Flow for Specific Transaction**
 ```sql
 SELECT 
+    la.account_code,
     la.account_name,
     le.entry_type,
     le.amount,
@@ -290,6 +297,7 @@ FROM ledger_entries le
 JOIN ledger_accounts la ON le.account_id = la.account_id
 JOIN ledger_transactions lt ON le.transaction_id = lt.transaction_id
 WHERE lt.reference_id = 'TRANSACTION_ID'
+  AND lt.tenant_id = 'YOUR_TENANT_ID'
 ORDER BY le.created_at;
 ```
 
