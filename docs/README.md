@@ -13,6 +13,13 @@ docs/
 ├── API.md                      ← API reference
 ├── SECURITY.md                 ← Security guidelines
 └── DEPLOYMENT.md               ← Deployment guide
+
+Root documentation/
+├── PAYMENT_MONEY_FLOW_EXPLAINED.md  ← Who holds the money? Business logic explained
+├── FINTECH_SOLUTION_EXECUTIVE_SUMMARY.md
+├── FINTECH_SOLUTION_SPECIFICATIONS.md
+├── ARCHITECTURE.md
+└── RBI_AUDIT_READINESS_README.md
 ```
 
 ## 🎯 Choose Your Path
@@ -43,6 +50,14 @@ docs/
 - Payment method specific flows
 - Webhook mechanisms
 - Error handling flows
+
+### I need to understand who holds the money
+**→ [Payment Money Flow Explained](../PAYMENT_MONEY_FLOW_EXPLAINED.md)** ⭐ NEW
+- Complete business logic explanation
+- Escrow account details
+- Settlement flow step-by-step
+- PAPG vs Gateway vs Merchant clarification
+- RBI compliance architecture
 
 ### I need API documentation
 **→ [API Reference](API.md)**
@@ -114,20 +129,24 @@ Step 5: Deploy (4-8 hours)
 
 ### For Architects
 **Must Read:**
-1. [Payment Flow Diagrams](PAYMENT_FLOW_DIAGRAMS.md) - System flows
-2. [Security Guidelines](SECURITY.md) - Security architecture
-3. [Deployment Guide](DEPLOYMENT.md) - Infrastructure
+1. [Payment Money Flow Explained](../PAYMENT_MONEY_FLOW_EXPLAINED.md) - Business logic & fund flow ⭐ NEW
+2. [Payment Flow Diagrams](PAYMENT_FLOW_DIAGRAMS.md) - System flows
+3. [Security Guidelines](SECURITY.md) - Security architecture
+4. [Deployment Guide](DEPLOYMENT.md) - Infrastructure
 
 **Reference:**
 - [E-commerce Integration Guide](ECOMMERCE_INTEGRATION.md) - Integration patterns
+- [Fintech Solution Specifications](../FINTECH_SOLUTION_SPECIFICATIONS.md) - Complete specs
 
 ### For Project Managers
 **Must Read:**
-1. [Quick Start Guide](QUICK_START.md) - Understand scope
-2. [E-commerce Integration Guide](ECOMMERCE_INTEGRATION.md) - Timeline estimation
+1. [Payment Money Flow Explained](../PAYMENT_MONEY_FLOW_EXPLAINED.md) - Business logic overview ⭐ NEW
+2. [Quick Start Guide](QUICK_START.md) - Understand scope
+3. [E-commerce Integration Guide](ECOMMERCE_INTEGRATION.md) - Timeline estimation
 
 **Reference:**
 - [Payment Flow Diagrams](PAYMENT_FLOW_DIAGRAMS.md) - Visual flows for stakeholders
+- [Fintech Solution Executive Summary](../FINTECH_SOLUTION_EXECUTIVE_SUMMARY.md) - Business value
 
 ## 🎓 Learning Path
 
@@ -208,6 +227,12 @@ Hour 4: Deploy to staging
 ## 🔍 Quick Search
 
 ### I need to know how to...
+
+**Understand who holds the money after payment**
+→ [Payment Money Flow Explained](../PAYMENT_MONEY_FLOW_EXPLAINED.md) ⭐ NEW
+
+**Understand escrow account and settlement flow**
+→ [Payment Money Flow Explained - Money Flow](../PAYMENT_MONEY_FLOW_EXPLAINED.md#complete-money-flow-architecture) ⭐ NEW
 
 **Create an order**
 → [E-commerce Integration Guide - Step 3](ECOMMERCE_INTEGRATION.md#step-3-create-payment-order)
