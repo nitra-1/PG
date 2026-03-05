@@ -18,8 +18,11 @@
  *   4. Print the result to stdout
  *
  * Prerequisites:
- *   - DATABASE_URL (or individual PG* env vars) must point to the running database
  *   - Run `npm install` to ensure bcrypt and pg are available
+ *   - Set database credentials via environment variables (in your .env file):
+ *       DATABASE_URL=postgres://user:password@host:5432/dbname
+ *     OR individual variables:
+ *       DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SSL
  */
 
 'use strict';
@@ -43,11 +46,27 @@ if (newPassword.length < 8) {
 }
 
 async function main() {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    // Individual env vars are used as fallback by the pg client automatically
-    // (PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD)
-  });
+  // Build connection config: prefer DATABASE_URL, then fall back to DB_* env
+  // vars (matching the rest of the application's configuration).
+  const clientConfig = process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: (() => {
+          const p = parseInt(process.env.DB_PORT, 10);
+          if (process.env.DB_PORT && (isNaN(p) || p < 1 || p > 65535)) {
+            console.error(`Error: DB_PORT '${process.env.DB_PORT}' is not a valid port number.`);
+            process.exit(1);
+          }
+          return p || 5432;
+        })(),
+        database: process.env.DB_NAME || 'payment_gateway',
+        user: process.env.DB_USER || 'postgres',
+        ...(process.env.DB_PASSWORD && { password: process.env.DB_PASSWORD }),
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      };
+
+  const client = new Client(clientConfig);
 
   try {
     await client.connect();
@@ -104,7 +123,7 @@ async function main() {
     console.log('\nYou can now log in with the new password.');
     console.log('========================================\n');
   } catch (err) {
-    console.error('Error resetting password:', err.message);
+    console.error('Error resetting password:', err.message || err);
     process.exit(1);
   } finally {
     await client.end();
