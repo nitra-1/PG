@@ -11,7 +11,22 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const bcrypt = require('bcrypt');
+const rateLimit = require('express-rate-limit');
 const { requireOpsConsoleAccess, logOpsAction } = require('./ops-console-middleware');
+
+/**
+ * Rate limiter for password reset - strict limit to prevent abuse
+ */
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many password reset attempts. Please try again later.'
+  }
+});
 
 /**
  * GET /api/ops/users
@@ -296,6 +311,71 @@ router.put('/:id/role', requireOpsConsoleAccess, logOpsAction('UPDATE_USER_ROLE'
     res.status(500).json({
       success: false,
       error: 'Failed to update user role'
+    });
+  }
+});
+
+/**
+ * PUT /api/ops/users/:id/password
+ * Reset a user's password (PLATFORM_ADMIN only)
+ * Cannot reset your own password via this endpoint (use profile settings)
+ */
+router.put('/:id/password', passwordResetLimiter, requireOpsConsoleAccess, logOpsAction('RESET_USER_PASSWORD'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { new_password } = req.body;
+
+    // Only PLATFORM_ADMIN can reset passwords
+    if (req.opsUser.role !== 'PLATFORM_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: only PLATFORM_ADMIN can reset user passwords'
+      });
+    }
+
+    if (!new_password || new_password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'new_password is required and must be at least 8 characters'
+      });
+    }
+
+    // Prevent self-password reset via this endpoint
+    if (id === req.opsUser.userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Cannot reset your own password via this endpoint'
+      });
+    }
+
+    const userResult = await db.query(
+      'SELECT id, username, role FROM platform_users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(new_password, 10);
+
+    await db.query(
+      'UPDATE platform_users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+      [passwordHash, id]
+    );
+
+    res.json({
+      success: true,
+      message: `Password reset successfully for user ${userResult.rows[0].username}`
+    });
+  } catch (error) {
+    console.error('Error resetting user password:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset password'
     });
   }
 });
