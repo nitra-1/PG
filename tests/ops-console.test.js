@@ -520,4 +520,78 @@ describe('Platform Ops Console - Security Tests', () => {
       expect(response.body.dashboard).toHaveProperty('gateways');
     });
   });
+
+  describe('Password Reset - PUT /api/ops/users/:id/password', () => {
+    const adminHeaders = {
+      'x-user-role': 'PLATFORM_ADMIN',
+      'x-user-id': 'admin-123'
+    };
+
+    test('should allow PLATFORM_ADMIN to reset another user password', async () => {
+      db.query
+        .mockResolvedValueOnce({ rows: [{ id: 'user-456', username: 'ops1', role: 'OPS_ADMIN' }] }) // SELECT user
+        .mockResolvedValueOnce({ rows: [] }); // UPDATE
+
+      const response = await request(app)
+        .put('/api/ops/users/user-456/password')
+        .set(adminHeaders)
+        .send({ new_password: 'NewPassword1!' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toContain('ops1');
+    });
+
+    test('should reject if new_password is missing', async () => {
+      const response = await request(app)
+        .put('/api/ops/users/user-456/password')
+        .set(adminHeaders)
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('new_password');
+    });
+
+    test('should reject if new_password is shorter than 8 characters', async () => {
+      const response = await request(app)
+        .put('/api/ops/users/user-456/password')
+        .set(adminHeaders)
+        .send({ new_password: 'short' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('8 characters');
+    });
+
+    test('should reject when OPS_ADMIN tries to reset a password', async () => {
+      const response = await request(app)
+        .put('/api/ops/users/user-456/password')
+        .set({ 'x-user-role': 'OPS_ADMIN', 'x-user-id': 'ops-123' })
+        .send({ new_password: 'NewPassword1!' });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain('PLATFORM_ADMIN');
+    });
+
+    test('should reject self-password reset', async () => {
+      const response = await request(app)
+        .put('/api/ops/users/admin-123/password')
+        .set(adminHeaders)
+        .send({ new_password: 'NewPassword1!' });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain('own password');
+    });
+
+    test('should return 404 if user does not exist', async () => {
+      db.query.mockResolvedValueOnce({ rows: [] }); // user not found
+
+      const response = await request(app)
+        .put('/api/ops/users/nonexistent/password')
+        .set(adminHeaders)
+        .send({ new_password: 'NewPassword1!' });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain('not found');
+    });
+  });
 });
