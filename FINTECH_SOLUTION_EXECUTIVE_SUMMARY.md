@@ -1,5 +1,12 @@
 # Fintech Solution - Executive Summary
 
+## Quick Reference
+
+**❓ Want to understand who holds the money after payment is done?**  
+**→ See [PAYMENT_MONEY_FLOW_EXPLAINED.md](PAYMENT_MONEY_FLOW_EXPLAINED.md)** for complete business logic and fund flow explanation.
+
+---
+
 ## Overview
 
 Bank-grade payment gateway platform designed for RBI-regulated Payment Aggregators in India, with comprehensive audit readiness and financial control features.
