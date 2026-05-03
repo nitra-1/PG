@@ -884,4 +884,11 @@ router.use('/payout-signals', payoutSignalRoutes(config));
 const payoutWebhookRoutes = require('./payout-webhook-routes');
 router.use('/payout-webhooks', payoutWebhookRoutes(config));
 
+// ===== Financial Reporting / Unified Signal Registry =====
+const reportRoutes = require('./report-routes');
+router.use('/reports', reportRoutes(config));
+
+const signalRegistryRoutes = require('./signal-registry-routes');
+router.use('/signals', signalRegistryRoutes(config));
+
 module.exports = router;
