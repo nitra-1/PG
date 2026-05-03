@@ -11,6 +11,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const config = require('../config/config');
 const { requireOpsConsoleAccess, logOpsAction } = require('./ops-console-middleware');
 
 /**
@@ -87,7 +88,7 @@ router.get('/', requireOpsConsoleAccess, logOpsAction('LIST_MERCHANTS'), async (
  */
 router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_MERCHANT'), async (req, res) => {
   try {
-    const { business_name, email, contact_name, contact_phone } = req.body;
+    const { business_name, email, contact_name, contact_phone, tenant_id } = req.body;
     
     if (!business_name || !email) {
       return res.status(400).json({
@@ -96,11 +97,14 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_MERCHANT'), async
       });
     }
     
+    const tenantId = tenant_id || config.defaultTenantId;
+    const merchantCode = `MERCH_${Date.now().toString(36).toUpperCase()}`;
+    
     const result = await db.query(
-      `INSERT INTO merchants (merchant_name, email, phone, status) 
-       VALUES ($1, $2, $3, 'pending') 
-       RETURNING id, merchant_name as business_name, email, status, created_at`,
-      [business_name, email, contact_phone]
+      `INSERT INTO merchants (tenant_id, merchant_code, merchant_name, email, phone, status) 
+       VALUES ($1, $2, $3, $4, $5, 'pending') 
+       RETURNING id, merchant_code, merchant_name as business_name, email, status, created_at`,
+      [tenantId, merchantCode, business_name, email, contact_phone]
     );
     
     res.json({

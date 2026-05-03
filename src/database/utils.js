@@ -5,6 +5,8 @@
 
 const db = require('./connection');
 const config = require('../config/config');
+const knex = require('./knex');   // ✅ ADD THIS
+
 
 /**
  * Validate table name against allowed tables
@@ -12,11 +14,14 @@ const config = require('../config/config');
  * known, safe table names can be used in dynamic queries.
  */
 const ALLOWED_TABLES = [
+  'tenants',
   'transactions',
   'payment_orders',
   'audit_logs',
   'merchants',
-  'beneficiaries'
+  'beneficiaries',
+  'idempotency_keys',
+  'outbox_events'
 ];
 
 function validateTableName(tableName) {
@@ -61,11 +66,14 @@ async function insertWithTenant(tableName, data, tenantId) {
  * known, safe column names can be used in dynamic queries.
  */
 const TABLE_SCHEMAS = {
+  tenants: ['id', 'tenant_code', 'tenant_name', 'status', 'created_at', 'updated_at'],
   transactions: ['id', 'tenant_id', 'order_id', 'transaction_ref', 'payment_method', 'gateway', 'amount', 'currency', 'status', 'customer_email', 'customer_phone', 'customer_name', 'metadata', 'gateway_transaction_id', 'gateway_response_code', 'gateway_response_message', 'initiated_at', 'completed_at', 'created_at', 'updated_at'],
   payment_orders: ['id', 'tenant_id', 'order_id', 'amount', 'currency', 'status', 'customer_id', 'customer_email', 'customer_phone', 'customer_details', 'billing_address', 'shipping_address', 'line_items', 'payment_method', 'gateway', 'gateway_order_id', 'callback_url', 'webhook_url', 'metadata', 'expires_at', 'created_at', 'updated_at'],
-  audit_logs: ['id', 'tenant_id', 'entity_type', 'entity_id', 'action', 'user_id', 'user_email', 'ip_address', 'user_agent', 'changes_before', 'changes_after', 'metadata', 'created_at'],
-  merchants: ['id', 'merchant_code', 'merchant_name', 'business_type', 'email', 'phone', 'address', 'status', 'settings', 'api_credentials', 'balance', 'created_at', 'updated_at'],
-  beneficiaries: ['id', 'tenant_id', 'beneficiary_name', 'account_number', 'ifsc_code', 'bank_name', 'branch_name', 'email', 'phone', 'status', 'metadata', 'created_at', 'updated_at']
+  audit_logs: ['id', 'tenant_id', 'entity_type', 'entity_id', 'action', 'user_id', 'user_email', 'ip_address', 'user_agent', 'changes_before', 'changes_after', 'metadata', 'correlation_id', 'created_at'],
+  merchants: ['id', 'tenant_id', 'merchant_code', 'merchant_name', 'business_type', 'email', 'phone', 'address', 'status', 'settings', 'api_credentials', 'balance', 'created_at', 'updated_at'],
+  beneficiaries: ['id', 'tenant_id', 'beneficiary_name', 'account_number', 'ifsc_code', 'bank_name', 'branch_name', 'email', 'phone', 'status', 'metadata', 'created_at', 'updated_at'],
+  idempotency_keys: ['id', 'tenant_id', 'scope', 'idempotency_key', 'request_hash', 'response_body', 'status', 'error_message', 'locked_until', 'expires_at', 'correlation_id', 'created_at', 'updated_at'],
+  outbox_events: ['id', 'tenant_id', 'aggregate_type', 'aggregate_id', 'event_type', 'event_version', 'idempotency_key', 'correlation_id', 'payload', 'status', 'retry_count', 'max_retries', 'next_retry_at', 'last_error', 'locked_until', 'processing_started_at', 'processed_at', 'dlq_at', 'created_at', 'updated_at']
 };
 
 function validateColumns(tableName, columns) {
@@ -167,6 +175,7 @@ async function deleteByTenant(tableName, id, tenantId) {
  * Log audit trail
  */
 async function logAudit(params) {
+  const requestContext = require('../core/context/request-context');
   const {
     tenantId,
     entityType,
@@ -178,13 +187,14 @@ async function logAudit(params) {
     userAgent,
     changesBefore = null,
     changesAfter = null,
-    metadata = null
+    metadata = null,
+    correlationId = requestContext.getCorrelationId()
   } = params;
 
   const query = `
     INSERT INTO audit_logs 
-    (tenant_id, entity_type, entity_id, action, user_id, user_email, ip_address, user_agent, changes_before, changes_after, metadata)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    (tenant_id, entity_type, entity_id, action, user_id, user_email, ip_address, user_agent, changes_before, changes_after, metadata, correlation_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     RETURNING *
   `;
 
@@ -199,7 +209,8 @@ async function logAudit(params) {
     userAgent || null,
     changesBefore ? JSON.stringify(changesBefore) : null,
     changesAfter ? JSON.stringify(changesAfter) : null,
-    metadata ? JSON.stringify(metadata) : null
+    metadata ? JSON.stringify(metadata) : null,
+    correlationId || null
   ];
 
   const result = await db.query(query, values);
@@ -250,6 +261,7 @@ function paginate(query, page = 1, pageSize = 20) {
 }
 
 module.exports = {
+  knex,
   insertWithTenant,
   findByTenant,
   updateByTenant,

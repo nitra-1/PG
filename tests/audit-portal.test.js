@@ -7,57 +7,76 @@
 const request = require('supertest');
 const express = require('express');
 const auditPortalRoutes = require('../src/api/audit-portal-routes');
-const db = require('../src/database');
+const db = require('../src/database/utils');
 
+// ✅ ADD THIS BLOCK HERE
+beforeAll(async () => {
+  await db.knex.migrate.latest();
+  await db.knex.seed.run();
+});
+
+afterAll(async () => {
+  await db.knex.destroy();
+});
 // Mock database
-jest.mock('../src/database', () => ({
+/* jest.mock('../src/database', () => ({
   knex: jest.fn()
-}));
+})); */
 
 describe('Audit Portal Security Tests', () => {
   let app;
   
-  beforeEach(() => {
-    app = express();
-    app.use(express.json());
-    app.use('/api/audit-portal', auditPortalRoutes);
-    
-    // Mock audit trail service
-    app.locals.auditTrailService = {
-      logSecurityEvent: jest.fn().mockResolvedValue({}),
-      logDataAccess: jest.fn().mockResolvedValue({})
-    };
-  });
+beforeEach(async () => {
+  app = express();
+  app.use(express.json());
+  app.use('/api/audit-portal', auditPortalRoutes);
   
+  // Mock audit trail service
+  app.locals.auditTrailService = {
+    logSecurityEvent: jest.fn().mockResolvedValue({}),
+    logDataAccess: jest.fn().mockResolvedValue({})
+  };
+
+  // Optional but safer: clean before insert
+  await db.knex('auditor_access_windows').del();
+
+  await db.knex('auditor_access_windows').insert({
+  id: 'test-window',
+  auditor_id: 'auditor-123',          // ✅ fixed column
+  audit_case_number: 'TEST-001',      // ✅ required
+  audit_type: 'TEST_AUDIT',           // ✅ required
+  access_end_date: new Date(Date.now() + 86400000)
+});
+});  
   describe('Role-Based Access Control', () => {
     test('should allow AUDITOR role access', async () => {
       // Mock database queries
-      db.knex.mockImplementation((table) => {
-        if (table === 'auditor_access_windows') {
-          return {
-            where: jest.fn().mockReturnThis(),
-            first: jest.fn().mockResolvedValue({
-              id: 'access-window-id',
-              audit_case_number: 'TEST-001',
-              audit_type: 'TEST_AUDIT',
-              access_end_date: new Date(Date.now() + 86400000) // Tomorrow
-            })
-          };
-        }
-        if (table === 'merchants') {
-          return {
-            where: jest.fn().mockReturnThis(),
-            select: jest.fn().mockReturnThis(),
-            orderBy: jest.fn().mockResolvedValue([
-              { id: 'tenant-1', name: 'Test Tenant' }
-            ])
-          };
-        }
-        return {
-          where: jest.fn().mockReturnThis(),
-          update: jest.fn().mockResolvedValue({})
-        };
-      });
+      // db.knex.mockImplementation((table) => {
+        // if (table === 'auditor_access_windows') {
+          // return {
+            // where: jest.fn().mockReturnThis(),
+            // first: jest.fn().mockResolvedValue({
+              // id: 'access-window-id',
+              // audit_case_number: 'TEST-001',
+              // audit_type: 'TEST_AUDIT',
+              // access_end_date: new Date(Date.now() + 86400000) // Tomorrow
+            // })
+          // };
+        // }
+        // if (table === 'merchants') {
+          // return {
+            // where: jest.fn().mockReturnThis(),
+            // select: jest.fn().mockReturnThis(),
+            // orderBy: jest.fn().mockResolvedValue([
+              // { id: 'tenant-1', name: 'Test Tenant' }
+            // ])
+          // };
+        // }
+        // return {
+          // where: jest.fn().mockReturnThis(),
+          // update: jest.fn().mockResolvedValue({})
+        // };
+      // });
       
       const response = await request(app)
         .get('/api/audit-portal/tenants')
@@ -100,7 +119,7 @@ describe('Audit Portal Security Tests', () => {
   
   describe('Time-Boxed Access Control', () => {
     test('should allow access within valid window', async () => {
-      db.knex.mockImplementation((table) => {
+      /* db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
@@ -123,7 +142,7 @@ describe('Audit Portal Security Tests', () => {
           where: jest.fn().mockReturnThis(),
           update: jest.fn().mockResolvedValue({})
         };
-      });
+      }); */
       
       const response = await request(app)
         .get('/api/audit-portal/tenants')
@@ -135,15 +154,16 @@ describe('Audit Portal Security Tests', () => {
     });
     
     test('should reject access with no active window', async () => {
-      db.knex.mockImplementation((table) => {
-        if (table === 'auditor_access_windows') {
-          return {
-            where: jest.fn().mockReturnThis(),
-            first: jest.fn().mockResolvedValue(null) // No active window
-          };
-        }
-        return { where: jest.fn().mockReturnThis() };
-      });
+  await db.knex('auditor_access_windows').del();  // ✅ override setup
+
+  const response = await request(app)
+    .get('/api/audit-portal/tenants')
+    .set('X-User-Role', 'AUDITOR')
+    .set('X-User-Id', 'auditor-123')
+    .set('X-User-Name', 'Test Auditor');
+
+  expect(response.status).toBe(403);
+});
       
       const response = await request(app)
         .get('/api/audit-portal/tenants')
@@ -159,7 +179,7 @@ describe('Audit Portal Security Tests', () => {
   describe('Write Operation Blocking', () => {
     test('should block POST requests', async () => {
       // Setup access window
-      db.knex.mockImplementation((table) => {
+      /* db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
@@ -173,7 +193,7 @@ describe('Audit Portal Security Tests', () => {
           where: jest.fn().mockReturnThis(),
           update: jest.fn().mockResolvedValue({})
         };
-      });
+      }); */
       
       const response = await request(app)
         .post('/api/audit-portal/tenants')
@@ -188,7 +208,7 @@ describe('Audit Portal Security Tests', () => {
     });
     
     test('should block PUT requests', async () => {
-      db.knex.mockImplementation((table) => {
+     /*  db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
@@ -202,7 +222,7 @@ describe('Audit Portal Security Tests', () => {
           where: jest.fn().mockReturnThis(),
           update: jest.fn().mockResolvedValue({})
         };
-      });
+      }); */
       
       const response = await request(app)
         .put('/api/audit-portal/tenants/test-id')
@@ -216,7 +236,7 @@ describe('Audit Portal Security Tests', () => {
     });
     
     test('should block DELETE requests', async () => {
-      db.knex.mockImplementation((table) => {
+      /* db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
@@ -230,7 +250,7 @@ describe('Audit Portal Security Tests', () => {
           where: jest.fn().mockReturnThis(),
           update: jest.fn().mockResolvedValue({})
         };
-      });
+      }); */
       
       const response = await request(app)
         .delete('/api/audit-portal/tenants/test-id')
@@ -243,7 +263,7 @@ describe('Audit Portal Security Tests', () => {
     });
     
     test('should block PATCH requests', async () => {
-      db.knex.mockImplementation((table) => {
+      /* db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
@@ -257,7 +277,7 @@ describe('Audit Portal Security Tests', () => {
           where: jest.fn().mockReturnThis(),
           update: jest.fn().mockResolvedValue({})
         };
-      });
+      }); */
       
       const response = await request(app)
         .patch('/api/audit-portal/tenants/test-id')
@@ -271,7 +291,7 @@ describe('Audit Portal Security Tests', () => {
     });
     
     test('should allow GET requests', async () => {
-      db.knex.mockImplementation((table) => {
+      /* db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
@@ -292,7 +312,7 @@ describe('Audit Portal Security Tests', () => {
           where: jest.fn().mockReturnThis(),
           update: jest.fn().mockResolvedValue({})
         };
-      });
+      }); */
       
       const response = await request(app)
         .get('/api/audit-portal/tenants')
@@ -306,7 +326,7 @@ describe('Audit Portal Security Tests', () => {
   
   describe('Audit Headers', () => {
     test('should add audit watermark headers', async () => {
-      db.knex.mockImplementation((table) => {
+     /*  db.knex.mockImplementation((table) => {
         if (table === 'auditor_access_windows') {
           return {
             where: jest.fn().mockReturnThis(),
@@ -328,7 +348,7 @@ describe('Audit Portal Security Tests', () => {
           where: jest.fn().mockReturnThis(),
           update: jest.fn().mockResolvedValue({})
         };
-      });
+      }); */
       
       const response = await request(app)
         .get('/api/audit-portal/tenants')

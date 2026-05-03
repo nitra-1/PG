@@ -63,6 +63,7 @@ class SettlementService {
       bankAccountNumber,
       bankIfsc,
       bankName,
+      ledgerTransactionId,
       metadata = {},
       createdBy
     } = params;
@@ -73,6 +74,29 @@ class SettlementService {
     }
     
     return await db.knex.transaction(async (trx) => {
+      const existing = await trx('settlements')
+        .where('tenant_id', tenantId)
+        .where('settlement_ref', settlementRef)
+        .first();
+
+      if (existing) {
+        if (ledgerTransactionId && existing.ledger_transaction_id && existing.ledger_transaction_id !== ledgerTransactionId) {
+          throw new Error(`Settlement ${settlementRef} already references a different ledger transaction`);
+        }
+        return existing;
+      }
+
+      if (ledgerTransactionId) {
+        await this.validateLedgerSettlementAmounts({
+          trx,
+          tenantId,
+          ledgerTransactionId,
+          grossAmount,
+          feesAmount,
+          netAmount
+        });
+      }
+
       // Create settlement in CREATED state
       const [settlement] = await trx('settlements').insert({
         id: uuidv4(),
@@ -88,6 +112,7 @@ class SettlementService {
         bank_account_number: bankAccountNumber,
         bank_ifsc: bankIfsc,
         bank_name: bankName,
+        ledger_transaction_id: ledgerTransactionId || null,
         status: this.STATES.CREATED,
         retry_count: 0,
         max_retries: this.MAX_RETRIES,
@@ -115,6 +140,38 @@ class SettlementService {
       
       return settlement;
     });
+  }
+
+  async validateLedgerSettlementAmounts({ trx, tenantId, ledgerTransactionId, grossAmount, feesAmount, netAmount }) {
+    const ledgerTransaction = await trx('ledger_transactions')
+      .where('id', ledgerTransactionId)
+      .where('tenant_id', tenantId)
+      .first();
+
+    if (!ledgerTransaction) {
+      throw new Error(`Settlement ledger transaction not found: ${ledgerTransactionId}`);
+    }
+
+    if (ledgerTransaction.status !== 'posted') {
+      throw new Error(`Settlement ledger transaction must be posted: ${ledgerTransactionId}`);
+    }
+
+    const ledgerMetadata = typeof ledgerTransaction.metadata === 'string'
+      ? JSON.parse(ledgerTransaction.metadata || '{}')
+      : (ledgerTransaction.metadata || {});
+    const ledgerGross = Number(ledgerTransaction.amount);
+    const ledgerFees = Number(ledgerMetadata.platformFee || 0) + Number(ledgerMetadata.gatewayFee || 0);
+    const ledgerNet = ledgerGross - ledgerFees;
+
+    const assertAmount = (label, expected, actual) => {
+      if (Math.abs(Number(expected || 0) - Number(actual || 0)) > 0.01) {
+        throw new Error(`Settlement ${label} mismatch. Expected ${expected}, got ${actual}`);
+      }
+    };
+
+    assertAmount('gross_amount', ledgerGross, grossAmount);
+    assertAmount('fees_amount', ledgerFees, feesAmount);
+    assertAmount('net_amount', ledgerNet, netAmount);
   }
   
   /**

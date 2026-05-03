@@ -11,6 +11,7 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { ledgerService, reconciliationService } = require('../core/ledger');
+const { outboxService } = require('../core/outbox/outbox-service');
 
 /**
  * Rate limiter for health check endpoint
@@ -169,16 +170,28 @@ router.post('/transactions/reverse', requireFinanceRole, async (req, res) => {
       });
     }
     
-    const result = await ledgerService.reverseTransaction({
+    const event = await outboxService.createEvent({
       tenantId,
-      originalTransactionId,
-      reason,
-      createdBy
+      aggregateType: 'ledger_transaction',
+      aggregateId: originalTransactionId,
+      eventType: 'ledger.reversal.requested',
+      idempotencyKey: `ledger-reversal:${tenantId}:${originalTransactionId}`,
+      correlationId: req.correlationId,
+      payload: {
+        originalTransactionId,
+        reason,
+        createdBy
+      }
     });
     
-    res.json({
+    res.status(202).json({
       success: true,
-      data: result
+      data: {
+        eventId: event.id,
+        status: event.status,
+        idempotencyKey: event.idempotency_key,
+        correlationId: event.correlation_id
+      }
     });
     
   } catch (error) {

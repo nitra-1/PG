@@ -10,6 +10,8 @@ const path = require('path');
 const config = require('./config/config');
 const routes = require('./api/routes');
 const db = require('./database');
+const logger = require('./core/logging/logger');
+const { correlationIdMiddleware } = require('./core/middleware/correlation-id');
 
 // Import security services
 const TokenizationService = require('./security/tokenization-service');
@@ -62,6 +64,7 @@ app.use(blockInsecureEndpoints(sensitiveEndpoints));
 app.use(addSecurityHeaders);
 
 // Middleware
+app.use(correlationIdMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -72,7 +75,8 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Correlation-Id, Idempotency-Key');
+  res.header('Access-Control-Expose-Headers', 'X-Correlation-Id, Idempotency-Replayed');
   
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -87,6 +91,7 @@ app.get('/health', async (req, res) => {
   res.json({
     status: dbHealth.healthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
+    correlationId: req.correlationId,
     uptime: process.uptime(),
     database: dbHealth
   });
@@ -120,18 +125,27 @@ app.get('/', (req, res) => {
 // 404 Handler
 app.use((req, res) => {
   res.status(404).json({
+    success: false,
     error: 'Endpoint not found',
     path: req.path,
-    method: req.method
+    method: req.method,
+    correlationId: req.correlationId
   });
 });
 
 // Error Handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logger.error('Unhandled request error', {
+    error: err.message,
+    stack: err.stack,
+    correlation_id: req.correlationId
+  });
   
   res.status(err.status || 500).json({
+    success: false,
+    code: err.code || 'INTERNAL_ERROR',
     error: err.message || 'Internal server error',
+    correlationId: req.correlationId,
     timestamp: new Date().toISOString()
   });
 });
@@ -140,7 +154,13 @@ app.use((err, req, res, next) => {
 const PORT = config.server.port || 3000;
 const HOST = config.server.host || '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
+  logger.info('Payment Gateway server started', {
+    host: HOST,
+    port: PORT,
+    environment: config.server.environment,
+    nodeVersion: process.version
+  });
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║           Payment Gateway Server Started                  ║
@@ -174,28 +194,28 @@ Ready to process payments! 🚀
 
 // Graceful Shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+  logger.info('SIGTERM signal received: closing HTTP server');
   server.close(async () => {
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
     try {
       await db.closePool();
-      console.log('Database pool closed');
+      logger.info('Database pool closed');
     } catch (error) {
-      console.error('Error closing database pool:', error);
+      logger.error('Error closing database pool', { error: error.message });
     }
     process.exit(0);
   });
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
+  logger.info('SIGINT signal received: closing HTTP server');
   server.close(async () => {
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
     try {
       await db.closePool();
-      console.log('Database pool closed');
+      logger.info('Database pool closed');
     } catch (error) {
-      console.error('Error closing database pool:', error);
+      logger.error('Error closing database pool', { error: error.message });
     }
     process.exit(0);
   });

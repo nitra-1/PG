@@ -19,6 +19,7 @@
 
 const ledgerService = require('./ledger-service');
 const settlementService = require('./settlement-service');
+const { buildEntries } = require('./accounting-templates');
 const { v4: uuidv4 } = require('uuid');
 
 class LedgerEventHandlers {
@@ -77,96 +78,30 @@ class LedgerEventHandlers {
       amount,
       platformFee = 0,
       gatewayFee = 0,
-      createdBy = 'system'
+      createdBy = 'system',
+      transactionRef,
+      eventId,
+      correlationId,
+      idempotencyKey
     } = params;
     
     // Calculate merchant settlement amount
     const merchantAmount = amount - platformFee - gatewayFee;
     
-    // Get gateway-specific accounts
-    const gatewayAccounts = this.getGatewayAccounts(gateway);
-    
-    // Create ledger entries
-    const entries = [
-      // 1. Debit Escrow Bank (cash received)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_BANK,
-        entryType: 'debit',
-        amount: amount,
-        description: `Payment received for order ${orderId}`
-      },
-      // 2. Credit Escrow Liability (obligation to customer/merchant)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_LIABILITY,
-        entryType: 'credit',
-        amount: amount,
-        description: `Customer funds held in escrow for order ${orderId}`
-      },
-      // 3. Debit Merchant Receivables (merchant's right to payment)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.MERCHANT_RECEIVABLES,
-        entryType: 'debit',
-        amount: merchantAmount,
-        description: `Merchant receivable for order ${orderId}`,
-        metadata: { merchantId }
-      },
-      // 4. Credit Merchant Payables (our obligation to pay merchant)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.MERCHANT_PAYABLES,
-        entryType: 'credit',
-        amount: merchantAmount,
-        description: `Amount payable to merchant for order ${orderId}`,
-        metadata: { merchantId }
-      }
-    ];
-    
-    // Add platform fee entries if applicable
-    if (platformFee > 0) {
-      entries.push(
-        // 5. Debit Platform Receivables (platform's right to fee)
-        {
-          accountCode: ledgerService.ACCOUNT_CODES.PLATFORM_RECEIVABLES,
-          entryType: 'debit',
-          amount: platformFee,
-          description: `Platform MDR for order ${orderId}`
-        },
-        // 6. Credit Platform Revenue (income recognition)
-        {
-          accountCode: ledgerService.ACCOUNT_CODES.PLATFORM_MDR,
-          entryType: 'credit',
-          amount: platformFee,
-          description: `Platform revenue earned from order ${orderId}`
-        }
-      );
-    }
-    
-    // Add gateway fee entries if applicable
-    if (gatewayFee > 0) {
-      entries.push(
-        // 7. Debit Gateway Fee Expense (cost incurred)
-        {
-          accountCode: gatewayAccounts.fee,
-          entryType: 'debit',
-          amount: gatewayFee,
-          description: `${gateway} gateway fee for order ${orderId}`,
-          metadata: { gateway }
-        },
-        // 8. Credit Gateway Payables (obligation to pay gateway)
-        {
-          accountCode: ledgerService.ACCOUNT_CODES.GATEWAY_PAYABLES,
-          entryType: 'credit',
-          amount: gatewayFee,
-          description: `Gateway fee payable to ${gateway} for order ${orderId}`,
-          metadata: { gateway }
-        }
-      );
-    }
+    const entries = buildEntries('payment_success', {
+      orderId,
+      merchantId,
+      gateway,
+      amount,
+      platformFee,
+      gatewayFee
+    });
     
     // Post to ledger
     const ledgerTransaction = await ledgerService.postTransaction({
       tenantId,
-      transactionRef: `PAY-${orderId}`,
-      idempotencyKey: `payment-success-${transactionId}`,
+      transactionRef: transactionRef || `PAY-${orderId}`,
+      idempotencyKey: idempotencyKey || `payment-success-${transactionId}`,
       eventType: 'payment_success',
       sourceTransactionId: transactionId,
       sourceOrderId: orderId,
@@ -175,43 +110,44 @@ class LedgerEventHandlers {
       entries,
       metadata: { merchantId, gateway, platformFee, gatewayFee },
       createdBy,
-      sourceEvent: 'payment_success'
+      sourceEvent: 'payment_success',
+      eventId,
+      correlationId
     });
+
+    if (ledgerTransaction.duplicate) {
+      return ledgerTransaction;
+    }
     
     // Create settlement entry for this payment
     // This creates a settlement in CREATED state that will be processed through the state machine
-    try {
-      // Generate settlement reference with safe substring handling
-      const merchantIdPart = (merchantId || '').substring(0, 8).padEnd(8, '0');
-      const transactionIdPart = (transactionId || '').substring(0, 8).padEnd(8, '0');
-      const settlementRef = `SETL-${merchantIdPart}-${transactionIdPart}`;
-      const settlementDate = new Date();
-      
-      await settlementService.createSettlement({
-        tenantId,
-        merchantId,
-        settlementRef,
-        settlementDate,
-        periodFrom: settlementDate, // Single transaction settlement
-        periodTo: settlementDate,
-        grossAmount: amount,
-        feesAmount: platformFee + gatewayFee,
-        netAmount: merchantAmount,
-        metadata: {
-          transactionId,
-          orderId,
-          gateway,
-          ledgerTransactionId: ledgerTransaction.id,
-          autoCreated: true,
-          createdReason: 'payment_success'
-        },
-        createdBy: createdBy || 'payment_gateway'
-      });
-    } catch (settlementError) {
-      // Log but don't fail the payment if settlement creation fails
-      // Settlement can be created manually later if needed
-      console.error('Failed to create settlement entry:', settlementError);
-    }
+    // Generate settlement reference with safe substring handling
+    const merchantIdPart = (merchantId || '').substring(0, 8).padEnd(8, '0');
+    const transactionIdPart = (transactionId || '').substring(0, 8).padEnd(8, '0');
+    const settlementRef = `SETL-${merchantIdPart}-${transactionIdPart}`;
+    const settlementDate = new Date();
+    
+    await settlementService.createSettlement({
+      tenantId,
+      merchantId,
+      settlementRef,
+      settlementDate,
+      periodFrom: settlementDate, // Single transaction settlement
+      periodTo: settlementDate,
+      grossAmount: amount,
+      feesAmount: platformFee + gatewayFee,
+      netAmount: merchantAmount,
+      ledgerTransactionId: ledgerTransaction.transaction?.id || ledgerTransaction.id,
+      metadata: {
+        transactionId,
+        orderId,
+        gateway,
+        ledgerTransactionId: ledgerTransaction.transaction?.id || ledgerTransaction.id,
+        autoCreated: true,
+        createdReason: 'payment_success'
+      },
+      createdBy: createdBy || 'payment_gateway'
+    });
     
     return ledgerTransaction;
   }
@@ -237,64 +173,25 @@ class LedgerEventHandlers {
       refundAmount,
       platformFeeRefund = 0,
       gatewayFeeRefund = 0,
-      createdBy = 'system'
+      createdBy = 'system',
+      eventId,
+      correlationId,
+      idempotencyKey
     } = params;
     
-    const entries = [
-      // 1. Debit Escrow Liability (reduce obligation)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_LIABILITY,
-        entryType: 'debit',
-        amount: refundAmount,
-        description: `Refund processed for order ${orderId}`
-      },
-      // 2. Credit Escrow Bank (cash outflow)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_BANK,
-        entryType: 'credit',
-        amount: refundAmount,
-        description: `Refund paid to customer for order ${orderId}`
-      },
-      // 3. Debit Merchant Payables (reduce obligation to merchant)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.MERCHANT_PAYABLES,
-        entryType: 'debit',
-        amount: refundAmount - platformFeeRefund - gatewayFeeRefund,
-        description: `Merchant payable reduced due to refund for order ${orderId}`,
-        metadata: { merchantId }
-      },
-      // 4. Credit Merchant Receivables (reduce merchant's right)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.MERCHANT_RECEIVABLES,
-        entryType: 'credit',
-        amount: refundAmount - platformFeeRefund - gatewayFeeRefund,
-        description: `Merchant receivable reduced due to refund for order ${orderId}`,
-        metadata: { merchantId }
-      }
-    ];
-    
-    // Reverse platform fee if applicable
-    if (platformFeeRefund > 0) {
-      entries.push(
-        {
-          accountCode: ledgerService.ACCOUNT_CODES.PLATFORM_MDR,
-          entryType: 'debit',
-          amount: platformFeeRefund,
-          description: `Platform revenue reversed for refund ${refundId}`
-        },
-        {
-          accountCode: ledgerService.ACCOUNT_CODES.PLATFORM_RECEIVABLES,
-          entryType: 'credit',
-          amount: platformFeeRefund,
-          description: `Platform receivable reversed for refund ${refundId}`
-        }
-      );
-    }
+    const entries = buildEntries('refund_completed', {
+      orderId,
+      refundId,
+      merchantId,
+      refundAmount,
+      platformFeeRefund,
+      gatewayFeeRefund
+    });
     
     return await ledgerService.postTransaction({
       tenantId,
       transactionRef: `REF-${refundId}`,
-      idempotencyKey: `refund-completed-${refundId}`,
+      idempotencyKey: idempotencyKey || `refund-completed-${refundId}`,
       eventType: 'refund_completed',
       sourceTransactionId: transactionId,
       sourceOrderId: orderId,
@@ -303,7 +200,9 @@ class LedgerEventHandlers {
       entries,
       metadata: { merchantId, refundId, platformFeeRefund, gatewayFeeRefund },
       createdBy,
-      sourceEvent: 'refund_completed'
+      sourceEvent: 'refund_completed',
+      eventId,
+      correlationId
     });
   }
   
@@ -325,48 +224,24 @@ class LedgerEventHandlers {
       merchantId,
       settlementAmount,
       utrNumber,
-      createdBy = 'system'
+      createdBy = 'system',
+      eventId,
+      correlationId,
+      idempotencyKey
     } = params;
     
-    const entries = [
-      // 1. Debit Merchant Payables (clear obligation)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.MERCHANT_PAYABLES,
-        entryType: 'debit',
-        amount: settlementAmount,
-        description: `Settlement to merchant ${merchantId} - UTR: ${utrNumber}`,
-        metadata: { merchantId, utrNumber }
-      },
-      // 2. Credit Merchant Settlement Account (track settlements)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.MERCHANT_SETTLEMENT,
-        entryType: 'credit',
-        amount: settlementAmount,
-        description: `Settlement paid to merchant ${merchantId} - UTR: ${utrNumber}`,
-        metadata: { merchantId, utrNumber }
-      },
-      // 3. Debit Escrow Liability (reduce obligation)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_LIABILITY,
-        entryType: 'debit',
-        amount: settlementAmount,
-        description: `Escrow released for settlement ${settlementRef}`,
-        metadata: { settlementId, merchantId }
-      },
-      // 4. Credit Escrow Bank (cash outflow)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_BANK,
-        entryType: 'credit',
-        amount: settlementAmount,
-        description: `Settlement payment to merchant ${merchantId}`,
-        metadata: { settlementId, merchantId, utrNumber }
-      }
-    ];
+    const entries = buildEntries('settlement', {
+      settlementId,
+      settlementRef,
+      merchantId,
+      settlementAmount,
+      utrNumber
+    });
     
     return await ledgerService.postTransaction({
       tenantId,
       transactionRef: `SETL-${settlementRef}`,
-      idempotencyKey: `settlement-${settlementId}`,
+      idempotencyKey: idempotencyKey || `settlement-${settlementId}`,
       eventType: 'settlement',
       sourceTransactionId: settlementId,
       sourceOrderId: settlementRef,
@@ -375,7 +250,9 @@ class LedgerEventHandlers {
       entries,
       metadata: { settlementId, merchantId, utrNumber },
       createdBy,
-      sourceEvent: 'settlement'
+      sourceEvent: 'settlement',
+      eventId,
+      correlationId
     });
   }
   
@@ -397,47 +274,24 @@ class LedgerEventHandlers {
       merchantId,
       chargebackAmount,
       reason,
-      createdBy = 'system'
+      createdBy = 'system',
+      eventId,
+      correlationId,
+      idempotencyKey
     } = params;
     
-    const entries = [
-      // 1. Debit Chargeback Liability (create liability)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.CHARGEBACK_LIABILITY,
-        entryType: 'debit',
-        amount: chargebackAmount,
-        description: `Chargeback for order ${orderId}: ${reason}`,
-        metadata: { chargebackId, merchantId, reason }
-      },
-      // 2. Credit Merchant Receivables (reduce merchant's right)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.MERCHANT_RECEIVABLES,
-        entryType: 'credit',
-        amount: chargebackAmount,
-        description: `Merchant receivable reduced for chargeback on order ${orderId}`,
-        metadata: { chargebackId, merchantId }
-      },
-      // 3. Debit Escrow Liability (reduce obligation)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_LIABILITY,
-        entryType: 'debit',
-        amount: chargebackAmount,
-        description: `Escrow liability adjusted for chargeback ${chargebackId}`
-      },
-      // 4. Credit Escrow Bank (cash outflow for chargeback)
-      {
-        accountCode: ledgerService.ACCOUNT_CODES.ESCROW_BANK,
-        entryType: 'credit',
-        amount: chargebackAmount,
-        description: `Chargeback payment for order ${orderId}`,
-        metadata: { chargebackId }
-      }
-    ];
+    const entries = buildEntries('chargeback_debit', {
+      chargebackId,
+      orderId,
+      merchantId,
+      chargebackAmount,
+      reason
+    });
     
     return await ledgerService.postTransaction({
       tenantId,
       transactionRef: `CHB-${chargebackId}`,
-      idempotencyKey: `chargeback-${chargebackId}`,
+      idempotencyKey: idempotencyKey || `chargeback-${chargebackId}`,
       eventType: 'chargeback_debit',
       sourceTransactionId: chargebackId,
       sourceOrderId: orderId,
@@ -446,7 +300,9 @@ class LedgerEventHandlers {
       entries,
       metadata: { chargebackId, merchantId, reason },
       createdBy,
-      sourceEvent: 'chargeback_debit'
+      sourceEvent: 'chargeback_debit',
+      eventId,
+      correlationId
     });
   }
   
@@ -460,7 +316,10 @@ class LedgerEventHandlers {
       tenantId,
       originalChargebackTransactionId,
       reason,
-      createdBy = 'system'
+      createdBy = 'system',
+      eventId,
+      correlationId,
+      idempotencyKey
     } = params;
     
     // Simply reverse the original chargeback transaction
@@ -468,7 +327,10 @@ class LedgerEventHandlers {
       tenantId,
       originalTransactionId: originalChargebackTransactionId,
       reason: `Chargeback won by merchant: ${reason}`,
-      createdBy
+      createdBy,
+      eventId,
+      correlationId,
+      idempotencyKey
     });
   }
   

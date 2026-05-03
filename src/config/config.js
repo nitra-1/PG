@@ -32,7 +32,7 @@ module.exports = {
   },
 
   // Default Tenant ID for backwards compatibility
-  defaultTenantId: process.env.DEFAULT_TENANT_ID || 'default-tenant',
+  defaultTenantId: process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000001',
 
   // Redis Configuration
   redis: {
@@ -155,6 +155,11 @@ module.exports = {
     retryAttempts: parseInt(process.env.WEBHOOK_RETRY_ATTEMPTS) || 3,
     retryDelay: parseInt(process.env.WEBHOOK_RETRY_DELAY) || 5000,
     timeout: parseInt(process.env.WEBHOOK_TIMEOUT) || 30000
+  },
+
+  // Outbox worker configuration
+  outbox: {
+    processingTimeoutSeconds: parseInt(process.env.OUTBOX_PROCESSING_TIMEOUT_SECONDS) || 300
   },
 
   // Logging Configuration

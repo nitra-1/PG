@@ -54,7 +54,8 @@ class MerchantService {
         address,
         websiteUrl,
         callbackUrl,
-        businessDetails
+        businessDetails,
+        tenantId = this.config.defaultTenantId
       } = merchantData;
 
       // Validate required fields
@@ -64,8 +65,8 @@ class MerchantService {
 
       // Check if merchant code already exists
       const existingMerchant = await db.query(
-        'SELECT id FROM merchants WHERE merchant_code = $1',
-        [merchantCode]
+        'SELECT id FROM merchants WHERE tenant_id = $1 AND merchant_code = $2',
+        [tenantId, merchantCode]
       );
 
       if (existingMerchant.rows.length > 0) {
@@ -76,13 +77,14 @@ class MerchantService {
       const merchantId = uuidv4();
       const result = await db.query(
         `INSERT INTO merchants (
-          id, merchant_code, merchant_name, business_type, email, phone, 
+          id, tenant_id, merchant_code, merchant_name, business_type, email, phone, 
           address, website_url, callback_url, business_details, status, 
           daily_limit, monthly_limit, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
         RETURNING *`,
         [
           merchantId,
+          tenantId,
           merchantCode,
           merchantName,
           businessType || null,
@@ -103,7 +105,7 @@ class MerchantService {
 
       // Log audit
       await db.logAudit({
-        tenantId: merchantId,
+        tenantId,
         entityType: 'merchant',
         entityId: merchantId,
         action: 'create',

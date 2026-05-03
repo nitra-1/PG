@@ -10,6 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const config = require('../config/config');
 const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const { requireOpsConsoleAccess, logOpsAction } = require('./ops-console-middleware');
@@ -145,11 +146,12 @@ router.post('/', requireOpsConsoleAccess, logOpsAction('CREATE_USER'), async (re
       try {
         // Generate unique merchant code using username and timestamp
         const generatedMerchantCode = merchant_code || `MERCH_${username.toUpperCase()}_${Date.now().toString(36)}`;
+        const tenantId = req.body.tenant_id || config.defaultTenantId;
         
         await db.query(
-          `INSERT INTO merchants (merchant_code, merchant_name, business_type, email, phone, website_url, callback_url, status) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')`,
-          [generatedMerchantCode, business_name, business_type || 'other', email, phone, website_url, callback_url]
+          `INSERT INTO merchants (tenant_id, merchant_code, merchant_name, business_type, email, phone, website_url, callback_url, status) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
+          [tenantId, generatedMerchantCode, business_name, business_type || 'other', email, phone, website_url, callback_url]
         );
         
         newUser.merchant_code = generatedMerchantCode;

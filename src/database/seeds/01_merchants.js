@@ -10,6 +10,7 @@ exports.seed = async function(knex) {
   await knex('merchants').insert([
     {
       id: '04a8baae-3e0a-467e-aa5a-83d7b12c6b61',
+      tenant_id: '00000000-0000-0000-0000-000000000001',
       merchant_code: 'DEMO_MERCHANT_001',
       merchant_name: 'Demo Merchant 1',
       business_type: 'E-commerce',
@@ -33,6 +34,7 @@ exports.seed = async function(knex) {
     },
     {
       id: knex.raw('gen_random_uuid()'),
+      tenant_id: '00000000-0000-0000-0000-000000000001',
       merchant_code: 'DEMO_MERCHANT_002',
       merchant_name: 'Demo Merchant 2',
       business_type: 'Services',

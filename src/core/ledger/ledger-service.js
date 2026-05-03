@@ -15,6 +15,8 @@ const db = require('../../database');
 const { v4: uuidv4 } = require('uuid');
 const accountingPeriodService = require('./accounting-period-service');
 const ledgerLockService = require('./ledger-lock-service');
+const requestContext = require('../context/request-context');
+const { generateEntries, hasTemplate, ledgerEventType } = require('./accounting-templates');
 const {
   PeriodClosedError,
   LedgerLockedError,
@@ -59,22 +61,86 @@ class LedgerService {
       RECONCILIATION_SUSPENSE: 'ADJ-002'
     };
   }
+
+  parseMetadata(metadata) {
+    if (!metadata) return {};
+    if (typeof metadata === 'string') {
+      try {
+        return JSON.parse(metadata);
+      } catch (error) {
+        return {};
+      }
+    }
+    return metadata;
+  }
+
+  stringifyMetadata(metadata) {
+    return JSON.stringify(metadata || {});
+  }
+
+  assertBalanced(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) {
+      throw new Error('Ledger transaction must contain at least one entry');
+    }
+
+    let totalDebits = 0;
+    let totalCredits = 0;
+
+    for (const entry of entries) {
+      const amount = Number(entry.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error(`Ledger entry amount must be positive for account ${entry.accountCode || entry.account_id || 'unknown'}`);
+      }
+      if (!['debit', 'credit'].includes(entry.entryType || entry.entry_type)) {
+        throw new Error(`Invalid ledger entry type: ${entry.entryType || entry.entry_type}`);
+      }
+
+      if ((entry.entryType || entry.entry_type) === 'debit') {
+        totalDebits += amount;
+      } else {
+        totalCredits += amount;
+      }
+    }
+
+    if (Math.abs(totalDebits - totalCredits) > 0.01) {
+      throw new Error(`Transaction not balanced. Debits: ${totalDebits}, Credits: ${totalCredits}`);
+    }
+
+    return { totalDebits, totalCredits, balanced: true };
+  }
   
   /**
    * Get account ID by account code
    * @private
    */
-  async getAccountId(accountCode, trx = null) {
+  async getAccount(accountCode, tenantId, trx = null) {
     const query = trx || db.knex;
-    const account = await query('ledger_accounts')
+    let accountQuery = query('ledger_accounts')
       .where('account_code', accountCode)
-      .where('status', 'active')
-      .first();
+      .where('status', 'active');
+
+    const hasTenantColumn = await db.knex.schema.hasColumn('ledger_accounts', 'tenant_id');
+    if (hasTenantColumn) {
+      accountQuery = accountQuery.where(function() {
+        this.whereNull('tenant_id').orWhere('tenant_id', tenantId);
+      });
+    }
+
+    const account = await accountQuery.first();
       
     if (!account) {
       throw new Error(`Account not found: ${accountCode}`);
     }
     
+    if (account.tenant_id && account.tenant_id !== tenantId) {
+      throw new Error(`Account ${accountCode} does not belong to tenant ${tenantId}`);
+    }
+
+    return account;
+  }
+
+  async getAccountId(accountCode, trx = null, tenantId = null) {
+    const account = await this.getAccount(accountCode, tenantId, trx);
     return account.id;
   }
   
@@ -121,15 +187,70 @@ class LedgerService {
       metadata = {},
       createdBy,
       sourceEvent,
+      eventId,
+      correlationId = requestContext.getCorrelationId(),
       override = false,
       overrideJustification,
       userRole,
       transactionDate = new Date()
     } = params;
     
+    const normalizedEventType = ledgerEventType(eventType);
+    if (!hasTemplate(eventType)) {
+      throw new Error(`No accounting template for event type: ${eventType}`);
+    }
+
+    const templateEntries = entries || generateEntries({
+      event_type: eventType,
+      amount,
+      metadata: {
+        ...metadata,
+        amount,
+        sourceTransactionId,
+        sourceOrderId
+      }
+    });
+
     // Validate required parameters
-    if (!tenantId || !transactionRef || !eventType || !entries || entries.length === 0) {
+    if (!tenantId || !transactionRef || !eventType || !templateEntries || templateEntries.length === 0) {
       throw new Error('Missing required parameters for ledger transaction');
+    }
+
+    const entryCurrencies = templateEntries
+      .map(entry => entry.currency)
+      .filter(Boolean);
+    const invalidCurrency = entryCurrencies.find(entryCurrency => entryCurrency !== currency);
+    if (invalidCurrency) {
+      throw new Error(`Ledger entries must use transaction currency ${currency}; found ${invalidCurrency}`);
+    }
+
+    const validation = this.assertBalanced(templateEntries);
+    const traceMetadata = {
+      ...metadata,
+      event_id: eventId || metadata.event_id || null,
+      correlation_id: correlationId || metadata.correlation_id || null,
+      idempotency_key: idempotencyKey || metadata.idempotency_key || null
+    };
+
+    // Idempotency must win before period/lock checks so a retried outbox event
+    // can safely return the already-posted ledger transaction even after close.
+    if (idempotencyKey) {
+      const existing = await db.knex('ledger_transactions')
+        .where('idempotency_key', idempotencyKey)
+        .where('tenant_id', tenantId)
+        .first();
+        
+      if (existing) {
+        const existingEntries = await db.knex('ledger_entries')
+          .where('transaction_id', existing.id);
+        
+        return {
+          transaction: existing,
+          entries: existingEntries,
+          duplicate: true,
+          validation: this.assertBalanced(existingEntries)
+        };
+      }
     }
     
     // ============================================================
@@ -201,25 +322,6 @@ class LedgerService {
     // END COMPLIANCE CHECKS
     // ============================================================
     
-    // Check idempotency - if this key was already processed, return existing transaction
-    if (idempotencyKey) {
-      const existing = await db.knex('ledger_transactions')
-        .where('idempotency_key', idempotencyKey)
-        .first();
-        
-      if (existing) {
-        // Return existing transaction with entries
-        const existingEntries = await db.knex('ledger_entries')
-          .where('transaction_id', existing.id);
-        
-        return {
-          transaction: existing,
-          entries: existingEntries,
-          duplicate: true
-        };
-      }
-    }
-    
     // Use database transaction for atomicity
     return await db.knex.transaction(async (trx) => {
       // Create ledger transaction record
@@ -228,59 +330,54 @@ class LedgerService {
         tenant_id: tenantId,
         transaction_ref: transactionRef,
         idempotency_key: idempotencyKey,
-        event_type: eventType,
+        event_type: normalizedEventType,
         source_transaction_id: sourceTransactionId,
         source_order_id: sourceOrderId,
         amount,
         currency,
         description,
         status: 'pending',
-        metadata: JSON.stringify(metadata),
+        metadata: this.stringifyMetadata(traceMetadata),
         created_by: createdBy,
-        source_event: sourceEvent
+        source_event: sourceEvent,
+        correlation_id: correlationId || null
       }).returning('*');
       
       // Validate and create ledger entries
       const createdEntries = [];
-      let totalDebits = 0;
-      let totalCredits = 0;
       
-      for (const entry of entries) {
-        const accountId = await this.getAccountId(entry.accountCode, trx);
+      for (const entry of templateEntries) {
+        const account = await this.getAccount(entry.accountCode, tenantId, trx);
+        const entryMetadata = {
+          ...(entry.metadata || {}),
+          event_id: eventId || null,
+          correlation_id: correlationId || null,
+          idempotency_key: idempotencyKey || null
+        };
         
         const [ledgerEntry] = await trx('ledger_entries').insert({
           id: uuidv4(),
           tenant_id: tenantId,
           transaction_id: transaction.id,
-          account_id: accountId,
+          account_id: account.id,
           entry_type: entry.entryType,
           amount: entry.amount,
-          currency,
+          currency: entry.currency || currency,
           description: entry.description || description,
-          metadata: JSON.stringify(entry.metadata || {}),
-          created_by: createdBy
+          metadata: this.stringifyMetadata(entryMetadata),
+          created_by: createdBy,
+          correlation_id: correlationId || null
         }).returning('*');
         
         createdEntries.push(ledgerEntry);
-        
-        // Accumulate totals for validation
-        if (entry.entryType === 'debit') {
-          totalDebits += parseFloat(entry.amount);
-        } else {
-          totalCredits += parseFloat(entry.amount);
-        }
       }
-      
-      // Validate double-entry balance (allow for small rounding differences)
-      if (Math.abs(totalDebits - totalCredits) > 0.01) {
-        throw new Error(
-          `Transaction not balanced. Debits: ${totalDebits}, Credits: ${totalCredits}`
-        );
-      }
+
+      this.assertBalanced(createdEntries);
       
       // Update transaction status to posted
       await trx('ledger_transactions')
         .where('id', transaction.id)
+        .where('status', 'pending')
         .update({ status: 'posted' });
       
       // Create audit log
@@ -295,9 +392,16 @@ class LedgerService {
         after_state: JSON.stringify({
           transaction,
           entries: createdEntries,
-          balance_validation: { totalDebits, totalCredits }
+          balance_validation: validation
         }),
-        metadata: JSON.stringify({ eventType, sourceOrderId })
+        metadata: this.stringifyMetadata({
+          transaction_id: transaction.id,
+          event_type: normalizedEventType,
+          sourceOrderId,
+          event_id: eventId || null,
+          idempotency_key: idempotencyKey || null
+        }),
+        correlation_id: correlationId || null
       });
       
       // If override was used, log it in admin_overrides_log
@@ -316,7 +420,7 @@ class LedgerService {
             periodId: periodCheck.period.id,
             periodStatus: periodCheck.period.status,
             transactionRef,
-            eventType
+            eventType: normalizedEventType
           })
         });
       }
@@ -325,7 +429,7 @@ class LedgerService {
         transaction: { ...transaction, status: 'posted' },
         entries: createdEntries,
         duplicate: false,
-        validation: { totalDebits, totalCredits, balanced: true },
+        validation,
         override_used: override
       };
     });
@@ -343,7 +447,15 @@ class LedgerService {
    * @returns {Object} Reversal transaction
    */
   async reverseTransaction(params) {
-    const { tenantId, originalTransactionId, reason, createdBy } = params;
+    const {
+      tenantId,
+      originalTransactionId,
+      reason,
+      createdBy,
+      eventId,
+      correlationId = requestContext.getCorrelationId(),
+      idempotencyKey
+    } = params;
     
     if (!tenantId || !originalTransactionId || !reason) {
       throw new Error('Missing required parameters for reversal');
@@ -359,32 +471,84 @@ class LedgerService {
       if (!originalTx) {
         throw new Error('Original transaction not found');
       }
-      
-      if (originalTx.status === 'reversed') {
-        throw new Error('Transaction already reversed');
-      }
-      
-      // Get original entries
+
       const originalEntries = await trx('ledger_entries')
         .where('transaction_id', originalTransactionId);
+
+      if (originalEntries.length === 0) {
+        throw new Error('Original transaction has no entries to reverse');
+      }
+
+      this.assertBalanced(originalEntries);
+      
+      if (originalTx.status === 'reversed') {
+        const reversalTx = originalTx.reversed_by_transaction_id
+          ? await trx('ledger_transactions')
+            .where('id', originalTx.reversed_by_transaction_id)
+            .where('tenant_id', tenantId)
+            .first()
+          : await trx('ledger_transactions')
+            .where('transaction_ref', `${originalTx.transaction_ref}-REV`)
+            .where('tenant_id', tenantId)
+            .first();
+
+        const reversalEntries = reversalTx
+          ? await trx('ledger_entries').where('transaction_id', reversalTx.id)
+          : [];
+
+        return {
+          reversalTransaction: reversalTx,
+          reversalEntries,
+          originalTransaction: originalTx,
+          duplicate: true,
+          validation: reversalEntries.length > 0 ? this.assertBalanced(reversalEntries) : null
+        };
+      }
+
+      if (idempotencyKey) {
+        const existingReversal = await trx('ledger_transactions')
+          .where('tenant_id', tenantId)
+          .where('idempotency_key', idempotencyKey)
+          .first();
+
+        if (existingReversal) {
+          const reversalEntries = await trx('ledger_entries').where('transaction_id', existingReversal.id);
+          return {
+            reversalTransaction: existingReversal,
+            reversalEntries,
+            originalTransaction: originalTx,
+            duplicate: true,
+            validation: this.assertBalanced(reversalEntries)
+          };
+        }
+      }
       
       // Create reversal transaction
       const reversalRef = `${originalTx.transaction_ref}-REV`;
+      const originalMetadata = this.parseMetadata(originalTx.metadata);
       const [reversalTx] = await trx('ledger_transactions').insert({
         id: uuidv4(),
         tenant_id: tenantId,
         transaction_ref: reversalRef,
+        idempotency_key: idempotencyKey || `reversal-${originalTransactionId}`,
         event_type: originalTx.event_type,
         source_transaction_id: originalTx.source_transaction_id,
         source_order_id: originalTx.source_order_id,
         amount: originalTx.amount,
         currency: originalTx.currency,
         description: `REVERSAL: ${reason}`,
-        status: 'posted',
+        status: 'pending',
         reverses_transaction_id: originalTransactionId,
-        metadata: JSON.stringify({ ...originalTx.metadata, reversal_reason: reason }),
+        metadata: this.stringifyMetadata({
+          ...originalMetadata,
+          reversal_reason: reason,
+          event_id: eventId || null,
+          correlation_id: correlationId || null,
+          idempotency_key: idempotencyKey || `reversal-${originalTransactionId}`
+        }),
         created_by: createdBy,
-        source_event: 'reversal'
+        source_event: 'reversal',
+        correlation_id: correlationId || null
       }).returning('*');
       
       // Create reversing entries (swap debit/credit)
@@ -399,12 +563,25 @@ class LedgerService {
           amount: entry.amount,
           currency: entry.currency,
           description: `REVERSAL: ${entry.description}`,
-          metadata: JSON.stringify({ original_entry_id: entry.id }),
-          created_by: createdBy
+          metadata: this.stringifyMetadata({
+            original_entry_id: entry.id,
+            event_id: eventId || null,
+            correlation_id: correlationId || null,
+            idempotency_key: idempotencyKey || `reversal-${originalTransactionId}`
+          }),
+          created_by: createdBy,
+          correlation_id: correlationId || null
         }).returning('*');
         
         reversalEntries.push(reversalEntry);
       }
+
+      const validation = this.assertBalanced(reversalEntries);
+
+      await trx('ledger_transactions')
+        .where('id', reversalTx.id)
+        .where('status', 'pending')
+        .update({ status: 'posted' });
       
       // Mark original transaction as reversed
       await trx('ledger_transactions')
@@ -425,14 +602,22 @@ class LedgerService {
         source_system: 'ledger_service',
         reason,
         before_state: JSON.stringify(originalTx),
-        after_state: JSON.stringify(reversalTx),
-        metadata: JSON.stringify({ original_transaction_id: originalTransactionId })
+        after_state: JSON.stringify({ ...reversalTx, status: 'posted' }),
+        metadata: this.stringifyMetadata({
+          transaction_id: reversalTx.id,
+          event_type: 'reversal',
+          original_transaction_id: originalTransactionId,
+          event_id: eventId || null,
+          idempotency_key: idempotencyKey || `reversal-${originalTransactionId}`
+        }),
+        correlation_id: correlationId || null
       });
       
       return {
-        reversalTransaction: reversalTx,
+        reversalTransaction: { ...reversalTx, status: 'posted' },
         reversalEntries,
-        originalTransaction: originalTx
+        originalTransaction: originalTx,
+        validation
       };
     });
   }

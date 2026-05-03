@@ -4,7 +4,8 @@
  */
 
 const QRCode = require('qrcode');
-const { ledgerEventHandlers } = require('../core/ledger');
+const db = require('../database');
+const { outboxService } = require('../core/outbox/outbox-service');
 
 class QRService {
   constructor(config) {
@@ -275,8 +276,16 @@ class QRService {
       // Persist transaction to database
       let storedTransactionId = null;
       try {
-        const db = require('../database');
-        const result = await db.insertWithTenant('transactions', {
+        const config = require('../config/config');
+        const tenantId = this.config.tenantId || this.config.defaultTenantId || config.defaultTenantId;
+        const platformFeeRate = config.fees?.platform?.qr || 0.015;
+        const gatewayFeeRate = config.fees?.gateway?.qr || 0.005;
+        const platformFee = paymentData.platformFee || (transaction.amount * platformFeeRate);
+        const gatewayFee = paymentData.gatewayFee || (transaction.amount * gatewayFeeRate);
+
+        const result = await db.knex.transaction(async (trx) => {
+          const [stored] = await trx('transactions').insert({
+            tenant_id: tenantId,
           transaction_ref: transactionId,
           order_id: transaction.orderId || transactionId,
           payment_method: 'qr',
@@ -294,42 +303,37 @@ class QRService {
           gateway_transaction_id: transactionId,
           initiated_at: new Date(transaction.processedAt),
           completed_at: new Date(transaction.processedAt)
-        }, this.config.tenantId || this.config.defaultTenantId);
+          }).returning('*');
+
+          await outboxService.createEvent({
+            tenantId,
+            aggregateType: 'transaction',
+            aggregateId: stored.id,
+            eventType: 'payment.captured',
+            idempotencyKey: `transaction:${transactionId}`,
+            payload: {
+              transactionId: stored.id,
+              transactionRef: transactionId,
+              orderId: transaction.orderId || transactionId,
+              gateway: 'qr',
+              gatewayTransactionId: transactionId,
+              status: 'success',
+              amount: String(transaction.amount),
+              currency: 'INR',
+              platformFee: String(platformFee),
+              gatewayFee: String(gatewayFee),
+              merchantId: qrCode.merchantId
+            }
+          }, trx);
+
+          return stored;
+        });
         
         // Get the transaction ID from the result (result is already the row object)
         storedTransactionId = result ? result.id : null;
       } catch (error) {
-        console.error('Failed to persist QR transaction to database:', error);
-        // Continue even if DB persistence fails - in-memory storage is available
-      }
-
-      // Create ledger transaction for the payment
-      try {
-        // Get fee configuration
-        const config = require('../config/config');
-        const platformFeeRate = config.fees?.platform?.qr || 0.015;
-        const gatewayFeeRate = config.fees?.gateway?.qr || 0.005;
-        
-        // Calculate fees for QR payments - use provided fees or calculate from config
-        const platformFee = paymentData.platformFee || (transaction.amount * platformFeeRate);
-        const gatewayFee = paymentData.gatewayFee || (transaction.amount * gatewayFeeRate);
-        
-        await ledgerEventHandlers.handlePaymentSuccess({
-          tenantId: this.config.tenantId || this.config.defaultTenantId,
-          transactionId: storedTransactionId || transactionId,
-          orderId: transaction.orderId || transactionId,
-          merchantId: qrCode.merchantId,
-          gateway: 'qr',
-          amount: transaction.amount,
-          platformFee: platformFee,
-          gatewayFee: gatewayFee,
-          createdBy: 'qr_service'
-        });
-        
-        console.log('Ledger transaction created for QR payment:', transactionId);
-      } catch (ledgerError) {
-        console.error('Failed to create ledger transaction for QR payment:', ledgerError);
-        // Don't throw - ledger failure should not fail the payment
+        console.error('Failed to durably persist QR transaction and outbox event:', error);
+        throw error;
       }
 
       // Mark as used for single-use QR
@@ -556,8 +560,16 @@ class QRService {
       // Persist transaction to database
       let storedTransactionId = null;
       try {
-        const db = require('../database');
-        const result = await db.insertWithTenant('transactions', {
+        const config = require('../config/config');
+        const tenantId = this.config.tenantId || this.config.defaultTenantId || config.defaultTenantId;
+        const platformFeeRate = config.fees?.platform?.qr || 0.015;
+        const gatewayFeeRate = config.fees?.gateway?.qr || 0.005;
+        const platformFee = callbackData.platformFee || (transaction.amount * platformFeeRate);
+        const gatewayFee = callbackData.gatewayFee || (transaction.amount * gatewayFeeRate);
+
+        const result = await db.knex.transaction(async (trx) => {
+          const [stored] = await trx('transactions').insert({
+            tenant_id: tenantId,
           transaction_ref: txnId,
           order_id: transaction.orderId,
           payment_method: 'qr',
@@ -578,45 +590,40 @@ class QRService {
           gateway_response_message: utr ? `UTR: ${utr}` : null,
           initiated_at: new Date(transaction.processedAt),
           completed_at: transaction.status === 'success' ? new Date(transaction.processedAt) : null
-        }, this.config.tenantId || this.config.defaultTenantId);
+          }).returning('*');
+
+          if (transaction.status === 'success') {
+            await outboxService.createEvent({
+              tenantId,
+              aggregateType: 'transaction',
+              aggregateId: stored.id,
+              eventType: 'payment.captured',
+              idempotencyKey: `transaction:${txnId}`,
+              payload: {
+                transactionId: stored.id,
+                transactionRef: txnId,
+                orderId: transaction.orderId,
+                gateway: 'qr',
+                gatewayTransactionId: txnId,
+                status: transaction.status,
+                amount: String(transaction.amount),
+                currency: 'INR',
+                platformFee: String(platformFee),
+                gatewayFee: String(gatewayFee),
+                merchantId: transaction.merchantId
+              }
+            }, trx);
+          }
+
+          return stored;
+        });
         
         // Get the transaction ID from the result (result is already the row object)
         storedTransactionId = result ? result.id : null;
         console.log(`QR payment transaction stored via webhook: ${txnId}`);
       } catch (error) {
-        console.error('Failed to persist QR transaction to database:', error);
-        // Continue even if DB persistence fails - in-memory storage is available
-      }
-
-      // Create ledger transaction for successful payments
-      if (transaction.status === 'success') {
-        try {
-          // Get fee configuration
-          const config = require('../config/config');
-          const platformFeeRate = config.fees?.platform?.qr || 0.015;
-          const gatewayFeeRate = config.fees?.gateway?.qr || 0.005;
-          
-          // Calculate fees for QR payments - use provided fees or calculate from config
-          const platformFee = callbackData.platformFee || (transaction.amount * platformFeeRate);
-          const gatewayFee = callbackData.gatewayFee || (transaction.amount * gatewayFeeRate);
-          
-          await ledgerEventHandlers.handlePaymentSuccess({
-            tenantId: this.config.tenantId || this.config.defaultTenantId,
-            transactionId: storedTransactionId || txnId,
-            orderId: transaction.orderId,
-            merchantId: transaction.merchantId,
-            gateway: 'qr',
-            amount: transaction.amount,
-            platformFee: platformFee,
-            gatewayFee: gatewayFee,
-            createdBy: 'qr_webhook'
-          });
-          
-          console.log('Ledger transaction created for QR webhook payment:', txnId);
-        } catch (ledgerError) {
-          console.error('Failed to create ledger transaction for QR webhook payment:', ledgerError);
-          // Don't throw - ledger failure should not fail the webhook acknowledgment
-        }
+        console.error('Failed to durably persist QR transaction and outbox event:', error);
+        throw error;
       }
 
       return {

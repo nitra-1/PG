@@ -8,7 +8,8 @@ const { ErrorClassifier } = require('./errors/payment-errors');
 const { RetryHandler } = require('./retry/retry-handler');
 const { CircuitBreaker } = require('./circuit-breaker/circuit-breaker');
 const { SmartRouter, RoutingStrategy } = require('./routing/smart-router');
-const { ledgerEventHandlers } = require('./ledger');
+const { outboxService } = require('./outbox/outbox-service');
+const logger = require('./logging/logger');
 
 class PaymentGateway {
   constructor(config) {
@@ -279,72 +280,97 @@ class PaymentGateway {
       gateway: gatewayName || response.gateway
     };
     
-    // Store in database and logging system
-    console.log('Transaction logged:', logEntry);
+    logger.info('Transaction logged', logEntry);
     
     // Store transaction in database
     let transactionId = null;
     try {
       const db = require('../database');
-      const result = await db.insertWithTenant('transactions', {
-        transaction_ref: response.transactionId,
-        order_id: paymentData.orderId || response.transactionId,
-        payment_method: paymentData.paymentMethod || 'card',
-        gateway: gatewayName || response.gateway,
-        amount: paymentData.amount,
-        currency: paymentData.currency || 'INR',
-        status: this.mapStatusToDBStatus(response.status),
-        customer_email: paymentData.customerEmail,
-        customer_phone: paymentData.customerPhone,
-        customer_name: paymentData.customerName,
-        metadata: JSON.stringify(paymentData.metadata || {}),
-        gateway_transaction_id: response.transactionId,
-        gateway_response_code: response.responseCode,
-        gateway_response_message: response.message,
-        initiated_at: new Date(),
-        completed_at: response.status === 'success' ? new Date() : null
-      }, paymentData.tenantId || this.config.defaultTenantId);
+      const tenantId = paymentData.tenantId || this.config.defaultTenantId;
+      const orderId = paymentData.orderId || response.transactionId;
+      const transactionRef = response.transactionId;
+      const eventType = response.status === 'success' || response.status === 'completed'
+        ? 'payment.captured'
+        : 'payment.status_recorded';
+      const paymentMethod = paymentData.paymentMethod || 'card';
+      const platformFeeRate = this.config.fees?.platform?.[paymentMethod] || this.config.fees?.platform?.default || 0.02;
+      const gatewayFeeRate = this.config.fees?.gateway?.[paymentMethod] || this.config.fees?.gateway?.default || 0.01;
+      const platformFee = paymentData.platformFee || (paymentData.amount * platformFeeRate);
+      const gatewayFee = paymentData.gatewayFee || (paymentData.amount * gatewayFeeRate);
+
+      const result = await db.knex.transaction(async (trx) => {
+        let transaction = await trx('transactions')
+          .where({ tenant_id: tenantId, transaction_ref: transactionRef })
+          .forUpdate()
+          .first();
+
+        if (transaction) {
+          [transaction] = await trx('transactions')
+            .where('id', transaction.id)
+            .update({
+              status: this.mapStatusToDBStatus(response.status),
+              gateway_response_code: response.responseCode,
+              gateway_response_message: response.message,
+              updated_at: new Date()
+            })
+            .returning('*');
+        } else {
+          [transaction] = await trx('transactions')
+            .insert({
+              tenant_id: tenantId,
+              transaction_ref: transactionRef,
+              order_id: orderId,
+              payment_method: paymentData.paymentMethod || 'card',
+              gateway: gatewayName || response.gateway,
+              amount: paymentData.amount,
+              currency: paymentData.currency || 'INR',
+              status: this.mapStatusToDBStatus(response.status),
+              customer_email: paymentData.customerEmail,
+              customer_phone: paymentData.customerPhone,
+              customer_name: paymentData.customerName,
+              metadata: JSON.stringify(paymentData.metadata || {}),
+              gateway_transaction_id: response.transactionId,
+              gateway_response_code: response.responseCode,
+              gateway_response_message: response.message,
+              initiated_at: new Date(),
+              completed_at: response.status === 'success' || response.status === 'completed' ? new Date() : null
+            })
+            .returning('*');
+        }
+
+        await outboxService.createEvent({
+          tenantId,
+          aggregateType: 'transaction',
+          aggregateId: transaction.id,
+          eventType,
+          idempotencyKey: `transaction:${transactionRef}`,
+          payload: {
+            transactionId: transaction.id,
+            transactionRef,
+            orderId,
+            gateway: gatewayName || response.gateway,
+            gatewayTransactionId: response.transactionId,
+            status: response.status,
+            amount: String(paymentData.amount),
+            currency: paymentData.currency || 'INR',
+            platformFee: String(platformFee),
+            gatewayFee: String(gatewayFee),
+            customerId: paymentData.customerId,
+            merchantId: paymentData.merchantId || tenantId
+          }
+        }, trx);
+
+        return transaction;
+      });
       
       // Get the transaction ID from the result (result is already the row object)
       transactionId = result ? result.id : null;
     } catch (error) {
-      console.error('Failed to store transaction in database:', error);
-      // Don't throw - transaction logging should not fail the payment
-    }
-    
-    // Create ledger transaction for successful payments
-    if (response.status === 'success' || response.status === 'completed') {
-      try {
-        // Extract merchant ID from payment data or tenant ID
-        const merchantId = paymentData.merchantId || paymentData.tenantId || this.config.defaultTenantId;
-        
-        // Calculate fees - use provided fees or calculate from config
-        const paymentMethod = paymentData.paymentMethod || 'card';
-        const platformFeeRate = this.config.fees?.platform?.[paymentMethod] || this.config.fees?.platform?.default || 0.02;
-        const gatewayFeeRate = this.config.fees?.gateway?.[paymentMethod] || this.config.fees?.gateway?.default || 0.01;
-        
-        const platformFee = paymentData.platformFee || (paymentData.amount * platformFeeRate);
-        const gatewayFee = paymentData.gatewayFee || (paymentData.amount * gatewayFeeRate);
-        
-        // Create ledger entries via event handler
-        await ledgerEventHandlers.handlePaymentSuccess({
-          tenantId: paymentData.tenantId || this.config.defaultTenantId,
-          transactionId: transactionId || response.transactionId,
-          orderId: paymentData.orderId || response.transactionId,
-          merchantId: merchantId,
-          gateway: gatewayName || response.gateway,
-          amount: paymentData.amount,
-          platformFee: platformFee,
-          gatewayFee: gatewayFee,
-          createdBy: 'payment_gateway'
-        });
-        
-        console.log('Ledger transaction created for payment:', response.transactionId);
-      } catch (ledgerError) {
-        console.error('Failed to create ledger transaction:', ledgerError);
-        // Don't throw - ledger failure should not fail the payment
-        // The transaction is already stored, ledger can be reconciled later
-      }
+      logger.error('Failed to durably store transaction and outbox event', {
+        error: error.message,
+        transactionId: response.transactionId
+      });
+      throw error;
     }
   }
 

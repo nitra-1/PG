@@ -4,6 +4,7 @@
  */
 
 const config = require('../config/config');
+const requestContext = require('../core/context/request-context');
 
 /**
  * Middleware to extract tenant ID from request
@@ -36,6 +37,7 @@ function extractTenant(req, res, next) {
 
   // Attach tenant ID to request object
   req.tenantId = tenantId;
+  requestContext.setContextValue('tenantId', tenantId);
   next();
 }
 
@@ -55,6 +57,7 @@ function optionalTenant(req, res, next) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (uuidRegex.test(tenantId)) {
       req.tenantId = tenantId;
+      requestContext.setContextValue('tenantId', tenantId);
     }
   }
 

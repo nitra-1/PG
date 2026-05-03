@@ -22,6 +22,7 @@ const SubscriptionService = require('../subscription/subscription-service');
 
 // Initialize services
 const config = require('../config/config');
+const requestContext = require('../core/context/request-context');
 const paymentGateway = new PaymentGateway(config);
 const upiService = new UPIService(config);
 const payInService = new PayInService({ ...config, paymentGateway });
@@ -53,6 +54,8 @@ const authenticate = (req, res, next) => {
     // Extract tenant ID from various possible sources
     // Priority: explicit tenantId > merchantId > userId (for backward compatibility)
     req.tenantId = decoded.tenantId || decoded.merchantId || decoded.userId || config.defaultTenantId;
+    requestContext.setContextValue('tenantId', req.tenantId);
+    requestContext.setContextValue('userId', decoded.userId || decoded.id);
     
     next();
   } catch (error) {
@@ -837,5 +840,15 @@ router.use('/compliance-admin', complianceAdminRoutes);
 // Zero write capability - all mutations blocked
 const auditPortalRoutes = require('./audit-portal-routes');
 router.use('/audit-portal', auditPortalRoutes);
+
+// ===== Outbox / DLQ Visibility =====
+// Sprint 1: durable financial event monitoring
+const outboxRoutes = require('./outbox-routes');
+router.use('/outbox', outboxRoutes(config));
+
+// ===== Reconciliation Visibility =====
+// Sprint 2B Phase 1: read-only transaction-to-ledger mismatch reporting
+const reconciliationRoutes = require('./reconciliation-routes');
+router.use('/reconciliation', reconciliationRoutes(config));
 
 module.exports = router;

@@ -1,0 +1,1186 @@
+Input:
+Missing Scenarios
+
+Gateway-to-bank settlement delay is not modelled. Successful payment immediately debits ESC-001 escrow bank in ledger-event-handlers.js (line 70), but in real PG flow funds often sit as gateway receivable until gateway settles to nodal/escrow.
+Partial capture, partial refund, multiple refunds, refund after settlement, and refund failure/reversal are missing as first-class flows.
+Chargeback lifecycle is thin: chargeback received, evidence submitted, provisional debit, merchant won/lost, representment, arbitration fees, and recovery from future settlements are not fully modelled.
+Settlement batching is missing. Payment success creates one settlement per transaction in ledger-event-handlers.js (line 190), while real settlements are merchant/date/bank-account/cycle batches.
+Bank payout outcomes are incomplete: bank accepted, bank rejected, UTR duplicate, beneficiary name mismatch, IFSC invalid after validation, transfer reversed, return after success, NEFT delayed, and IMPS timeout are not represented.
+Reconciliation lacks fee/GST/TDS/withholding/tax rounding scenarios. Matching compares mostly orderId and amount in reconciliation-service.js (line 81).
+Bank escrow reconciliation is balance-level only in reconciliation-service.js (line 290). It does not match bank statement lines by UTR, narration, value date, debit/credit, opening/closing balance, or running balance.
+External duplicate transactions are not properly detected. externalMap overwrites duplicate orderIds instead of flagging them.
+Multi-currency is nominally allowed in payment validation, but ledger/accounting/reporting assumes INR in many places.
+Webhook replay, out-of-order events, late success after failure, duplicate callback, and manual status correction flows are not production-grade.
+Identified Gaps
+
+Ledger failure is allowed after payment success. payment-gateway.js (line 345) and QR flows log ledger errors but do not fail or queue compensation. This can create successful transactions with no ledger entry.
+Settlement creation failure is also swallowed in ledger-event-handlers.js (line 211), creating payment-ledger-settlement divergence.
+Settlement status schema evolved to CREATED/FUNDS_RESERVED/..., but some reports still query pending/processing in compliance-reports-service.js (line 145). Merchant outstanding reports will be wrong.
+Revenue report filters for ledger event types platform_fee and gateway_fee, but payment revenue is posted under payment_success, so platform revenue can be understated in compliance-reports-service.js (line 249).
+Settlement state transitions do not invoke bank APIs, reserve actual ledger balance, lock funds, or post settlement ledger entries. The state machine is operational, not financially final.
+utr_number is indexed but not unique in 20240104000000_ledger_system.js (line 198), so duplicate payout confirmations can slip through.
+transaction_ref, idempotency_key, settlement_ref, and payment_orders.order_id are globally unique, not tenant-scoped. This can cause cross-tenant collisions.
+merchants has no tenant_id, while reports join tenant settlements to global merchants. That weakens tenant isolation.
+Pay-in and payout services still contain mock-critical behavior: callback verification returns true in payin-service.js (line 296), payout balance check returns true in payout-service.js (line 206), and bank verification returns true in payout-service.js (line 90).
+API authorization is header-based placeholders in ledger/settlement routes, which is unsafe for finance operations.
+Risk Areas
+
+Financial misstatement: recognizing escrow cash at payment success can overstate bank balance before gateway settlement.
+Duplicate payout risk: no unique UTR constraint, no bank idempotency key, no payout instruction table, and retries can resend without proving prior bank outcome.
+Merchant overpayment risk: refunds/chargebacks after settlement are not netted against future settlements or recovered through merchant reserve.
+Reconciliation blind spots: balance-level escrow reconciliation can pass despite wrong individual transactions.
+Audit risk: swallowed ledger/settlement failures create breaks that are only discoverable later.
+Operational risk: no outbox/DLQ means failed ledger posting, merchant webhook, settlement creation, and bank callbacks can be lost.
+Compliance risk: reports are not reproducible if cached mutable JSON is used without source snapshot/versioning.
+Scale risk: reconciliation loads full period transactions into memory and uses JS maps; this will strain for large daily volumes.
+Recommended Fixes
+
+Split money lifecycle into: payment_authorized, payment_captured, gateway_receivable, gateway_settled_to_escrow, merchant_payable, merchant_settled.
+Add payout instruction and bank transfer tables with bank_request_id, bank_idempotency_key, utr, bank_status, failure_code, return_reason, and unique constraints.
+Make settlement batches aggregate eligible transactions by merchant, settlement cycle, currency, bank account, hold rules, refunds, chargebacks, reserves, and fees.
+Post settlement ledger entries only after bank confirmation or define a clear two-step ledger: funds reserved vs actual bank debit.
+Add reconciliation dimensions: gateway transaction id, order id, payment id, capture id, settlement id, UTR, value date, fee, tax, net amount, status, and currency.
+Implement transaction-level bank reconciliation with opening balance, closing balance, running balance, unmatched bank lines, unmatched ledger lines, and suspense workflow.
+Replace swallowed critical failures with outbox jobs, retry queues, alerting, and reconciliation exceptions.
+Enforce tenant-scoped uniqueness: (tenant_id, order_id), (tenant_id, idempotency_key), (tenant_id, settlement_ref), (tenant_id, gateway_transaction_id).
+Add unique or conditional uniqueness for UTR/bank transaction references, scoped by bank account and tenant.
+Replace mock verification paths before production: webhook HMAC/raw-body validation, bank account penny-drop, actual payout balance API, and signed bank callbacks.
+Fix reporting queries to use current settlement statuses and derive merchant outstanding from MER-002 merchant payable ledger, not only settlement rows.
+Add maker-checker approval for manual adjustments, settlement release, refunds above threshold, chargeback write-offs, and reconciliation write-offs.
+New User Stories
+
+As a finance operator, I want gateway settlements reconciled by settlement report line, so that fees, taxes, net amount, and delayed settlements are visible.
+Acceptance criteria: matches by gateway payment id and settlement id; detects fee/tax/net mismatches; detects duplicate external rows; creates unresolved recon items for every mismatch.
+
+As a settlement system, I want to batch merchant settlements by cycle and eligibility, so that one bank payout represents many transactions.
+Acceptance criteria: excludes unsettled refunds/chargebacks/holds; stores included transaction ids; computes gross, fees, adjustments, reserves, net; prevents the same transaction appearing in two active batches.
+
+As a bank operations user, I want payout status to handle returned/reversed transfers, so that merchant balances are corrected after a bank return.
+Acceptance criteria: supports BANK_RETURNED after BANK_CONFIRMED; reverses settlement ledger entries; reopens payable or moves amount to suspense; logs bank return reason.
+
+As a reconciliation analyst, I want bank escrow reconciliation at statement-line level, so that balance matches do not hide wrong postings.
+Acceptance criteria: imports opening/closing balance; matches by UTR/narration/date/amount; flags unmatched bank debits/credits; supports suspense and approved adjustment.
+
+As a risk analyst, I want refunds and chargebacks after settlement recovered from future payouts, so that merchants are not overpaid.
+Acceptance criteria: creates merchant recoverable; deducts from next settlement; blocks settlement if recoverable exceeds payable unless credit policy allows negative carry-forward.
+
+As a platform, I want durable ledger posting via outbox, so that successful payments cannot silently miss ledger entries.
+Acceptance criteria: every successful transaction creates an outbox event; failed ledger posting retries with backoff; unresolved failures appear in ops queue; payment and ledger reconciliation flags missing ledger entries.
+
+As a compliance auditor, I want immutable report snapshots tied to source ledger ranges, so that RBI reports are reproducible.
+Acceptance criteria: report stores source period, ledger transaction range/hash, generated_by, generated_at; final reports cannot be overwritten; regenerated draft shows variance.
+
+As a treasury user, I want settlement fund reservation to lock available merchant payable, so that concurrent settlements cannot reserve the same funds.
+Acceptance criteria: reservation is atomic; concurrent requests cannot double-reserve; reservation expiry/release is supported; reservation appears in ledger or reservation table with audit trail. 
+Prioritized Roadmap
+
+Priority	Item	Business Impact	Complexity
+Must Have	Durable ledger posting via outbox/DLQ instead of swallowing ledger failures	Critical financial integrity, audit, ops	Medium
+Must Have	Replace mock webhook verification, payout balance check, and bank account verification	Critical fraud/compliance/ops risk	Medium
+Must Have	Tenant-scoped uniqueness for order, transaction, idempotency, settlement refs	Critical data isolation and duplicate prevention	Medium
+Must Have	Settlement batching by merchant/cycle/bank account instead of one settlement per transaction	Critical ops scalability and real PG behavior	High
+Must Have	Payout instruction/bank transfer table with bank idempotency key, UTR, bank status, return reason	Critical duplicate payout and bank ops risk	High
+Must Have	Unique or conditional uniqueness for UTR/bank transaction refs	Critical duplicate payout prevention	Low
+Must Have	Fix broken reporting status/event filters	Critical finance/compliance misreporting	Low
+Must Have	Settlement fund reservation/locking	Critical overpayment and concurrency risk	High
+Must Have	API authorization beyond spoofable headers for finance/settlement APIs	Critical security/compliance	Medium
+Must Have	Gateway-to-bank settlement lifecycle: gateway receivable before escrow credit	Critical financial statement accuracy	High
+High Priority	Transaction-level bank escrow reconciliation	High compliance and treasury control	High
+High Priority	Gateway settlement line reconciliation with fee, GST, net, tax, status	High revenue leakage/recon control	High
+High Priority	Refund lifecycle: partial, multiple, post-settlement, failed/reversed refunds	High merchant/customer ops risk	High
+High Priority	Chargeback lifecycle and future settlement recovery	High loss prevention/risk	High
+High Priority	Bank payout outcomes: accepted, rejected, delayed, timeout, returned, reversed	High ops/risk	Medium
+High Priority	Maker-checker approval for adjustments, settlement release, write-offs	High compliance and fraud control	Medium
+High Priority	Merchant outstanding derived from ledger payable, not settlement rows only	High reporting accuracy	Medium
+High Priority	Webhook replay/out-of-order/late success handling	High payment correctness	Medium
+High Priority	External duplicate detection in reconciliation	Medium-high recon accuracy	Low
+Nice To Have	Multi-currency ledger/accounting/reporting	Strategic expansion, not needed for INR MVP	High
+Nice To Have	Immutable regulatory report snapshots with ledger range/hash	Strong audit maturity	Medium
+Nice To Have	Advanced suspense workflow and auto-suggested matches	Ops efficiency	Medium
+Nice To Have	Revenue analytics for GST/TDS/withholding by merchant segment	Revenue/compliance optimization	Medium
+Nice To Have	Large-scale reconciliation optimization/partitioning/materialized views	Scale readiness	High
+MVP Feature Set
+
+The first release should not try to become a full treasury platform, but it must avoid financial corruption. MVP should include:
+
+Reliable Money Lifecycle
+
+Payment captured creates gateway receivable, not direct escrow cash.
+Gateway settlement moves funds into escrow.
+Merchant payable is created only for eligible captured transactions.
+Settlement payout moves payable to bank transfer lifecycle.
+Durable Event Processing
+
+Outbox table for payment success, ledger posting, settlement creation, webhook delivery, bank callback processing.
+Retry with backoff.
+Dead-letter queue and ops dashboard for unresolved failures.
+Settlement Core
+
+Batch settlements by merchant, cycle, currency, bank account.
+Atomic reservation of eligible merchant payable.
+Payout instruction table.
+Bank idempotency key.
+UTR uniqueness.
+States: CREATED, FUNDS_RESERVED, SENT_TO_BANK, BANK_CONFIRMED, SETTLED, FAILED, BANK_RETURNED.
+Minimum Reconciliation
+
+Gateway settlement reconciliation by gateway transaction/payment id, order id, gross, fee, tax, net, settlement id.
+Bank escrow reconciliation at transaction-line level for UTR/date/debit/credit/amount.
+Flag unmatched internal, unmatched external, duplicate external, amount mismatch.
+Controls and Security
+
+Real auth/RBAC for finance, ops, auditor roles.
+Maker-checker for settlement release, manual adjustment, write-off.
+HMAC/raw-body webhook validation.
+Bank account verification before settlement activation.
+Payout balance check before bank file/API submission.
+Correct Reports
+
+Merchant outstanding from merchant payable ledger.
+Settlement aging using current settlement states.
+Platform revenue from actual ledger accounts, not only event type names.
+Escrow balance split into gateway receivable, escrow bank, merchant payable, pending settlement.
+Can Be Deferred Safely
+
+These can wait if MVP is INR-only and volume is moderate:
+
+Full multi-currency accounting.
+Immutable report hashing and final report snapshot locking, provided audit exports are still timestamped and reproducible enough for internal ops.
+Advanced chargeback representment/arbitration workflow, if MVP supports basic chargeback debit and recovery from future settlements.
+Auto-matching heuristics for bank narrations.
+Large-scale reconciliation partitioning/materialized views.
+Advanced tax analytics, as long as gross/fee/GST/net fields are captured from day one.
+Merchant-facing settlement dispute UI.
+Instant settlement/early settlement products.
+Phase-Wise Delivery Plan
+
+Phase 0: Stabilization Before MVP
+
+Fix report status/event mismatches.
+Add tenant-scoped uniqueness.
+Add UTR/bank reference uniqueness.
+Remove mock security paths.
+Replace header-only finance auth.
+Add outbox/DLQ for ledger and settlement creation failures.
+Phase 1: MVP Release
+
+Implement gateway receivable to escrow lifecycle.
+Build settlement batching and fund reservation.
+Add payout instruction/bank transfer model.
+Integrate bank payout status and idempotency.
+Implement minimum gateway and bank reconciliation.
+Add maker-checker for settlement release and manual adjustments.
+Launch core finance reports: escrow balance, merchant outstanding, settlement aging, reconciliation exceptions.
+Phase 2: Risk and Ops Maturity
+
+Add partial/multiple/post-settlement refunds.
+Add chargeback recovery from future settlement.
+Add returned/reversed bank transfer handling.
+Improve webhook event ordering and replay protection.
+Add reconciliation suspense workflow.
+Add ops queues for failed ledger, failed settlement, unmatched bank/gateway items.
+Phase 3: Scale and Compliance Maturity
+
+Immutable report snapshots with source ledger hash/range.
+Partition high-volume ledger/reconciliation tables.
+Add materialized balances/reporting stores.
+Add advanced bank narration matching.
+Add multi-currency if business expansion requires it.
+Add richer merchant dispute and settlement transparency tools.
+The practical MVP line is: no successful payment can exist without durable ledger intent, no settlement can pay without reserved payable, no bank payout can duplicate silently, and no report can materially misstate escrow or merchant liability. Everything else can be phased. 
+High-Level Architecture
+
+Use an event-driven, ledger-first architecture where operational systems can fail and retry, but financial intent is never lost.
+
+Core principle: payments, settlements, refunds, chargebacks, and reconciliation should not directly mutate financial state in scattered services. They should emit durable financial events, which are processed into immutable ledger entries, settlement records, payout instructions, and reconciliation exceptions.
+
+The target architecture should have these layers:
+
+Payment Processing Layer
+
+Handles authorization, capture, webhook intake, payment status transitions.
+Does not directly assume money reached escrow.
+Emits events such as PAYMENT_AUTHORIZED, PAYMENT_CAPTURED, PAYMENT_FAILED, GATEWAY_SETTLEMENT_RECEIVED.
+Financial Ledger Layer
+
+Owns all accounting postings.
+Maintains immutable double-entry ledger.
+Models gateway receivable, escrow bank, merchant payable, platform revenue, reserves, recoverables, refunds, and chargebacks.
+All financial state is derived from ledger plus controlled operational state.
+Settlement Layer
+
+Builds merchant settlement batches.
+Applies eligibility rules, holds, refunds, chargebacks, reserves, and deductions.
+Reserves payable atomically before bank payout.
+Creates payout instructions but does not mark settlement final until bank confirmation.
+Bank Transfer Layer
+
+Owns payout instruction lifecycle.
+Handles bank idempotency, bank request IDs, UTRs, status callbacks, rejects, returns, reversals, and timeout recovery.
+Reconciliation Layer
+
+Reconciles gateway settlement files/API reports.
+Reconciles bank escrow statements at transaction-line level.
+Produces discrepancy items and suspense/adjustment workflows.
+Risk and Dispute Layer
+
+Owns refund and chargeback lifecycle.
+Creates merchant recoverables where settlement has already happened.
+Feeds settlement deductions.
+Control and Compliance Layer
+
+Auth/RBAC, maker-checker approvals, audit logs, immutable reports, period close, ledger locks.
+Finance operations cannot rely on spoofable headers.
+Event Reliability Layer
+
+Outbox, workers, retry queues, dead-letter queues, operational alerts.
+Ensures no successful payment silently misses ledger or settlement processing.
+Component Diagram (Textual)
+
+[Checkout / Merchant API / QR / UPI]
+        |
+        v
+[Payment Service]
+  - order lifecycle
+  - gateway routing
+  - capture status
+  - webhook validation
+        |
+        | writes transaction + outbox event
+        v
+[Outbox / Event Bus]
+        |
+        +----------------------+
+        |                      |
+        v                      v
+[Ledger Posting Worker]   [Merchant Webhook Worker]
+        |                      |
+        v                      v
+[Ledger Service]          [Webhook Delivery Log]
+  - immutable entries
+  - idempotent posting
+  - accounting periods
+  - ledger locks
+        |
+        v
+[Financial Accounts]
+  - Gateway Receivable
+  - Escrow Bank
+  - Merchant Payable
+  - Platform Revenue
+  - Refund Payable
+  - Chargeback Recoverable
+  - Suspense
+
+[Gateway Settlement Importer]
+        |
+        v
+[Gateway Reconciliation Service]
+  - gross/fee/tax/net matching
+  - delayed settlement detection
+  - duplicate external detection
+        |
+        v
+[Reconciliation Exceptions / Suspense]
+
+[Settlement Scheduler]
+        |
+        v
+[Settlement Service]
+  - eligibility engine
+  - batch creation
+  - payable reservation
+  - maker-checker approval
+        |
+        v
+[Bank Transfer Service]
+  - payout instruction
+  - bank idempotency key
+  - UTR validation
+  - bank callbacks
+  - returned/reversed handling
+        |
+        v
+[Ledger Service]
+  - reserve funds
+  - confirm settlement
+  - reverse on bank return
+
+[Bank Statement Importer]
+        |
+        v
+[Bank Escrow Reconciliation Service]
+  - opening/closing balance
+  - UTR/date/amount/narration match
+  - unmatched bank/ledger lines
+        |
+        v
+[Reconciliation Exceptions / Adjustments]
+
+[Refund / Chargeback Service]
+        |
+        v
+[Ledger Service + Settlement Deductions]
+  - refund payable
+  - merchant recoverable
+  - future settlement recovery
+
+[Finance Admin / Ops Console / Audit Portal]
+        |
+        v
+[RBAC + Maker Checker + Audit Logs + Reports]
+Key Components Required
+
+Outbox Service
+
+Stores durable events in DB transaction with source operation.
+Required events:
+payment.captured
+ledger.posting.requested
+gateway.settlement.imported
+settlement.batch.created
+payout.instruction.created
+bank.payout.status.updated
+refund.completed
+chargeback.received
+Supports retry count, next retry time, DLQ status, error payload.
+Ledger Service
+
+Single owner of ledger postings.
+Idempotent by (tenant_id, idempotency_key).
+Supports posting templates:
+payment captured
+gateway settled to escrow
+merchant payable recognized
+settlement reserved
+settlement confirmed
+refund completed
+chargeback debit
+merchant recoverable
+bank payout returned
+manual adjustment
+Gateway Settlement Service
+
+Imports gateway settlement reports.
+Creates gateway settlement batches and lines.
+Moves funds from gateway receivable to escrow only after settlement confirmation.
+Captures gross, gateway fee, GST, tax, net, gateway settlement ID, value date.
+Settlement Service
+
+Creates settlement batches, not one settlement per payment.
+Calculates merchant net payable.
+Applies settlement rules:
+T+N cycle
+merchant hold
+risk reserve
+refund deduction
+chargeback deduction
+minimum payout threshold
+bank account active/verified
+Reserves payable atomically.
+Bank Transfer Service
+
+Owns payout instruction lifecycle.
+Handles:
+CREATED
+SUBMITTED
+BANK_ACCEPTED
+BANK_REJECTED
+BANK_CONFIRMED
+BANK_RETURNED
+REVERSED
+TIMEOUT
+Enforces bank idempotency and UTR uniqueness.
+Reconciliation Service
+
+Split into two sub-services:
+Gateway reconciliation
+Bank escrow reconciliation
+Must reconcile line-by-line, not just totals.
+Creates discrepancy records with owner, severity, aging, resolution status.
+Refund and Chargeback Service
+
+Handles partial/multiple refunds.
+Tracks refund state separately from payment state.
+Creates merchant recoverables for post-settlement refunds/chargebacks.
+Feeds deductions into future settlements.
+Approval Service
+
+Maker-checker workflow for:
+settlement release
+manual adjustment
+refund above threshold
+chargeback write-off
+reconciliation write-off
+period reopening
+Stores requester, approver, reason, before/after state.
+Reporting Service
+
+Reports should read from ledger and settlement/bank-transfer state.
+Core reports:
+escrow balance
+gateway receivable
+merchant payable
+pending settlements
+settlement aging
+payout failures
+reconciliation exceptions
+platform revenue
+Data Model Changes
+
+Core new or changed tables:
+
+outbox_events
+- id
+- tenant_id
+- aggregate_type
+- aggregate_id
+- event_type
+- payload
+- status: PENDING, PROCESSING, PROCESSED, FAILED, DLQ
+- retry_count
+- next_retry_at
+- last_error
+- created_at
+- processed_at
+gateway_settlement_batches
+- id
+- tenant_id
+- gateway_name
+- gateway_settlement_id
+- settlement_date
+- value_date
+- currency
+- gross_amount
+- gateway_fee
+- tax_amount
+- net_amount
+- status: IMPORTED, RECONCILED, DISCREPANCY_FOUND, POSTED_TO_ESCROW
+- source_file_id
+- created_at
+gateway_settlement_lines
+- id
+- tenant_id
+- batch_id
+- gateway_payment_id
+- gateway_transaction_id
+- order_id
+- payment_id
+- gross_amount
+- fee_amount
+- tax_amount
+- net_amount
+- currency
+- transaction_date
+- settlement_date
+- status
+- unique key: tenant_id + gateway_name + gateway_transaction_id
+settlement_batches
+- id
+- tenant_id
+- merchant_id
+- settlement_ref
+- cycle_date
+- currency
+- bank_account_id
+- gross_amount
+- fee_amount
+- refund_deductions
+- chargeback_deductions
+- reserve_amount
+- adjustment_amount
+- net_amount
+- status: CREATED, FUNDS_RESERVED, APPROVED, SENT_TO_BANK, BANK_CONFIRMED, SETTLED, FAILED, BANK_RETURNED
+- reservation_id
+- payout_instruction_id
+- created_by
+- approved_by
+- created_at
+settlement_batch_items
+- id
+- tenant_id
+- settlement_batch_id
+- ledger_transaction_id
+- source_payment_id
+- source_order_id
+- merchant_id
+- gross_amount
+- fee_amount
+- net_amount
+- item_type: PAYMENT, REFUND_DEDUCTION, CHARGEBACK_DEDUCTION, ADJUSTMENT, RESERVE
+- unique key: tenant_id + ledger_transaction_id + active settlement state
+fund_reservations
+- id
+- tenant_id
+- merchant_id
+- settlement_batch_id
+- amount
+- currency
+- status: ACTIVE, RELEASED, CONSUMED, EXPIRED
+- expires_at
+- created_at
+payout_instructions
+- id
+- tenant_id
+- settlement_batch_id
+- merchant_id
+- bank_account_id
+- amount
+- currency
+- bank_request_id
+- bank_idempotency_key
+- utr_number
+- bank_status
+- failure_code
+- failure_reason
+- return_reason
+- submitted_at
+- confirmed_at
+- returned_at
+- unique key: tenant_id + bank_idempotency_key
+- unique key: tenant_id + bank_account_id + utr_number where utr_number is not null
+bank_statement_batches
+- id
+- tenant_id
+- bank_account_id
+- statement_date
+- opening_balance
+- closing_balance
+- currency
+- source_file_id
+- status
+bank_statement_lines
+- id
+- tenant_id
+- statement_batch_id
+- bank_account_id
+- value_date
+- transaction_date
+- narration
+- debit_amount
+- credit_amount
+- running_balance
+- utr_number
+- bank_reference_number
+- match_status
+reconciliation_items
+- add fields:
+  reconciliation_domain: GATEWAY, BANK_ESCROW, PAYOUT
+  internal_ref
+  external_ref
+  gateway_payment_id
+  settlement_id
+  utr_number
+  value_date
+  gross_amount
+  fee_amount
+  tax_amount
+  net_amount
+  currency
+  severity
+  owner
+  aging_bucket
+refunds
+- id
+- tenant_id
+- original_payment_id
+- merchant_id
+- refund_ref
+- amount
+- currency
+- status: REQUESTED, APPROVED, SENT_TO_GATEWAY, SUCCESS, FAILED, REVERSED
+- is_post_settlement
+- merchant_recoverable_id
+chargebacks
+- id
+- tenant_id
+- payment_id
+- merchant_id
+- chargeback_ref
+- amount
+- reason_code
+- status: RECEIVED, EVIDENCE_SUBMITTED, PROVISIONAL_DEBIT, WON, LOST, REPRESENTMENT, CLOSED
+- merchant_recoverable_id
+merchant_recoverables
+- id
+- tenant_id
+- merchant_id
+- source_type: REFUND, CHARGEBACK, ADJUSTMENT
+- source_id
+- amount
+- recovered_amount
+- balance_amount
+- status: OPEN, PARTIALLY_RECOVERED, RECOVERED, WRITTEN_OFF
+Important schema corrections:
+
+payment_orders:
+- replace global unique order_id with unique tenant_id + order_id
+
+ledger_transactions:
+- replace global unique transaction_ref with unique tenant_id + transaction_ref
+- replace global unique idempotency_key with unique tenant_id + idempotency_key
+
+settlements / settlement_batches:
+- replace global unique settlement_ref with unique tenant_id + settlement_ref
+
+transactions:
+- unique tenant_id + gateway_transaction_id where gateway_transaction_id is not null
+
+merchants:
+- add tenant_id
+Service Boundaries
+
+Payment Service
+
+Owns payment order and gateway payment status.
+Does not own settlement, ledger accounting, or payout.
+Emits durable events.
+Ledger Service
+
+Owns chart of accounts, ledger transactions, ledger entries, reversals, accounting periods, ledger locks.
+No other service writes ledger entries directly.
+Settlement Service
+
+Owns settlement batch creation, eligibility, reservation, approval state.
+Calls Ledger Service for reservation/settlement postings.
+Calls Bank Transfer Service for payout execution.
+Bank Transfer Service
+
+Owns bank API integration, payout instruction, UTR, bank status, callbacks.
+Does not calculate merchant payable.
+Emits bank outcome events.
+Reconciliation Service
+
+Owns imported external reports/statements and matching logic.
+Does not directly mutate ledger except through approved adjustment workflow.
+Refund/Chargeback Service
+
+Owns dispute/refund operational lifecycle.
+Calls Ledger Service for financial postings.
+Creates recoverables for Settlement Service to deduct.
+Approval Service
+
+Owns maker-checker and policy enforcement.
+Used by Settlement, Reconciliation, Refund, Chargeback, Ledger Adjustment flows.
+Reporting Service
+
+Read-only.
+Reads ledger, settlement, payout, and reconciliation views.
+Does not perform financial mutations.
+Critical Design Decisions
+
+Do not debit escrow bank at payment success
+
+Payment capture should create gateway receivable and merchant payable/conditional payable.
+Escrow bank is debited only when gateway settlement to nodal/escrow is confirmed.
+Ledger posting must be durable
+
+Payment success may return to customer only after transaction state and outbox event are durably committed.
+Ledger worker can retry, but missing ledger entries must become visible operational exceptions.
+Settlement is batch-based
+
+One settlement per payment is not production-valid.
+Settlement batches must aggregate eligible items by merchant, cycle, currency, and bank account.
+Bank payout finality requires bank confirmation
+
+SENT_TO_BANK is not settlement.
+BANK_CONFIRMED needs bank reference/UTR.
+BANK_RETURNED must reverse or reopen merchant payable.
+Reservation prevents double payout
+
+Funds must be atomically reserved before payout instruction.
+Settlement item uniqueness prevents the same ledger transaction from being settled twice.
+Reconciliation must be line-level
+
+Balance-level reconciliation is only a summary control.
+Real reconciliation requires transaction-line matching and exception workflow.
+Tenant isolation must be enforced at the database level
+
+Business references should be unique per tenant, not globally.
+Merchant records must carry tenant_id.
+Critical finance APIs require real RBAC and maker-checker
+
+Header-based role checks are not acceptable.
+Sensitive actions require authenticated user identity, role, approval policy, and audit trail.
+Refunds and chargebacks are settlement-affecting financial events
+
+If before settlement, reduce payable.
+If after settlement, create merchant recoverable and deduct from future settlements.
+Reports must derive from financial truth
+
+Merchant outstanding should come from merchant payable/recoverable ledger balances.
+Settlement aging should use settlement batch states.
+Platform revenue should come from revenue ledger accounts, not event type filters alone.
+
+
+
+
+
+SPRINT 0 (Optional but HIGHLY recommended)
+🎯 
+
+SPRINT 1 — CORE INFRA (NON-NEGOTIABLE)
+🎯 Goal: Never lose money events
+
+Build:
+
+outbox_events table
+Outbox worker
+DLQ handling
+Idempotency table
+Basic RBAC middleware
+
+Validation:
+
+Simulate failure → event retries
+DLQ visibility
+
+👉 This sprint ensures:
+
+“No financial event is ever lost”
+
+🥈 SPRINT 2 — LEDGER CORE
+🎯 Goal: Financial truth exists
+
+Build:
+
+Ledger tables
+LedgerService
+Double-entry enforcement
+Accounting templates
+Immutable ledger constraint
+
+Flow:
+
+Payment Captured → Outbox → Ledger Posting
+
+Validation:
+
+Every payment = ledger entry OR DLQ
+Debit = Credit always
+🥉 SPRINT 3 — PAYMENT → LEDGER FLOW (FIRST END-TO-END)
+🎯 Goal: First working financial pipeline
+
+Build:
+
+Payment APIs
+Webhook ingestion (basic)
+Payment captured event
+Ledger posting integration
+
+Validation:
+
+Simulate payment → verify ledger
+
+👉 This is your first milestone
+
+You now have a working financial system (without settlement)
+
+🏦 SPRINT 4 — GATEWAY → ESCROW CORRECTION
+🎯 Goal: Fix real-world money flow
+
+Build:
+
+Gateway settlement import
+Settlement batch + lines
+Ledger posting:
+Receivable → Escrow
+
+Validation:
+
+Escrow only increases after settlement
+
+👉 This prevents:
+
+Fake money in system (critical fintech error)
+
+💰 SPRINT 5 — SETTLEMENT BATCH + RESERVATION
+🎯 Goal: Controlled payout preparation
+
+Build:
+
+Settlement batch
+Settlement items
+Eligibility logic (simple)
+Fund reservation (locking)
+
+Validation:
+
+Same ledger entry cannot be settled twice
+🏦 SPRINT 6 — PAYOUT + BANK LIFECYCLE
+🎯 Goal: Move real money safely
+
+Build:
+
+Payout instruction table
+Bank idempotency key
+Bank callback API
+UTR uniqueness
+
+Flow:
+
+Settlement → Reserve → Payout → Bank → Confirm → Ledger
+
+Validation:
+
+Duplicate payout blocked
+No settlement without bank confirmation
+
+👉 This completes:
+
+Full money lifecycle
+
+📊 SPRINT 7 — REPORTING (FINANCIAL TRUTH)
+🎯 Goal: Trust the numbers
+
+Build:
+
+Escrow balance (ledger-based)
+Merchant payable
+Settlement aging
+DLQ report
+
+Validation:
+
+Reports = ledger truth
+🧠 SPRINT 8 — RECON FOUNDATION (INTELLIGENCE STARTS)
+🎯 Goal: Detect mismatches
+
+Build:
+
+Gateway reconciliation
+Bank statement import
+Basic matching
+
+Validation:
+
+Identify mismatches
+🔁 SPRINT 9 — REFUNDS + CHARGEBACKS
+🎯 Goal: Prevent financial leakage
+
+Build:
+
+Refund lifecycle
+Chargeback lifecycle
+Merchant recoverables
+🛡️ SPRINT 10 — CONTROL LAYER
+🎯 Goal: Compliance + fraud control
+
+Build:
+
+Maker-checker
+Approval workflows
+Webhook replay handling
+===============================
+You are a senior backend engineer.
+
+We are in Sprint 0.
+
+Goal: Stabilize foundation
+Scope:
+Tasks:
+s
+Validate schema consistency (tenant_id everywhere)
+Identify duplicate constraints issues
+Clean idempotency strategy
+Setup:
+DB migrations
+logging
+correlation_id tracing
+
+Output:
+
+Clean DB baseline
+No conflicting constraints
+
+Task:
+Implement this sprint fully.
+
+Output:
+
+* SQL schema changes
+* Code (services, APIs)
+* Event flows
+* Edge cases handled
+
+Constraints:
+
+* Do NOT design future sprints
+* Do NOT add extra features
+* Focus on correctness
+=============================================================
+
+You are a senior backend engineer.
+
+We are in Sprint 1.
+
+Goal: Never lose money events
+
+Scope:
+Build:
+
+- outbox_events table
+- Outbox worker
+- DLQ handling
+- Idempotency table
+- Basic RBAC middleware
+
+Validation:
+
+- Simulate failure → event retries
+- DLQ visibility
+
+👉 This sprint ensures:
+“No financial event is ever lost”
+
+----------------------------------------
+
+Task:
+Implement this sprint fully.
+
+In addition:
+
+1. Update existing test cases where needed to align with correct system behavior.
+2. Add new test cases for:
+   - Outbox event creation on every financial write
+   - Retry behavior on failure
+   - DLQ insertion after max retries
+   - Idempotency enforcement (no duplicate processing)
+   - RBAC enforcement
+
+3. Do NOT blindly modify tests to pass.
+   - If a test is incorrect, fix it.
+   - If implementation is incorrect, fix the code.
+   - Prefer correctness over passing tests.
+
+4. Ensure all tests run using the real database (no knex mocks).
+
+5. Add integration tests for:
+   - Event failure → retry → DLQ flow
+   - Duplicate request → idempotent response
+   - Partial failure scenarios
+
+6. Keep logs and assertions explicit for debugging:
+   - correlation_id
+   - idempotency_key
+   - event_id
+
+7. Run tests after implementation and iterate until all pass.
+
+----------------------------------------
+
+Output expectations:
+
+- Working implementation
+- Updated + new test cases
+- No broken existing flows
+- Clear separation of concerns (service, worker, DB)
+
+----------------------------------------
+
+Important:
+This is a financial system.
+
+Prioritize:
+- correctness
+- durability
+- traceability
+
+over:
+- speed
+- shortcuts
+
+===========================================
+Sprint 1.5
+You are a senior backend engineer working on a financial system.
+
+We have already implemented:
+- Durable outbox_events table
+- Outbox worker with retry + DLQ
+- Idempotency enforcement
+- Basic RBAC
+
+Now we must HARDEN the system.
+
+--------------------------------------------------
+GOAL
+--------------------------------------------------
+
+1. Make outbox the ONLY source of truth for all financial side effects
+2. Ensure the outbox worker is safe under concurrency, crashes, and retries
+
+This is critical for financial correctness.
+
+--------------------------------------------------
+PRIORITY 1 — REMOVE DIRECT LEDGER WRITES
+--------------------------------------------------
+
+Requirements:
+
+1. Remove any direct ledger writes from request/transaction flow.
+   - No ledger posting inside payment-gateway or API handlers.
+   - No fallback "try ledger then outbox".
+
+2. All financial side effects MUST happen via outbox events only.
+
+3. Ensure:
+   - Transaction write + outbox event are committed atomically
+   - Ledger posting happens ONLY in outbox worker
+
+4. Update existing code paths:
+   - payment-gateway
+   - any ledger-service direct invocation
+
+5. Ensure backward compatibility:
+   - No duplicate ledger entries
+   - No missing ledger entries
+
+--------------------------------------------------
+PRIORITY 2 — HARDEN OUTBOX WORKER
+--------------------------------------------------
+
+Implement the following:
+
+### 1. Row-level locking (CRITICAL)
+
+Use:
+
+SELECT ... FOR UPDATE SKIP LOCKED
+
+Requirements:
+- Only one worker processes a given event
+- Support multiple concurrent workers safely
+- Prevent duplicate processing
+
+---
+
+### 2. Processing timeout recovery
+
+Problem:
+Events stuck in PROCESSING if worker crashes
+
+Solution:
+
+Add:
+- processing_started_at
+- processing_timeout_seconds (configurable)
+
+Worker logic:
+- If status = PROCESSING AND timeout exceeded:
+    → reset to PENDING
+    → increment retry_count
+
+---
+
+### 3. Idempotent handler execution
+
+Requirement:
+Event handler must be safe to run multiple times
+
+Implement:
+- Check idempotency_key before applying side effects
+- Ensure ledger posting is idempotent
+- Prevent duplicate financial impact
+
+---
+
+### 4. Safe state transitions
+
+Enforce strict transitions:
+
+PENDING → PROCESSING → PROCESSED
+PENDING → PROCESSING → FAILED → (retry)
+FAILED → DLQ
+
+Prevent:
+- skipping states
+- double processing
+
+---
+
+### 5. Retry + DLQ correctness
+
+Ensure:
+- retry_count increments correctly
+- next_retry_at respected
+- max_retries moves event to DLQ
+- dlq_at timestamp recorded
+
+---
+
+### 6. Logging & traceability
+
+Every event processing must log:
+- event_id
+- correlation_id
+- idempotency_key
+- retry_count
+- final status
+
+--------------------------------------------------
+TESTING REQUIREMENTS
+--------------------------------------------------
+
+1. Update existing tests where behavior has changed:
+   - Remove assumptions of direct ledger writes
+   - Ensure tests expect outbox-driven execution
+
+2. Add integration tests for:
+
+- Concurrent workers:
+  → same event processed only once
+
+- Worker crash simulation:
+  → event recovers from PROCESSING to PENDING
+
+- Idempotent execution:
+  → same event processed twice → no duplicate ledger entry
+
+- Retry behavior:
+  → failure → retry → success
+
+- DLQ flow:
+  → failure after max retries → DLQ
+
+3. Tests must use REAL database (no mocks)
+
+4. Use --runInBand compatible design
+
+--------------------------------------------------
+CONSTRAINTS
+--------------------------------------------------
+
+- Do NOT weaken tests just to pass
+- Do NOT bypass outbox
+- Do NOT introduce race conditions
+- Preserve tenant isolation
+- Preserve idempotency guarantees
+
+--------------------------------------------------
+OUTPUT EXPECTATIONS
+--------------------------------------------------
+
+- Updated implementation (worker + services)
+- Removed direct ledger writes
+- Hardened worker logic
+- Updated + new integration tests
+- All tests passing
+
+--------------------------------------------------
+IMPORTANT
+--------------------------------------------------
+
+This is a financial system.
+
+Prioritize:
+- correctness
+- consistency
+- durability
+
+over:
+- performance optimizations
+- shortcuts
+
+If unsure:
+Choose the safest financial behavior.
+=================================
