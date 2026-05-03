@@ -743,6 +743,67 @@ CREATE TABLE IF NOT EXISTS public.reconciliation_batches
     CONSTRAINT reconciliation_batches_batch_ref_unique UNIQUE (batch_ref)
 );
 
+CREATE TABLE IF NOT EXISTS public.reconciliation_exception_audit_events
+(
+    id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    case_id uuid NOT NULL,
+    action_type text COLLATE pg_catalog."default" NOT NULL,
+    previous_status character varying(50) COLLATE pg_catalog."default",
+    new_status character varying(50) COLLATE pg_catalog."default",
+    performed_by character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    performed_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reason text COLLATE pg_catalog."default",
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    CONSTRAINT reconciliation_exception_audit_events_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.reconciliation_exception_cases
+(
+    id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    source_type text COLLATE pg_catalog."default" NOT NULL,
+    source_reconciliation_id uuid NOT NULL,
+    source_status character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    case_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'OPEN'::text,
+    severity text COLLATE pg_catalog."default" NOT NULL DEFAULT 'MEDIUM'::text,
+    priority text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NORMAL'::text,
+    assigned_to character varying(100) COLLATE pg_catalog."default",
+    assigned_by character varying(100) COLLATE pg_catalog."default",
+    assigned_at timestamp with time zone,
+    opened_by character varying(100) COLLATE pg_catalog."default",
+    opened_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_by character varying(100) COLLATE pg_catalog."default",
+    resolved_at timestamp with time zone,
+    resolution_type text COLLATE pg_catalog."default",
+    resolution_reason text COLLATE pg_catalog."default",
+    resolution_notes text COLLATE pg_catalog."default",
+    approval_required boolean NOT NULL DEFAULT false,
+    approval_request_id uuid,
+    last_action_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT reconciliation_exception_cases_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_recon_exception_source UNIQUE (tenant_id, source_type, source_reconciliation_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.reconciliation_exception_comments
+(
+    id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    case_id uuid NOT NULL,
+    comment_text text COLLATE pg_catalog."default" NOT NULL,
+    comment_type text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NOTE'::text,
+    created_by character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    CONSTRAINT reconciliation_exception_comments_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE IF NOT EXISTS public.reconciliation_items
 (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1157,6 +1218,24 @@ ALTER TABLE IF EXISTS public.platform_users
     REFERENCES public.platform_users (id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE SET NULL;
+
+
+ALTER TABLE IF EXISTS public.reconciliation_exception_audit_events
+    ADD CONSTRAINT reconciliation_exception_audit_events_case_id_foreign FOREIGN KEY (case_id)
+    REFERENCES public.reconciliation_exception_cases (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS reconciliation_exception_audit_events_case_id_index
+    ON public.reconciliation_exception_audit_events(case_id);
+
+
+ALTER TABLE IF EXISTS public.reconciliation_exception_comments
+    ADD CONSTRAINT reconciliation_exception_comments_case_id_foreign FOREIGN KEY (case_id)
+    REFERENCES public.reconciliation_exception_cases (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS reconciliation_exception_comments_case_id_index
+    ON public.reconciliation_exception_comments(case_id);
 
 
 ALTER TABLE IF EXISTS public.reconciliation_items
