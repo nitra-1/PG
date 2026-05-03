@@ -38,6 +38,26 @@ const SETTLEMENT_LEDGER_STATUSES = {
   LEDGER_ENTRIES_MISSING: 'LEDGER_ENTRIES_MISSING'
 };
 
+const BANK_SETTLEMENT_STATUSES = {
+  MATCHED: 'MATCHED',
+  MISSING_BANK_STATEMENT: 'MISSING_BANK_STATEMENT',
+  MISSING_PAYOUT_INSTRUCTION: 'MISSING_PAYOUT_INSTRUCTION',
+  AMOUNT_MISMATCH: 'AMOUNT_MISMATCH',
+  CURRENCY_MISMATCH: 'CURRENCY_MISMATCH',
+  UTR_MISMATCH: 'UTR_MISMATCH',
+  BANK_REFERENCE_MISMATCH: 'BANK_REFERENCE_MISMATCH',
+  BANK_TRANSACTION_ID_MISMATCH: 'BANK_TRANSACTION_ID_MISMATCH',
+  DATE_MISMATCH: 'DATE_MISMATCH',
+  DUPLICATE_BANK_MATCH: 'DUPLICATE_BANK_MATCH',
+  DUPLICATE_PAYOUT: 'DUPLICATE_PAYOUT',
+  RETURNED_OR_REVERSED: 'RETURNED_OR_REVERSED',
+  UNMATCHED_BANK_DEBIT: 'UNMATCHED_BANK_DEBIT',
+  UNMATCHED_BANK_CREDIT: 'UNMATCHED_BANK_CREDIT',
+  TENANT_MISMATCH: 'TENANT_MISMATCH'
+};
+
+const BANK_RECON_DATE_TOLERANCE_DAYS = 2;
+
 function parseMetadata(metadata) {
   if (!metadata) return {};
   if (typeof metadata === 'object') return metadata;
@@ -65,6 +85,27 @@ function centsToAmount(cents) {
 
 function firstDefined(...values) {
   return values.find(value => value !== undefined && value !== null && value !== '');
+}
+
+function dateOnly(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(dateText, days) {
+  if (!dateText) return null;
+  const date = new Date(`${dateText}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function daysBetween(left, right) {
+  if (!left || !right) return 0;
+  const leftDate = new Date(`${left}T00:00:00.000Z`);
+  const rightDate = new Date(`${right}T00:00:00.000Z`);
+  return Math.abs(Math.round((leftDate - rightDate) / (24 * 60 * 60 * 1000)));
 }
 
 class ReconciliationService {
@@ -637,6 +678,505 @@ class ReconciliationService {
     if (tenantId) query = query.where('tenant_id', tenantId);
     if (status) query = query.where('reconciliation_status', status);
     if (settlementRef) query = query.where('settlement_ref', settlementRef);
+    if (from) query = query.where('checked_at', '>=', from);
+    if (to) query = query.where('checked_at', '<=', to);
+
+    return query;
+  }
+
+  async resolveSettlementForPayout(payoutInstruction) {
+    if (!payoutInstruction) return null;
+
+    const query = db.knex('settlements').where('tenant_id', payoutInstruction.tenant_id);
+
+    if (payoutInstruction.settlement_id) {
+      query.where('id', payoutInstruction.settlement_id);
+    } else if (payoutInstruction.settlement_ref) {
+      query.where('settlement_ref', payoutInstruction.settlement_ref);
+    } else {
+      return null;
+    }
+
+    return query.first();
+  }
+
+  async resolveBankSettlementTarget(target, tenantId = null) {
+    if (!target) {
+      throw new Error('Payout instruction or settlement is required for bank reconciliation');
+    }
+
+    if (typeof target === 'object' && (target.payout_amount !== undefined || target.bank_idempotency_key || target.payout_status)) {
+      const payoutInstruction = target;
+      const settlement = await this.resolveSettlementForPayout(payoutInstruction);
+      return { payoutInstruction, settlement };
+    }
+
+    if (typeof target === 'object' && target.id && target.settlement_ref) {
+      const settlement = target;
+      const payoutInstruction = await db.knex('payout_instructions')
+        .where({
+          tenant_id: settlement.tenant_id,
+          settlement_id: settlement.id
+        })
+        .orWhere(function() {
+          this.where({
+            tenant_id: settlement.tenant_id,
+            settlement_ref: settlement.settlement_ref
+          });
+        })
+        .orderBy('created_at', 'desc')
+        .first();
+      return { payoutInstruction: payoutInstruction || null, settlement };
+    }
+
+    const payoutQuery = db.knex('payout_instructions');
+    if (tenantId) payoutQuery.where('tenant_id', tenantId);
+
+    if (typeof target === 'string') {
+      payoutQuery.where(function() {
+        this.where('id', target).orWhere('settlement_ref', target);
+      });
+    } else if (target.id) {
+      payoutQuery.where('id', target.id);
+    } else if (target.settlement_ref) {
+      payoutQuery.where('settlement_ref', target.settlement_ref);
+    }
+
+    const payoutInstruction = await payoutQuery.orderBy('created_at', 'desc').first();
+    if (payoutInstruction) {
+      return {
+        payoutInstruction,
+        settlement: await this.resolveSettlementForPayout(payoutInstruction)
+      };
+    }
+
+    const settlement = await this.resolveSettlement(target, tenantId);
+    return { payoutInstruction: null, settlement };
+  }
+
+  expectedPayoutDate(payoutInstruction) {
+    return dateOnly(firstDefined(
+      payoutInstruction.completed_at,
+      payoutInstruction.accepted_at,
+      payoutInstruction.submitted_at,
+      payoutInstruction.created_at
+    ));
+  }
+
+  actualBankDate(bankLine) {
+    return dateOnly(firstDefined(bankLine?.value_date, bankLine?.transaction_date));
+  }
+
+  async findBankLineCandidates(payoutInstruction) {
+    const referenceKeys = [
+      ['bank_transaction_id', payoutInstruction.bank_transaction_id],
+      ['utr_number', payoutInstruction.utr_number],
+      ['bank_reference_number', payoutInstruction.bank_reference_number]
+    ];
+
+    for (const [column, value] of referenceKeys) {
+      if (!value) continue;
+
+      const allMatches = await db.knex('bank_statement_lines')
+        .where(column, value)
+        .where('transaction_type', 'DEBIT')
+        .orderBy('created_at', 'asc');
+      const tenantMatches = allMatches.filter(line => line.tenant_id === payoutInstruction.tenant_id);
+
+      if (tenantMatches.length > 0) {
+        return {
+          candidates: tenantMatches,
+          matchType: column,
+          tenantMismatchCandidates: []
+        };
+      }
+
+      if (allMatches.length > 0) {
+        return {
+          candidates: [],
+          matchType: column,
+          tenantMismatchCandidates: allMatches
+        };
+      }
+    }
+
+    const expectedDate = this.expectedPayoutDate(payoutInstruction);
+    const fromDate = addDays(expectedDate, -BANK_RECON_DATE_TOLERANCE_DAYS);
+    const toDate = addDays(expectedDate, BANK_RECON_DATE_TOLERANCE_DAYS);
+    let query = db.knex('bank_statement_lines')
+      .where({
+        tenant_id: payoutInstruction.tenant_id,
+        transaction_type: 'DEBIT',
+        currency: payoutInstruction.currency
+      })
+      .where('amount', payoutInstruction.payout_amount)
+      .orderBy('created_at', 'asc');
+
+    if (fromDate && toDate) {
+      query = query.where(function() {
+        this.whereBetween('transaction_date', [fromDate, toDate])
+          .orWhereBetween('value_date', [fromDate, toDate]);
+      });
+    }
+
+    return {
+      candidates: await query,
+      matchType: 'amount_currency_date_debit',
+      tenantMismatchCandidates: []
+    };
+  }
+
+  async persistBankSettlementReconciliation(result) {
+    const now = db.knex.fn.now();
+    const row = {
+      id: uuidv4(),
+      tenant_id: result.tenant_id,
+      settlement_id: result.settlement_id || null,
+      settlement_ref: result.settlement_ref || null,
+      payout_instruction_id: result.payout_instruction_id || null,
+      bank_statement_line_id: result.bank_statement_line_id || null,
+      reconciliation_status: result.reconciliation_status,
+      settlement_amount: result.settlement_amount || null,
+      payout_amount: result.payout_amount || null,
+      bank_amount: result.bank_amount || null,
+      discrepancy_amount: result.discrepancy_amount || '0.00',
+      settlement_currency: result.settlement_currency || null,
+      bank_currency: result.bank_currency || null,
+      expected_utr_number: result.expected_utr_number || null,
+      actual_utr_number: result.actual_utr_number || null,
+      expected_bank_reference_number: result.expected_bank_reference_number || null,
+      actual_bank_reference_number: result.actual_bank_reference_number || null,
+      expected_bank_transaction_id: result.expected_bank_transaction_id || null,
+      actual_bank_transaction_id: result.actual_bank_transaction_id || null,
+      expected_bank_date: result.expected_bank_date || null,
+      actual_bank_date: result.actual_bank_date || null,
+      checked_at: now,
+      correlation_id: result.correlation_id || null,
+      metadata: JSON.stringify(result.metadata || {}),
+      updated_at: now
+    };
+
+    const existingQuery = db.knex('reconciliation_bank_settlements')
+      .where('tenant_id', row.tenant_id);
+
+    if (row.payout_instruction_id) {
+      existingQuery.where('payout_instruction_id', row.payout_instruction_id);
+    } else if (row.bank_statement_line_id) {
+      existingQuery.where('bank_statement_line_id', row.bank_statement_line_id);
+    } else if (row.settlement_id) {
+      existingQuery.where('settlement_id', row.settlement_id).whereNull('payout_instruction_id');
+    } else {
+      existingQuery.whereRaw('1 = 0');
+    }
+
+    const existing = await existingQuery.first();
+    if (existing) {
+      const [updated] = await db.knex('reconciliation_bank_settlements')
+        .where('id', existing.id)
+        .update({
+          settlement_id: row.settlement_id,
+          settlement_ref: row.settlement_ref,
+          payout_instruction_id: row.payout_instruction_id,
+          bank_statement_line_id: row.bank_statement_line_id,
+          reconciliation_status: row.reconciliation_status,
+          settlement_amount: row.settlement_amount,
+          payout_amount: row.payout_amount,
+          bank_amount: row.bank_amount,
+          discrepancy_amount: row.discrepancy_amount,
+          settlement_currency: row.settlement_currency,
+          bank_currency: row.bank_currency,
+          expected_utr_number: row.expected_utr_number,
+          actual_utr_number: row.actual_utr_number,
+          expected_bank_reference_number: row.expected_bank_reference_number,
+          actual_bank_reference_number: row.actual_bank_reference_number,
+          expected_bank_transaction_id: row.expected_bank_transaction_id,
+          actual_bank_transaction_id: row.actual_bank_transaction_id,
+          expected_bank_date: row.expected_bank_date,
+          actual_bank_date: row.actual_bank_date,
+          checked_at: row.checked_at,
+          correlation_id: row.correlation_id,
+          metadata: row.metadata,
+          updated_at: row.updated_at
+        })
+        .returning('*');
+      return updated;
+    }
+
+    const [saved] = await db.knex('reconciliation_bank_settlements')
+      .insert(row)
+      .returning('*');
+
+    return saved;
+  }
+
+  buildBankSettlementResult({
+    payoutInstruction,
+    settlement,
+    bankLine,
+    status,
+    discrepancyCents = 0,
+    correlationId,
+    metadata = {}
+  }) {
+    const settlementMetadata = parseMetadata(settlement?.metadata);
+    const settlementCents = amountToCents(firstDefined(settlement?.net_amount, payoutInstruction?.payout_amount));
+    const payoutCents = amountToCents(payoutInstruction?.payout_amount);
+    const bankCents = bankLine ? amountToCents(firstDefined(bankLine.debit_amount, bankLine.amount)) : 0;
+
+    return {
+      tenant_id: payoutInstruction?.tenant_id || settlement?.tenant_id || bankLine?.tenant_id,
+      settlement_id: settlement?.id || payoutInstruction?.settlement_id || null,
+      settlement_ref: settlement?.settlement_ref || payoutInstruction?.settlement_ref || null,
+      payout_instruction_id: payoutInstruction?.id || null,
+      bank_statement_line_id: bankLine?.id || null,
+      reconciliation_status: status,
+      settlement_amount: settlement ? centsToAmount(settlementCents) : null,
+      payout_amount: payoutInstruction ? centsToAmount(payoutCents) : null,
+      bank_amount: bankLine ? centsToAmount(bankCents) : null,
+      discrepancy_amount: centsToAmount(discrepancyCents),
+      settlement_currency: firstDefined(payoutInstruction?.currency, settlement?.currency, settlementMetadata.currency),
+      bank_currency: bankLine?.currency || null,
+      expected_utr_number: payoutInstruction?.utr_number || null,
+      actual_utr_number: bankLine?.utr_number || null,
+      expected_bank_reference_number: payoutInstruction?.bank_reference_number || null,
+      actual_bank_reference_number: bankLine?.bank_reference_number || null,
+      expected_bank_transaction_id: payoutInstruction?.bank_transaction_id || null,
+      actual_bank_transaction_id: bankLine?.bank_transaction_id || null,
+      expected_bank_date: payoutInstruction ? this.expectedPayoutDate(payoutInstruction) : null,
+      actual_bank_date: bankLine ? this.actualBankDate(bankLine) : null,
+      correlation_id: correlationId || payoutInstruction?.correlation_id || bankLine?.correlation_id || null,
+      metadata
+    };
+  }
+
+  async reconcileMissingPayoutInstruction(settlement, options = {}) {
+    const correlationId = options.correlationId || requestContext.getCorrelationId() || null;
+    const result = this.buildBankSettlementResult({
+      settlement,
+      payoutInstruction: null,
+      bankLine: null,
+      status: BANK_SETTLEMENT_STATUSES.MISSING_PAYOUT_INSTRUCTION,
+      discrepancyCents: amountToCents(settlement.net_amount),
+      correlationId,
+      metadata: { source: 'settlement_without_payout_instruction' }
+    });
+
+    const saved = await this.persistBankSettlementReconciliation(result);
+
+    logger.info('Bank-settlement reconciliation checked', {
+      tenant_id: saved.tenant_id,
+      settlement_ref: saved.settlement_ref,
+      payout_instruction_id: saved.payout_instruction_id,
+      bank_statement_line_id: saved.bank_statement_line_id,
+      reconciliation_status: saved.reconciliation_status,
+      discrepancy_amount: saved.discrepancy_amount,
+      correlation_id: saved.correlation_id
+    });
+
+    return saved;
+  }
+
+  async reconcileBankSettlement(target, options = {}) {
+    const correlationId = options.correlationId || requestContext.getCorrelationId() || null;
+    const { payoutInstruction, settlement } = await this.resolveBankSettlementTarget(target, options.tenantId);
+
+    if (!payoutInstruction) {
+      return this.reconcileMissingPayoutInstruction(settlement, { correlationId });
+    }
+
+    const payoutCents = amountToCents(payoutInstruction.payout_amount);
+    let status = BANK_SETTLEMENT_STATUSES.MATCHED;
+    let bankLine = null;
+    let discrepancyCents = 0;
+    const metadata = {};
+
+    if (!settlement) {
+      status = BANK_SETTLEMENT_STATUSES.MISSING_PAYOUT_INSTRUCTION;
+      discrepancyCents = payoutCents;
+      metadata.internal_state = 'payout_instruction_references_missing_settlement';
+    } else if (settlement.tenant_id !== payoutInstruction.tenant_id) {
+      status = BANK_SETTLEMENT_STATUSES.TENANT_MISMATCH;
+      metadata.settlement_tenant_id = settlement.tenant_id;
+      metadata.payout_tenant_id = payoutInstruction.tenant_id;
+    } else if (['RETURNED', 'REVERSED'].includes(payoutInstruction.payout_status)) {
+      status = BANK_SETTLEMENT_STATUSES.RETURNED_OR_REVERSED;
+      metadata.payout_status = payoutInstruction.payout_status;
+    } else {
+      const candidateResult = await this.findBankLineCandidates(payoutInstruction);
+      metadata.match_type = candidateResult.matchType;
+      metadata.candidate_count = candidateResult.candidates.length;
+
+      if (candidateResult.tenantMismatchCandidates.length > 0) {
+        status = BANK_SETTLEMENT_STATUSES.TENANT_MISMATCH;
+        metadata.candidate_tenant_ids = candidateResult.tenantMismatchCandidates.map(candidate => candidate.tenant_id);
+      } else if (candidateResult.candidates.length === 0) {
+        status = BANK_SETTLEMENT_STATUSES.MISSING_BANK_STATEMENT;
+        discrepancyCents = payoutCents;
+      } else if (candidateResult.candidates.length > 1) {
+        status = BANK_SETTLEMENT_STATUSES.DUPLICATE_BANK_MATCH;
+        metadata.candidate_bank_statement_line_ids = candidateResult.candidates.map(candidate => candidate.id);
+      } else {
+        bankLine = candidateResult.candidates[0];
+        const existingBankMatch = await db.knex('reconciliation_bank_settlements')
+          .where({
+            tenant_id: payoutInstruction.tenant_id,
+            bank_statement_line_id: bankLine.id
+          })
+          .whereNot('payout_instruction_id', payoutInstruction.id)
+          .first();
+
+        if (existingBankMatch) {
+          status = BANK_SETTLEMENT_STATUSES.DUPLICATE_PAYOUT;
+          metadata.existing_payout_instruction_id = existingBankMatch.payout_instruction_id;
+          metadata.candidate_bank_statement_line_id = bankLine.id;
+          bankLine = { ...bankLine, id: null };
+        } else {
+          const bankCents = amountToCents(firstDefined(bankLine.debit_amount, bankLine.amount));
+          const expectedDate = this.expectedPayoutDate(payoutInstruction);
+          const actualDate = this.actualBankDate(bankLine);
+
+          if (bankLine.tenant_id !== payoutInstruction.tenant_id) {
+            status = BANK_SETTLEMENT_STATUSES.TENANT_MISMATCH;
+          } else if (bankLine.transaction_type !== 'DEBIT') {
+            status = BANK_SETTLEMENT_STATUSES.MISSING_BANK_STATEMENT;
+            discrepancyCents = payoutCents;
+            metadata.invalid_direction = bankLine.transaction_type;
+          } else if (payoutCents !== bankCents) {
+            status = BANK_SETTLEMENT_STATUSES.AMOUNT_MISMATCH;
+            discrepancyCents = Math.abs(payoutCents - bankCents);
+          } else if (bankLine.currency !== payoutInstruction.currency) {
+            status = BANK_SETTLEMENT_STATUSES.CURRENCY_MISMATCH;
+          } else if (payoutInstruction.utr_number && payoutInstruction.utr_number !== bankLine.utr_number) {
+            status = BANK_SETTLEMENT_STATUSES.UTR_MISMATCH;
+          } else if (payoutInstruction.bank_reference_number && payoutInstruction.bank_reference_number !== bankLine.bank_reference_number) {
+            status = BANK_SETTLEMENT_STATUSES.BANK_REFERENCE_MISMATCH;
+          } else if (payoutInstruction.bank_transaction_id && payoutInstruction.bank_transaction_id !== bankLine.bank_transaction_id) {
+            status = BANK_SETTLEMENT_STATUSES.BANK_TRANSACTION_ID_MISMATCH;
+          } else if (expectedDate && actualDate && daysBetween(expectedDate, actualDate) > BANK_RECON_DATE_TOLERANCE_DAYS) {
+            status = BANK_SETTLEMENT_STATUSES.DATE_MISMATCH;
+            metadata.date_tolerance_days = BANK_RECON_DATE_TOLERANCE_DAYS;
+          } else if (candidateResult.matchType === 'amount_currency_date_debit') {
+            metadata.match_confidence = 'WEAK_UNIQUE_AMOUNT_DATE';
+          }
+        }
+      }
+    }
+
+    const result = this.buildBankSettlementResult({
+      payoutInstruction,
+      settlement,
+      bankLine,
+      status,
+      discrepancyCents,
+      correlationId,
+      metadata
+    });
+    const saved = await this.persistBankSettlementReconciliation(result);
+
+    logger.info('Bank-settlement reconciliation checked', {
+      tenant_id: saved.tenant_id,
+      settlement_ref: saved.settlement_ref,
+      payout_instruction_id: saved.payout_instruction_id,
+      bank_statement_line_id: saved.bank_statement_line_id,
+      reconciliation_status: saved.reconciliation_status,
+      discrepancy_amount: saved.discrepancy_amount,
+      correlation_id: saved.correlation_id
+    });
+
+    return saved;
+  }
+
+  async reconcileAllBankSettlements(params = {}) {
+    const { tenantId, from, to, limit } = params;
+    let payoutQuery = db.knex('payout_instructions').orderBy('created_at', 'asc');
+
+    if (tenantId) payoutQuery = payoutQuery.where('tenant_id', tenantId);
+    if (from) payoutQuery = payoutQuery.where('created_at', '>=', from);
+    if (to) payoutQuery = payoutQuery.where('created_at', '<=', to);
+    if (limit) payoutQuery = payoutQuery.limit(Number(limit));
+
+    const payoutInstructions = await payoutQuery;
+    const results = [];
+
+    for (const payoutInstruction of payoutInstructions) {
+      results.push(await this.reconcileBankSettlement(payoutInstruction, {
+        correlationId: params.correlationId
+      }));
+    }
+
+    let settlementQuery = db.knex('settlements')
+      .whereNotExists(function() {
+        this.select('*')
+          .from('payout_instructions')
+          .whereRaw('payout_instructions.settlement_id = settlements.id');
+      })
+      .orderBy('created_at', 'asc');
+
+    if (tenantId) settlementQuery = settlementQuery.where('tenant_id', tenantId);
+    if (from) settlementQuery = settlementQuery.where('created_at', '>=', from);
+    if (to) settlementQuery = settlementQuery.where('created_at', '<=', to);
+    if (limit) settlementQuery = settlementQuery.limit(Number(limit));
+
+    const settlementsWithoutPayouts = await settlementQuery;
+    for (const settlement of settlementsWithoutPayouts) {
+      results.push(await this.reconcileMissingPayoutInstruction(settlement, {
+        correlationId: params.correlationId
+      }));
+    }
+
+    return {
+      total: results.length,
+      by_status: results.reduce((acc, row) => {
+        acc[row.reconciliation_status] = (acc[row.reconciliation_status] || 0) + 1;
+        return acc;
+      }, {}),
+      results
+    };
+  }
+
+  async listBankSettlementReconciliations(filters = {}) {
+    const {
+      tenantId,
+      status,
+      settlementRef,
+      payoutInstructionId,
+      bankStatementLineId,
+      utr_number: utrNumber,
+      bank_reference_number: bankReferenceNumber,
+      bank_transaction_id: bankTransactionId,
+      from,
+      to,
+      limit = 100,
+      offset = 0
+    } = filters;
+
+    let query = db.knex('reconciliation_bank_settlements')
+      .orderBy('checked_at', 'desc')
+      .limit(Math.min(Number(limit) || 100, 500))
+      .offset(Number(offset) || 0);
+
+    if (tenantId) query = query.where('tenant_id', tenantId);
+    if (status) query = query.where('reconciliation_status', status);
+    if (settlementRef) query = query.where('settlement_ref', settlementRef);
+    if (payoutInstructionId) query = query.where('payout_instruction_id', payoutInstructionId);
+    if (bankStatementLineId) query = query.where('bank_statement_line_id', bankStatementLineId);
+    if (utrNumber) {
+      query = query.where(function() {
+        this.where('expected_utr_number', utrNumber).orWhere('actual_utr_number', utrNumber);
+      });
+    }
+    if (bankReferenceNumber) {
+      query = query.where(function() {
+        this.where('expected_bank_reference_number', bankReferenceNumber)
+          .orWhere('actual_bank_reference_number', bankReferenceNumber);
+      });
+    }
+    if (bankTransactionId) {
+      query = query.where(function() {
+        this.where('expected_bank_transaction_id', bankTransactionId)
+          .orWhere('actual_bank_transaction_id', bankTransactionId);
+      });
+    }
     if (from) query = query.where('checked_at', '>=', from);
     if (to) query = query.where('checked_at', '<=', to);
 

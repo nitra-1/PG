@@ -680,6 +680,37 @@ CREATE TABLE IF NOT EXISTS public.platform_users
     CONSTRAINT platform_users_username_unique UNIQUE (username)
 );
 
+CREATE TABLE IF NOT EXISTS public.reconciliation_bank_settlements
+(
+    id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    settlement_id uuid,
+    settlement_ref character varying(100) COLLATE pg_catalog."default",
+    payout_instruction_id uuid,
+    bank_statement_line_id uuid,
+    reconciliation_status text COLLATE pg_catalog."default" NOT NULL,
+    settlement_amount numeric(15, 2),
+    payout_amount numeric(15, 2),
+    bank_amount numeric(15, 2),
+    discrepancy_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    settlement_currency character varying(3) COLLATE pg_catalog."default",
+    bank_currency character varying(3) COLLATE pg_catalog."default",
+    expected_utr_number character varying(100) COLLATE pg_catalog."default",
+    actual_utr_number character varying(100) COLLATE pg_catalog."default",
+    expected_bank_reference_number character varying(100) COLLATE pg_catalog."default",
+    actual_bank_reference_number character varying(100) COLLATE pg_catalog."default",
+    expected_bank_transaction_id character varying(100) COLLATE pg_catalog."default",
+    actual_bank_transaction_id character varying(100) COLLATE pg_catalog."default",
+    expected_bank_date date,
+    actual_bank_date date,
+    checked_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT reconciliation_bank_settlements_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE IF NOT EXISTS public.reconciliation_batches
 (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
