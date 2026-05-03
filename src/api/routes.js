@@ -851,4 +851,11 @@ router.use('/outbox', outboxRoutes(config));
 const reconciliationRoutes = require('./reconciliation-routes');
 router.use('/reconciliation', reconciliationRoutes(config));
 
+// ===== Bank / Payout External Truth Foundation =====
+const bankStatementRoutes = require('./bank-statement-routes');
+router.use('/bank-statements', bankStatementRoutes(config));
+
+const payoutInstructionRoutes = require('./payout-instruction-routes');
+router.use('/payout-instructions', payoutInstructionRoutes(config));
+
 module.exports = router;

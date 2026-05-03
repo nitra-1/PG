@@ -26,6 +26,7 @@ const {
   SettlementRetryExhaustedError
 } = require('../errors/accounting-errors');
 const { getValidTransitions } = require('../errors/accounting-errors');
+const payoutInstructionService = require('../bank/payout-instruction-service');
 
 class SettlementService {
   constructor() {
@@ -334,7 +335,7 @@ class SettlementService {
   async sendToBank(params) {
     const { settlementId, tenantId, sentBy, bankBatchId } = params;
     
-    return await this.transitionState({
+    const settlement = await this.transitionState({
       settlementId,
       tenantId,
       targetState: this.STATES.SENT_TO_BANK,
@@ -344,6 +345,12 @@ class SettlementService {
         bankBatchId
       }
     });
+
+    await payoutInstructionService.createPayoutInstruction(settlement, {
+      correlationId: params.correlationId
+    });
+
+    return settlement;
   }
   
   /**
