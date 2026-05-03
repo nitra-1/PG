@@ -65,7 +65,13 @@ app.use(addSecurityHeaders);
 
 // Middleware
 app.use(correlationIdMiddleware);
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (req.originalUrl && (req.originalUrl.startsWith('/api/webhooks/') || req.originalUrl.startsWith('/api/payout-webhooks/'))) {
+      req.rawBody = Buffer.from(buf);
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from public directory

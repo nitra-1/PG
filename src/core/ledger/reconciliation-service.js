@@ -827,6 +827,8 @@ class ReconciliationService {
   }
 
   async persistBankSettlementReconciliation(result) {
+    await this.validateBankSettlementReferences(result);
+
     const now = db.knex.fn.now();
     const row = {
       id: uuidv4(),
@@ -907,6 +909,30 @@ class ReconciliationService {
       .returning('*');
 
     return saved;
+  }
+
+  async validateBankSettlementReferences(result) {
+    const checks = [
+      ['settlement_id', 'settlements', result.settlement_id],
+      ['payout_instruction_id', 'payout_instructions', result.payout_instruction_id],
+      ['bank_statement_line_id', 'bank_statement_lines', result.bank_statement_line_id]
+    ];
+
+    for (const [field, tableName, id] of checks) {
+      if (!id) continue;
+
+      const row = await db.knex(tableName)
+        .where('id', id)
+        .first();
+
+      if (!row) {
+        throw new Error(`Invalid bank settlement reconciliation reference: ${field} ${id} does not exist in ${tableName}`);
+      }
+
+      if (result.tenant_id && row.tenant_id && row.tenant_id !== result.tenant_id) {
+        throw new Error(`Invalid bank settlement reconciliation reference: ${field} ${id} belongs to tenant ${row.tenant_id}`);
+      }
+    }
   }
 
   buildBankSettlementResult({

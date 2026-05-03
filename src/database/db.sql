@@ -307,6 +307,145 @@ CREATE TABLE IF NOT EXISTS public.disputes
     CONSTRAINT disputes_dispute_ref_unique UNIQUE (dispute_ref)
 );
 
+CREATE TABLE IF NOT EXISTS public.gateway_settlement_batches
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    gateway_name character varying(80) COLLATE pg_catalog."default" NOT NULL,
+    gateway_settlement_id character varying(255) COLLATE pg_catalog."default",
+    settlement_cycle_start timestamp with time zone,
+    settlement_cycle_end timestamp with time zone,
+    expected_settlement_date date,
+    actual_settlement_date date,
+    settlement_utr character varying(255) COLLATE pg_catalog."default",
+    bank_reference_number character varying(255) COLLATE pg_catalog."default",
+    source_type text COLLATE pg_catalog."default" NOT NULL,
+    source_filename character varying(500) COLLATE pg_catalog."default",
+    source_reference character varying(500) COLLATE pg_catalog."default",
+    import_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'PENDING'::text,
+    total_lines integer NOT NULL DEFAULT 0,
+    imported_lines integer NOT NULL DEFAULT 0,
+    duplicate_lines integer NOT NULL DEFAULT 0,
+    failed_lines integer NOT NULL DEFAULT 0,
+    gross_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    total_gateway_fee numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    total_gst_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    total_adjustment_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    net_settlement_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    currency character varying(3) COLLATE pg_catalog."default" NOT NULL DEFAULT 'INR'::character varying,
+    raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    error_message text COLLATE pg_catalog."default",
+    imported_by character varying(100) COLLATE pg_catalog."default",
+    imported_at timestamp with time zone,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT gateway_settlement_batches_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.gateway_settlement_lines
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    batch_id uuid NOT NULL,
+    gateway_name character varying(80) COLLATE pg_catalog."default" NOT NULL,
+    gateway_settlement_id character varying(255) COLLATE pg_catalog."default",
+    gateway_settlement_line_id character varying(255) COLLATE pg_catalog."default",
+    transaction_id uuid,
+    transaction_ref character varying(100) COLLATE pg_catalog."default",
+    gateway_transaction_id character varying(255) COLLATE pg_catalog."default",
+    gateway_payment_id character varying(255) COLLATE pg_catalog."default",
+    order_id character varying(100) COLLATE pg_catalog."default",
+    merchant_id uuid,
+    line_type text COLLATE pg_catalog."default" NOT NULL DEFAULT 'PAYMENT'::text,
+    gateway_status character varying(100) COLLATE pg_catalog."default",
+    transaction_date timestamp with time zone,
+    captured_at timestamp with time zone,
+    settled_at timestamp with time zone,
+    gross_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    gateway_fee numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    gst_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    adjustment_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    net_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    currency character varying(3) COLLATE pg_catalog."default" NOT NULL DEFAULT 'INR'::character varying,
+    expected_gateway_fee numeric(15, 2),
+    expected_gst_amount numeric(15, 2),
+    expected_net_amount numeric(15, 2),
+    fee_discrepancy_amount numeric(15, 2),
+    gst_discrepancy_amount numeric(15, 2),
+    net_discrepancy_amount numeric(15, 2),
+    pricing_rule_id uuid,
+    pricing_snapshot jsonb,
+    raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    normalized_hash character varying(128) COLLATE pg_catalog."default" NOT NULL,
+    reconciliation_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'UNMATCHED'::text,
+    ledger_transaction_id uuid,
+    outbox_event_id uuid,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT gateway_settlement_lines_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.gateway_settlement_signals
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    signal_type text COLLATE pg_catalog."default" NOT NULL,
+    severity text COLLATE pg_catalog."default" NOT NULL,
+    signal_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'OPEN'::text,
+    source_type text COLLATE pg_catalog."default" NOT NULL,
+    source_id uuid,
+    batch_id uuid,
+    line_id uuid,
+    transaction_id uuid,
+    transaction_ref character varying(100) COLLATE pg_catalog."default",
+    gateway_name character varying(80) COLLATE pg_catalog."default" NOT NULL,
+    gateway_settlement_id character varying(255) COLLATE pg_catalog."default",
+    gateway_transaction_id character varying(255) COLLATE pg_catalog."default",
+    impact_amount numeric(15, 2),
+    currency character varying(3) COLLATE pg_catalog."default",
+    description text COLLATE pg_catalog."default" NOT NULL,
+    suggested_action text COLLATE pg_catalog."default",
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT gateway_settlement_signals_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.gateway_webhook_events
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    gateway_name character varying(80) COLLATE pg_catalog."default" NOT NULL,
+    gateway_event_id character varying(255) COLLATE pg_catalog."default",
+    gateway_event_type character varying(150) COLLATE pg_catalog."default" NOT NULL,
+    gateway_payment_id character varying(255) COLLATE pg_catalog."default",
+    gateway_order_id character varying(255) COLLATE pg_catalog."default",
+    transaction_ref character varying(100) COLLATE pg_catalog."default",
+    order_id character varying(100) COLLATE pg_catalog."default",
+    raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    raw_headers jsonb NOT NULL DEFAULT '{}'::jsonb,
+    payload_hash character varying(128) COLLATE pg_catalog."default" NOT NULL,
+    signature_header character varying(500) COLLATE pg_catalog."default",
+    signature_verified boolean NOT NULL DEFAULT false,
+    verification_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'PENDING'::text,
+    event_created_at timestamp with time zone,
+    received_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at timestamp with time zone,
+    processing_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'RECEIVED'::text,
+    failure_reason text COLLATE pg_catalog."default",
+    retry_count integer NOT NULL DEFAULT 0,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT gateway_webhook_events_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE IF NOT EXISTS public.idempotency_keys
 (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -612,12 +751,81 @@ CREATE TABLE IF NOT EXISTS public.payment_orders
     CONSTRAINT payment_orders_pkey PRIMARY KEY (id)
 );
 
+CREATE TABLE IF NOT EXISTS public.payment_signals
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    signal_type text COLLATE pg_catalog."default" NOT NULL,
+    severity text COLLATE pg_catalog."default" NOT NULL,
+    signal_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'OPEN'::text,
+    source_type text COLLATE pg_catalog."default" NOT NULL,
+    source_id uuid,
+    transaction_id uuid,
+    transaction_ref character varying(100) COLLATE pg_catalog."default",
+    gateway_name character varying(80) COLLATE pg_catalog."default",
+    gateway_payment_id character varying(255) COLLATE pg_catalog."default",
+    gateway_event_id character varying(255) COLLATE pg_catalog."default",
+    impact_amount numeric(15, 2),
+    currency character varying(3) COLLATE pg_catalog."default",
+    description text COLLATE pg_catalog."default" NOT NULL,
+    suggested_action text COLLATE pg_catalog."default",
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT payment_signals_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.payment_state_transitions
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    transaction_id uuid,
+    transaction_ref character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    gateway_name character varying(80) COLLATE pg_catalog."default",
+    gateway_payment_id character varying(255) COLLATE pg_catalog."default",
+    previous_status character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    new_status character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    transition_reason character varying(150) COLLATE pg_catalog."default" NOT NULL,
+    gateway_event_id character varying(255) COLLATE pg_catalog."default",
+    webhook_event_id uuid,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT payment_state_transitions_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.payout_attempts
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    payout_instruction_id uuid NOT NULL,
+    attempt_number integer NOT NULL,
+    provider_name character varying(80) COLLATE pg_catalog."default" NOT NULL,
+    bank_idempotency_key character varying(255) COLLATE pg_catalog."default" NOT NULL,
+    request_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    response_payload jsonb,
+    provider_payout_id character varying(255) COLLATE pg_catalog."default",
+    provider_status character varying(80) COLLATE pg_catalog."default",
+    attempt_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'CREATED'::text,
+    failure_reason text COLLATE pg_catalog."default",
+    submitted_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT payout_attempts_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_payout_attempt_instruction_number UNIQUE (tenant_id, payout_instruction_id, attempt_number),
+    CONSTRAINT uq_payout_attempt_provider_idempotency UNIQUE (tenant_id, provider_name, bank_idempotency_key)
+);
+
 CREATE TABLE IF NOT EXISTS public.payout_instructions
 (
     id uuid NOT NULL,
     tenant_id uuid NOT NULL,
-    settlement_id uuid NOT NULL,
-    settlement_ref character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    settlement_id uuid,
+    settlement_ref character varying(100) COLLATE pg_catalog."default",
     merchant_id uuid,
     beneficiary_id uuid,
     bank_account_id uuid,
@@ -641,8 +849,78 @@ CREATE TABLE IF NOT EXISTS public.payout_instructions
     created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     correlation_id uuid,
+    settlement_batch_id uuid,
+    reservation_id uuid,
+    batch_ref character varying(120) COLLATE pg_catalog."default",
+    provider_name character varying(80) COLLATE pg_catalog."default",
+    provider_payout_id character varying(255) COLLATE pg_catalog."default",
+    provider_status character varying(80) COLLATE pg_catalog."default",
+    queued_at timestamp with time zone,
+    processing_at timestamp with time zone,
+    timeout_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    provider_status_reason text COLLATE pg_catalog."default",
+    max_retries integer NOT NULL DEFAULT 3,
+    raw_callback_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    outbox_event_id uuid,
+    ledger_transaction_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
     CONSTRAINT payout_instructions_pkey PRIMARY KEY (id),
     CONSTRAINT uq_payout_instruction_tenant_idempotency UNIQUE (tenant_id, bank_idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS public.payout_provider_events
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    provider_name character varying(80) COLLATE pg_catalog."default" NOT NULL,
+    provider_event_id character varying(255) COLLATE pg_catalog."default",
+    provider_event_type character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    provider_payout_id character varying(255) COLLATE pg_catalog."default",
+    bank_idempotency_key character varying(255) COLLATE pg_catalog."default",
+    payout_instruction_id uuid,
+    raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    raw_headers jsonb NOT NULL DEFAULT '{}'::jsonb,
+    payload_hash character varying(128) COLLATE pg_catalog."default" NOT NULL,
+    signature_header character varying(500) COLLATE pg_catalog."default",
+    signature_verified boolean NOT NULL DEFAULT false,
+    verification_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'PENDING'::text,
+    event_created_at timestamp with time zone,
+    received_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at timestamp with time zone,
+    processing_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'RECEIVED'::text,
+    failure_reason text COLLATE pg_catalog."default",
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT payout_provider_events_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.payout_signals
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    signal_type text COLLATE pg_catalog."default" NOT NULL,
+    severity text COLLATE pg_catalog."default" NOT NULL,
+    signal_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'OPEN'::text,
+    source_type text COLLATE pg_catalog."default" NOT NULL,
+    source_id uuid,
+    payout_instruction_id uuid,
+    payout_attempt_id uuid,
+    provider_event_id uuid,
+    settlement_batch_id uuid,
+    reservation_id uuid,
+    merchant_id uuid,
+    impact_amount numeric(15, 2),
+    currency character varying(3) COLLATE pg_catalog."default",
+    description text COLLATE pg_catalog."default" NOT NULL,
+    suggested_action text COLLATE pg_catalog."default",
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT payout_signals_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE IF NOT EXISTS public.pci_compliance_log
@@ -678,6 +956,26 @@ CREATE TABLE IF NOT EXISTS public.platform_users
     CONSTRAINT platform_users_pkey PRIMARY KEY (id),
     CONSTRAINT platform_users_email_unique UNIQUE (email),
     CONSTRAINT platform_users_username_unique UNIQUE (username)
+);
+
+CREATE TABLE IF NOT EXISTS public.pricing_rules
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    merchant_id uuid,
+    gateway_name character varying(80) COLLATE pg_catalog."default" NOT NULL,
+    payment_method character varying(50) COLLATE pg_catalog."default",
+    rule_type text COLLATE pg_catalog."default" NOT NULL,
+    mdr_percentage numeric(10, 4),
+    fixed_fee numeric(15, 2),
+    gst_percentage numeric(10, 4),
+    effective_from timestamp with time zone NOT NULL,
+    effective_to timestamp with time zone,
+    status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVE'::text,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pricing_rules_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE IF NOT EXISTS public.reconciliation_bank_settlements
@@ -940,6 +1238,126 @@ CREATE TABLE IF NOT EXISTS public.sensitive_data_access
     CONSTRAINT sensitive_data_access_access_id_unique UNIQUE (access_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.settlement_batches
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    batch_ref character varying(120) COLLATE pg_catalog."default" NOT NULL,
+    merchant_id uuid,
+    beneficiary_id uuid,
+    bank_account_id uuid,
+    settlement_cycle_start timestamp with time zone,
+    settlement_cycle_end timestamp with time zone,
+    scheduled_settlement_date date,
+    batch_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'DRAFT'::text,
+    gross_payable_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    total_fee_deduction numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    total_tax_deduction numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    total_adjustment_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    net_settlement_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    reserved_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    currency character varying(3) COLLATE pg_catalog."default" NOT NULL DEFAULT 'INR'::character varying,
+    item_count integer NOT NULL DEFAULT 0,
+    eligible_item_count integer NOT NULL DEFAULT 0,
+    ineligible_item_count integer NOT NULL DEFAULT 0,
+    reservation_expires_at timestamp with time zone,
+    reserved_at timestamp with time zone,
+    reserved_by character varying(100) COLLATE pg_catalog."default",
+    cancelled_at timestamp with time zone,
+    cancelled_by character varying(100) COLLATE pg_catalog."default",
+    cancellation_reason text COLLATE pg_catalog."default",
+    payout_instruction_id uuid,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT settlement_batches_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_settlement_batches_tenant_ref UNIQUE (tenant_id, batch_ref)
+);
+
+CREATE TABLE IF NOT EXISTS public.settlement_fund_reservations
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    reservation_ref character varying(120) COLLATE pg_catalog."default" NOT NULL,
+    batch_id uuid NOT NULL,
+    merchant_id uuid,
+    currency character varying(3) COLLATE pg_catalog."default" NOT NULL DEFAULT 'INR'::character varying,
+    reservation_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVE'::text,
+    reserved_amount numeric(15, 2) NOT NULL,
+    available_escrow_amount numeric(15, 2),
+    available_merchant_payable_amount numeric(15, 2),
+    reserved_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at timestamp with time zone,
+    released_at timestamp with time zone,
+    consumed_at timestamp with time zone,
+    failure_reason text COLLATE pg_catalog."default",
+    idempotency_key character varying(255) COLLATE pg_catalog."default" NOT NULL,
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT settlement_fund_reservations_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_settlement_reservations_tenant_idempotency UNIQUE (tenant_id, idempotency_key),
+    CONSTRAINT uq_settlement_reservations_tenant_ref UNIQUE (tenant_id, reservation_ref)
+);
+
+CREATE TABLE IF NOT EXISTS public.settlement_items
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    batch_id uuid NOT NULL,
+    transaction_id uuid,
+    transaction_ref character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    merchant_id uuid,
+    ledger_transaction_id uuid,
+    gateway_settlement_line_id uuid,
+    item_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'CANDIDATE'::text,
+    eligibility_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'PENDING'::text,
+    eligibility_reason text COLLATE pg_catalog."default",
+    eligibility_details jsonb NOT NULL DEFAULT '{}'::jsonb,
+    gross_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    fee_deduction numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    tax_deduction numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    adjustment_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    net_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    currency character varying(3) COLLATE pg_catalog."default" NOT NULL DEFAULT 'INR'::character varying,
+    reserved_amount numeric(15, 2) NOT NULL DEFAULT '0'::numeric,
+    reserved_at timestamp with time zone,
+    released_at timestamp with time zone,
+    release_reason text COLLATE pg_catalog."default",
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT settlement_items_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.settlement_signals
+(
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL,
+    signal_type text COLLATE pg_catalog."default" NOT NULL,
+    severity text COLLATE pg_catalog."default" NOT NULL,
+    signal_status text COLLATE pg_catalog."default" NOT NULL DEFAULT 'OPEN'::text,
+    source_type text COLLATE pg_catalog."default" NOT NULL,
+    source_id uuid,
+    batch_id uuid,
+    item_id uuid,
+    reservation_id uuid,
+    merchant_id uuid,
+    transaction_ref character varying(100) COLLATE pg_catalog."default",
+    impact_amount numeric(15, 2),
+    currency character varying(3) COLLATE pg_catalog."default",
+    description text COLLATE pg_catalog."default" NOT NULL,
+    suggested_action text COLLATE pg_catalog."default",
+    correlation_id uuid,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT settlement_signals_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE IF NOT EXISTS public.settlements
 (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1147,6 +1565,67 @@ CREATE INDEX IF NOT EXISTS disputes_transaction_id_index
     ON public.disputes(transaction_id);
 
 
+ALTER TABLE IF EXISTS public.gateway_settlement_lines
+    ADD CONSTRAINT fk_gateway_setl_lines_pricing_rule FOREIGN KEY (pricing_rule_id)
+    REFERENCES public.pricing_rules (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+
+
+ALTER TABLE IF EXISTS public.gateway_settlement_lines
+    ADD CONSTRAINT gateway_settlement_lines_batch_id_foreign FOREIGN KEY (batch_id)
+    REFERENCES public.gateway_settlement_batches (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS gateway_settlement_lines_batch_id_index
+    ON public.gateway_settlement_lines(batch_id);
+
+
+ALTER TABLE IF EXISTS public.gateway_settlement_lines
+    ADD CONSTRAINT gateway_settlement_lines_ledger_transaction_id_foreign FOREIGN KEY (ledger_transaction_id)
+    REFERENCES public.ledger_transactions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS gateway_settlement_lines_ledger_transaction_id_index
+    ON public.gateway_settlement_lines(ledger_transaction_id);
+
+
+ALTER TABLE IF EXISTS public.gateway_settlement_lines
+    ADD CONSTRAINT gateway_settlement_lines_outbox_event_id_foreign FOREIGN KEY (outbox_event_id)
+    REFERENCES public.outbox_events (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS gateway_settlement_lines_outbox_event_id_index
+    ON public.gateway_settlement_lines(outbox_event_id);
+
+
+ALTER TABLE IF EXISTS public.gateway_settlement_lines
+    ADD CONSTRAINT gateway_settlement_lines_transaction_id_foreign FOREIGN KEY (transaction_id)
+    REFERENCES public.transactions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS gateway_settlement_lines_transaction_id_index
+    ON public.gateway_settlement_lines(transaction_id);
+
+
+ALTER TABLE IF EXISTS public.gateway_settlement_signals
+    ADD CONSTRAINT gateway_settlement_signals_batch_id_foreign FOREIGN KEY (batch_id)
+    REFERENCES public.gateway_settlement_batches (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS gateway_settlement_signals_batch_id_index
+    ON public.gateway_settlement_signals(batch_id);
+
+
+ALTER TABLE IF EXISTS public.gateway_settlement_signals
+    ADD CONSTRAINT gateway_settlement_signals_line_id_foreign FOREIGN KEY (line_id)
+    REFERENCES public.gateway_settlement_lines (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS gateway_settlement_signals_line_id_index
+    ON public.gateway_settlement_signals(line_id);
+
+
 ALTER TABLE IF EXISTS public.ledger_entries
     ADD CONSTRAINT ledger_entries_account_id_foreign FOREIGN KEY (account_id)
     REFERENCES public.ledger_accounts (id) MATCH SIMPLE
@@ -1213,11 +1692,137 @@ CREATE INDEX IF NOT EXISTS merchant_webhooks_merchant_id_index
     ON public.merchant_webhooks(merchant_id);
 
 
+ALTER TABLE IF EXISTS public.payout_attempts
+    ADD CONSTRAINT payout_attempts_payout_instruction_id_foreign FOREIGN KEY (payout_instruction_id)
+    REFERENCES public.payout_instructions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_attempts_payout_instruction_id_index
+    ON public.payout_attempts(payout_instruction_id);
+
+
+ALTER TABLE IF EXISTS public.payout_instructions
+    ADD CONSTRAINT fk_payout_instruction_ledger_transaction FOREIGN KEY (ledger_transaction_id)
+    REFERENCES public.ledger_transactions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_instructions_ledger_transaction_id_index
+    ON public.payout_instructions(ledger_transaction_id);
+
+
+ALTER TABLE IF EXISTS public.payout_instructions
+    ADD CONSTRAINT fk_payout_instruction_outbox_event FOREIGN KEY (outbox_event_id)
+    REFERENCES public.outbox_events (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_instructions_outbox_event_id_index
+    ON public.payout_instructions(outbox_event_id);
+
+
+ALTER TABLE IF EXISTS public.payout_instructions
+    ADD CONSTRAINT fk_payout_instruction_reservation FOREIGN KEY (reservation_id)
+    REFERENCES public.settlement_fund_reservations (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_instructions_reservation_id_index
+    ON public.payout_instructions(reservation_id);
+
+
+ALTER TABLE IF EXISTS public.payout_instructions
+    ADD CONSTRAINT fk_payout_instruction_settlement_batch FOREIGN KEY (settlement_batch_id)
+    REFERENCES public.settlement_batches (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_instructions_settlement_batch_id_index
+    ON public.payout_instructions(settlement_batch_id);
+
+
+ALTER TABLE IF EXISTS public.payout_provider_events
+    ADD CONSTRAINT payout_provider_events_payout_instruction_id_foreign FOREIGN KEY (payout_instruction_id)
+    REFERENCES public.payout_instructions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_provider_events_payout_instruction_id_index
+    ON public.payout_provider_events(payout_instruction_id);
+
+
+ALTER TABLE IF EXISTS public.payout_signals
+    ADD CONSTRAINT payout_signals_payout_attempt_id_foreign FOREIGN KEY (payout_attempt_id)
+    REFERENCES public.payout_attempts (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_signals_payout_attempt_id_index
+    ON public.payout_signals(payout_attempt_id);
+
+
+ALTER TABLE IF EXISTS public.payout_signals
+    ADD CONSTRAINT payout_signals_payout_instruction_id_foreign FOREIGN KEY (payout_instruction_id)
+    REFERENCES public.payout_instructions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_signals_payout_instruction_id_index
+    ON public.payout_signals(payout_instruction_id);
+
+
+ALTER TABLE IF EXISTS public.payout_signals
+    ADD CONSTRAINT payout_signals_provider_event_id_foreign FOREIGN KEY (provider_event_id)
+    REFERENCES public.payout_provider_events (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_signals_provider_event_id_index
+    ON public.payout_signals(provider_event_id);
+
+
+ALTER TABLE IF EXISTS public.payout_signals
+    ADD CONSTRAINT payout_signals_reservation_id_foreign FOREIGN KEY (reservation_id)
+    REFERENCES public.settlement_fund_reservations (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_signals_reservation_id_index
+    ON public.payout_signals(reservation_id);
+
+
+ALTER TABLE IF EXISTS public.payout_signals
+    ADD CONSTRAINT payout_signals_settlement_batch_id_foreign FOREIGN KEY (settlement_batch_id)
+    REFERENCES public.settlement_batches (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS payout_signals_settlement_batch_id_index
+    ON public.payout_signals(settlement_batch_id);
+
+
 ALTER TABLE IF EXISTS public.platform_users
     ADD CONSTRAINT platform_users_created_by_foreign FOREIGN KEY (created_by)
     REFERENCES public.platform_users (id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE SET NULL;
+
+
+ALTER TABLE IF EXISTS public.reconciliation_bank_settlements
+    ADD CONSTRAINT fk_recon_bank_setl_bank_statement_line FOREIGN KEY (bank_statement_line_id)
+    REFERENCES public.bank_statement_lines (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS reconciliation_bank_settlements_bank_statement_line_id_index
+    ON public.reconciliation_bank_settlements(bank_statement_line_id);
+
+
+ALTER TABLE IF EXISTS public.reconciliation_bank_settlements
+    ADD CONSTRAINT fk_recon_bank_setl_payout_instruction FOREIGN KEY (payout_instruction_id)
+    REFERENCES public.payout_instructions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS reconciliation_bank_settlements_payout_instruction_id_index
+    ON public.reconciliation_bank_settlements(payout_instruction_id);
+
+
+ALTER TABLE IF EXISTS public.reconciliation_bank_settlements
+    ADD CONSTRAINT fk_recon_bank_setl_settlement FOREIGN KEY (settlement_id)
+    REFERENCES public.settlements (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS reconciliation_bank_settlements_settlement_id_index
+    ON public.reconciliation_bank_settlements(settlement_id);
 
 
 ALTER TABLE IF EXISTS public.reconciliation_exception_audit_events
@@ -1252,6 +1857,105 @@ ALTER TABLE IF EXISTS public.refunds
     ON DELETE RESTRICT;
 CREATE INDEX IF NOT EXISTS refunds_transaction_id_index
     ON public.refunds(transaction_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_batches
+    ADD CONSTRAINT settlement_batches_beneficiary_id_foreign FOREIGN KEY (beneficiary_id)
+    REFERENCES public.beneficiaries (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_batches_beneficiary_id_index
+    ON public.settlement_batches(beneficiary_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_batches
+    ADD CONSTRAINT settlement_batches_merchant_id_foreign FOREIGN KEY (merchant_id)
+    REFERENCES public.merchants (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_batches_merchant_id_index
+    ON public.settlement_batches(merchant_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_batches
+    ADD CONSTRAINT settlement_batches_payout_instruction_id_foreign FOREIGN KEY (payout_instruction_id)
+    REFERENCES public.payout_instructions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_batches_payout_instruction_id_index
+    ON public.settlement_batches(payout_instruction_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_fund_reservations
+    ADD CONSTRAINT settlement_fund_reservations_batch_id_foreign FOREIGN KEY (batch_id)
+    REFERENCES public.settlement_batches (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_fund_reservations_batch_id_index
+    ON public.settlement_fund_reservations(batch_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_items
+    ADD CONSTRAINT settlement_items_batch_id_foreign FOREIGN KEY (batch_id)
+    REFERENCES public.settlement_batches (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_items_batch_id_index
+    ON public.settlement_items(batch_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_items
+    ADD CONSTRAINT settlement_items_gateway_settlement_line_id_foreign FOREIGN KEY (gateway_settlement_line_id)
+    REFERENCES public.gateway_settlement_lines (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_items_gateway_settlement_line_id_index
+    ON public.settlement_items(gateway_settlement_line_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_items
+    ADD CONSTRAINT settlement_items_ledger_transaction_id_foreign FOREIGN KEY (ledger_transaction_id)
+    REFERENCES public.ledger_transactions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_items_ledger_transaction_id_index
+    ON public.settlement_items(ledger_transaction_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_items
+    ADD CONSTRAINT settlement_items_transaction_id_foreign FOREIGN KEY (transaction_id)
+    REFERENCES public.transactions (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_items_transaction_id_index
+    ON public.settlement_items(transaction_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_signals
+    ADD CONSTRAINT settlement_signals_batch_id_foreign FOREIGN KEY (batch_id)
+    REFERENCES public.settlement_batches (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_signals_batch_id_index
+    ON public.settlement_signals(batch_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_signals
+    ADD CONSTRAINT settlement_signals_item_id_foreign FOREIGN KEY (item_id)
+    REFERENCES public.settlement_items (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_signals_item_id_index
+    ON public.settlement_signals(item_id);
+
+
+ALTER TABLE IF EXISTS public.settlement_signals
+    ADD CONSTRAINT settlement_signals_reservation_id_foreign FOREIGN KEY (reservation_id)
+    REFERENCES public.settlement_fund_reservations (id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS settlement_signals_reservation_id_index
+    ON public.settlement_signals(reservation_id);
 
 
 ALTER TABLE IF EXISTS public.settlements

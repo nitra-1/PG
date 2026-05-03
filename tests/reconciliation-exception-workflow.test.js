@@ -58,13 +58,56 @@ async function createSettlementRecon(tenantId, status = 'NET_AMOUNT_MISMATCH', o
   return row;
 }
 
+async function createSettlement(tenantId, overrides = {}) {
+  const settlementRef = overrides.settlementRef || `SETL-${uuidv4()}`;
+  const [settlement] = await db.knex('settlements').insert({
+    id: overrides.id || uuidv4(),
+    tenant_id: tenantId,
+    merchant_id: overrides.merchantId || tenantId,
+    settlement_ref: settlementRef,
+    settlement_date: new Date(),
+    period_from: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    period_to: new Date(),
+    gross_amount: overrides.grossAmount || '100.00',
+    fees_amount: overrides.feesAmount || '10.00',
+    net_amount: overrides.netAmount || '90.00',
+    bank_account_number: '1234567890',
+    bank_ifsc: 'TEST0001234',
+    bank_name: 'Test Bank',
+    status: overrides.status || 'CREATED',
+    metadata: JSON.stringify({ currency: overrides.currency || 'INR', test: true }),
+    created_by: 'test'
+  }).returning('*');
+  return settlement;
+}
+
+async function createPayoutInstruction(settlement, overrides = {}) {
+  const [instruction] = await db.knex('payout_instructions').insert({
+    id: overrides.id || uuidv4(),
+    tenant_id: settlement.tenant_id,
+    settlement_id: settlement.id,
+    settlement_ref: settlement.settlement_ref,
+    merchant_id: settlement.merchant_id,
+    payout_amount: overrides.payoutAmount || settlement.net_amount,
+    currency: overrides.currency || 'INR',
+    payout_status: overrides.payoutStatus || 'SUCCESS',
+    bank_idempotency_key: overrides.bankIdempotencyKey || `payout:${settlement.tenant_id}:${settlement.settlement_ref}:${uuidv4()}`,
+    retry_count: 0,
+    raw_bank_response: JSON.stringify({ test: true }),
+    correlation_id: overrides.correlationId || uuidv4()
+  }).returning('*');
+  return instruction;
+}
+
 async function createBankSettlementRecon(tenantId, status = 'MISSING_BANK_STATEMENT', overrides = {}) {
+  const settlement = overrides.settlement || await createSettlement(tenantId);
+  const payoutInstruction = overrides.payoutInstruction || await createPayoutInstruction(settlement);
   const [row] = await db.knex('reconciliation_bank_settlements').insert({
     id: overrides.id || uuidv4(),
     tenant_id: tenantId,
-    settlement_id: overrides.settlementId || uuidv4(),
-    settlement_ref: overrides.settlementRef || `BANK-SETL-RECON-${uuidv4()}`,
-    payout_instruction_id: overrides.payoutInstructionId || uuidv4(),
+    settlement_id: overrides.settlementId || settlement.id,
+    settlement_ref: overrides.settlementRef || settlement.settlement_ref,
+    payout_instruction_id: overrides.payoutInstructionId || payoutInstruction.id,
     bank_statement_line_id: overrides.bankStatementLineId || null,
     reconciliation_status: status,
     settlement_amount: overrides.settlementAmount || '90.00',

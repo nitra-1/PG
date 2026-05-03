@@ -36,6 +36,11 @@ const biometricService = new BiometricService(config);
 const securityService = new SecurityService(config);
 const subscriptionService = new SubscriptionService(config);
 
+// Sprint 3: trusted payment/webhook signal foundation.
+// Mounted before /payments/:transactionId so /payments/signals remains read-only signal visibility.
+const paymentWebhookRoutes = require('./payment-webhook-routes');
+router.use('/', paymentWebhookRoutes(config));
+
 // Import merchant routes
 const merchantRoutes = require('../merchant/merchant-routes')(config, securityService);
 const merchantDashboardRoutes = require('../merchant/merchant-dashboard-routes')();
@@ -857,5 +862,26 @@ router.use('/bank-statements', bankStatementRoutes(config));
 
 const payoutInstructionRoutes = require('./payout-instruction-routes');
 router.use('/payout-instructions', payoutInstructionRoutes(config));
+
+// ===== Gateway Settlement Import / Fee Validation / Escrow Truth =====
+const gatewaySettlementRoutes = require('./gateway-settlement-routes');
+router.use('/gateway-settlements', gatewaySettlementRoutes(config));
+
+// ===== Merchant Settlement Batching / Reservation Signals =====
+const settlementBatchRoutes = require('./settlement-batch-routes');
+router.use('/settlement-batches', settlementBatchRoutes(config));
+
+const settlementSignalRoutes = require('./settlement-signal-routes');
+router.use('/settlement-signals', settlementSignalRoutes(config));
+
+// ===== Payout Execution / Bank Outcome Signals =====
+const payoutExecutionRoutes = require('./payout-execution-routes');
+router.use('/payouts', payoutExecutionRoutes(config));
+
+const payoutSignalRoutes = require('./payout-signal-routes');
+router.use('/payout-signals', payoutSignalRoutes(config));
+
+const payoutWebhookRoutes = require('./payout-webhook-routes');
+router.use('/payout-webhooks', payoutWebhookRoutes(config));
 
 module.exports = router;

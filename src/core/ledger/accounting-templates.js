@@ -36,6 +36,10 @@ const ACCOUNT_CODES = {
 
 const EVENT_ALIASES = {
   'payment.captured': 'payment_success',
+  'gateway.settlement.received': 'gateway_settlement',
+  'payout.successful': 'merchant_payout',
+  'payout.returned': 'payout_returned',
+  'payout.reversed': 'payout_reversed',
   refund_completed: 'refund',
   settlement: 'merchant_payout',
   chargeback_debit: 'chargeback'
@@ -44,6 +48,8 @@ const EVENT_ALIASES = {
 const LEDGER_EVENT_TYPE_ALIASES = {
   refund: 'refund_completed',
   merchant_payout: 'settlement',
+  payout_returned: 'settlement',
+  payout_reversed: 'settlement',
   chargeback: 'chargeback_debit'
 };
 
@@ -171,6 +177,24 @@ function merchantPayout(event) {
   );
 }
 
+function payoutReturned(event) {
+  const metadata = metadataOf(event);
+  const amount = amountOf(event, 'settlementAmount');
+  return pair(
+    LOGICAL_ACCOUNTS.BANK_ESCROW,
+    LOGICAL_ACCOUNTS.MERCHANT_PAYABLE,
+    amount,
+    `Payout returned${metadata.batchRef ? ` ${metadata.batchRef}` : ''}`,
+    {
+      merchantId: metadata.merchantId,
+      payoutInstructionId: metadata.payoutInstructionId,
+      batchRef: metadata.batchRef,
+      utrNumber: metadata.utrNumber,
+      reason: metadata.reason
+    }
+  );
+}
+
 function refund(event) {
   const metadata = metadataOf(event);
   const amount = amountOf(event, 'refundAmount');
@@ -251,6 +275,8 @@ const templates = {
   platform_fee: platformFee,
   gateway_fee: gatewayFee,
   merchant_payout: merchantPayout,
+  payout_returned: payoutReturned,
+  payout_reversed: payoutReturned,
   refund,
   chargeback,
   chargeback_reversal: chargebackReversal,
@@ -259,6 +285,9 @@ const templates = {
   // Backwards-compatible aliases.
   refund_completed: refund,
   settlement: merchantPayout,
+  'payout.successful': merchantPayout,
+  'payout.returned': payoutReturned,
+  'payout.reversed': payoutReturned,
   chargeback_debit: chargeback
 };
 

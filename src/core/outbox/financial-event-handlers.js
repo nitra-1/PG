@@ -3,7 +3,16 @@ const db = require('../../database');
 const { generateEntries, ledgerEventType } = require('../ledger/accounting-templates');
 
 function eventAmount(payload) {
-  return Number(payload.amount || payload.refundAmount || payload.settlementAmount || payload.chargebackAmount);
+  return Number(
+    payload.amount ||
+    payload.netSettlementAmount ||
+    payload.net_settlement_amount ||
+    payload.refundAmount ||
+    payload.settlementAmount ||
+    payload.payoutAmount ||
+    payload.payout_amount ||
+    payload.chargebackAmount
+  );
 }
 
 function eventTransactionRef(event, payload, prefix) {
@@ -12,6 +21,12 @@ function eventTransactionRef(event, payload, prefix) {
   }
 
   const businessRef = payload.reference ||
+    payload.gatewaySettlementId ||
+    payload.gateway_settlement_id ||
+    payload.batchId ||
+    payload.batch_id ||
+    payload.batchRef ||
+    payload.payoutInstructionId ||
     payload.settlementRef ||
     payload.refundId ||
     payload.chargebackId;
@@ -91,9 +106,212 @@ async function handlePaymentCaptured(event) {
   });
 }
 
+async function handleGatewaySettlementReceived(event) {
+  const payload = event.payload || {};
+  const amount = eventAmount(payload);
+  const batchId = payload.batchId || payload.batch_id || event.aggregate_id;
+  const gatewaySettlementId = payload.gatewaySettlementId || payload.gateway_settlement_id || batchId;
+
+  const result = await postTemplatedLedgerEvent(event, {
+    eventType: 'gateway_settlement',
+    transactionRef: `GATEWAY_SETTLEMENT-${gatewaySettlementId}`,
+    amount,
+    sourceTransactionId: batchId,
+    sourceOrderId: gatewaySettlementId,
+    metadata: {
+      gateway: payload.gateway || payload.gateway_name,
+      gatewaySettlementId,
+      batchId,
+      utrNumber: payload.utrNumber || payload.settlement_utr,
+      bankReferenceNumber: payload.bankReferenceNumber || payload.bank_reference_number
+    }
+  });
+
+  if (batchId && result?.transaction?.id) {
+    await db.knex('gateway_settlement_lines')
+      .where('tenant_id', event.tenant_id)
+      .where('batch_id', batchId)
+      .where('outbox_event_id', event.id)
+      .update({
+        ledger_transaction_id: result.transaction.id,
+        updated_at: new Date()
+      });
+  }
+
+  return result;
+}
+
+function parseMetadata(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return {};
+  }
+}
+
+async function loadPayoutInstruction(event) {
+  const payload = event.payload || {};
+  const payoutInstructionId = payload.payoutInstructionId || payload.payout_instruction_id || event.aggregate_id;
+  const payoutInstruction = await db.knex('payout_instructions')
+    .where('tenant_id', event.tenant_id)
+    .where('id', payoutInstructionId)
+    .first();
+
+  if (!payoutInstruction) {
+    throw new Error(`Payout instruction not found for event ${event.id}`);
+  }
+
+  return payoutInstruction;
+}
+
+async function handlePayoutSuccessful(event) {
+  const payload = event.payload || {};
+  const payoutInstruction = await loadPayoutInstruction(event);
+  const amount = eventAmount({
+    ...payload,
+    settlementAmount: payload.settlementAmount || payoutInstruction.payout_amount
+  });
+
+  const result = await postTemplatedLedgerEvent(event, {
+    eventType: 'merchant_payout',
+    transactionRef: `PAYOUT-${payoutInstruction.id}`,
+    amount,
+    sourceTransactionId: payoutInstruction.id,
+    sourceOrderId: payoutInstruction.batch_ref || payoutInstruction.settlement_ref || payoutInstruction.id,
+    metadata: {
+      payoutInstructionId: payoutInstruction.id,
+      reservationId: payoutInstruction.reservation_id,
+      settlementBatchId: payoutInstruction.settlement_batch_id,
+      batchRef: payoutInstruction.batch_ref,
+      merchantId: payoutInstruction.merchant_id || payload.merchantId,
+      settlementAmount: amount,
+      utrNumber: payload.utrNumber || payoutInstruction.utr_number,
+      bankReferenceNumber: payload.bankReferenceNumber || payoutInstruction.bank_reference_number,
+      bankTransactionId: payload.bankTransactionId || payoutInstruction.bank_transaction_id
+    }
+  });
+
+  const ledgerTransactionId = result?.transaction?.id;
+  if (ledgerTransactionId) {
+    const existingMetadata = parseMetadata(payoutInstruction.metadata);
+    await db.knex('payout_instructions')
+      .where('tenant_id', event.tenant_id)
+      .where('id', payoutInstruction.id)
+      .update({
+        ledger_transaction_id: ledgerTransactionId,
+        outbox_event_id: event.id,
+        metadata: {
+          ...existingMetadata,
+          payout_success_ledger_transaction_id: ledgerTransactionId,
+          payout_success_outbox_event_id: event.id
+        },
+        updated_at: new Date()
+      });
+
+    if (payoutInstruction.reservation_id) {
+      await db.knex('settlement_fund_reservations')
+        .where('tenant_id', event.tenant_id)
+        .where('id', payoutInstruction.reservation_id)
+        .where('reservation_status', 'ACTIVE')
+        .update({
+          reservation_status: 'CONSUMED',
+          consumed_at: new Date(),
+          updated_at: new Date()
+        });
+    }
+
+    if (payoutInstruction.settlement_batch_id) {
+      await db.knex('settlement_batches')
+        .where('tenant_id', event.tenant_id)
+        .where('id', payoutInstruction.settlement_batch_id)
+        .update({
+          batch_status: 'PAYOUT_CREATED',
+          payout_instruction_id: payoutInstruction.id,
+          updated_at: new Date()
+        });
+
+      await db.knex('settlement_items')
+        .where('tenant_id', event.tenant_id)
+        .where('batch_id', payoutInstruction.settlement_batch_id)
+        .whereIn('item_status', ['RESERVED', 'ELIGIBLE'])
+        .update({
+          item_status: 'SETTLED',
+          updated_at: new Date()
+        });
+    }
+  }
+
+  return result;
+}
+
+async function handlePayoutReturnedOrReversed(event, templateEventType) {
+  const payload = event.payload || {};
+  const payoutInstruction = await loadPayoutInstruction(event);
+
+  if (!payoutInstruction.ledger_transaction_id) {
+    throw new Error(`Cannot post ${templateEventType} without prior payout success ledger transaction`);
+  }
+
+  const amount = eventAmount({
+    ...payload,
+    settlementAmount: payload.settlementAmount || payoutInstruction.payout_amount
+  });
+  const result = await postTemplatedLedgerEvent(event, {
+    eventType: templateEventType,
+    transactionRef: `${templateEventType.toUpperCase()}-${payoutInstruction.id}`,
+    amount,
+    sourceTransactionId: payoutInstruction.id,
+    sourceOrderId: payoutInstruction.batch_ref || payoutInstruction.settlement_ref || payoutInstruction.id,
+    metadata: {
+      payoutInstructionId: payoutInstruction.id,
+      reservationId: payoutInstruction.reservation_id,
+      settlementBatchId: payoutInstruction.settlement_batch_id,
+      batchRef: payoutInstruction.batch_ref,
+      merchantId: payoutInstruction.merchant_id || payload.merchantId,
+      settlementAmount: amount,
+      utrNumber: payload.utrNumber || payoutInstruction.utr_number,
+      bankReferenceNumber: payload.bankReferenceNumber || payoutInstruction.bank_reference_number,
+      bankTransactionId: payload.bankTransactionId || payoutInstruction.bank_transaction_id,
+      reason: payload.reason || payoutInstruction.return_reason || payoutInstruction.failure_reason
+    }
+  });
+
+  const ledgerTransactionId = result?.transaction?.id;
+  if (ledgerTransactionId) {
+    const current = await db.knex('payout_instructions')
+      .where('tenant_id', event.tenant_id)
+      .where('id', payoutInstruction.id)
+      .first();
+    const metadataKey = templateEventType === 'payout_returned'
+      ? 'payout_returned_ledger_transaction_id'
+      : 'payout_reversed_ledger_transaction_id';
+
+    await db.knex('payout_instructions')
+      .where('tenant_id', event.tenant_id)
+      .where('id', payoutInstruction.id)
+      .update({
+        outbox_event_id: event.id,
+        metadata: {
+          ...parseMetadata(current?.metadata),
+          [metadataKey]: ledgerTransactionId,
+          last_reversal_outbox_event_id: event.id
+        },
+        updated_at: new Date()
+      });
+  }
+
+  return result;
+}
+
 module.exports = {
   financialEventHandlers: {
     'payment.captured': handlePaymentCaptured,
+    'gateway.settlement.received': handleGatewaySettlementReceived,
+    'payout.successful': handlePayoutSuccessful,
+    'payout.returned': (event) => handlePayoutReturnedOrReversed(event, 'payout_returned'),
+    'payout.reversed': (event) => handlePayoutReturnedOrReversed(event, 'payout_reversed'),
     'gateway_settlement': (event) => postTemplatedLedgerEvent(event, { eventType: 'gateway_settlement' }),
     'platform_fee': (event) => postTemplatedLedgerEvent(event, { eventType: 'platform_fee' }),
     'gateway_fee': (event) => postTemplatedLedgerEvent(event, { eventType: 'gateway_fee' }),
